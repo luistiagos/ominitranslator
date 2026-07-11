@@ -29,8 +29,9 @@ void main() {
       final samples = _silenceWithBurst(8.0, 0.6, 2.8);
       final trimmed = trimSegmentsToSpeech([_seg(0, 8000)], samples, _sr);
       final t = trimmed.single;
-      // Início/fim reais ± margem de 120ms.
-      expect(t.start.inMilliseconds, closeTo(600 - 120, 60));
+      // Margens assimétricas: 40ms antes (antecipação é perceptível),
+      // 120ms depois.
+      expect(t.start.inMilliseconds, closeTo(600 - 40, 60));
       expect(t.end.inMilliseconds, closeTo(2800 + 120, 60));
     });
 
@@ -42,9 +43,20 @@ void main() {
       expect(t.end.inMilliseconds, greaterThanOrEqualTo(2940));
     });
 
-    test('segmento sem fala detectável mantém a janela original', () {
+    test('palavra "fantasma" (sem fala) encolhe ao início da janela', () {
+      // Timestamps largados no silêncio não podem inflar as lacunas da
+      // mesclagem: a janela encolhe para ~300ms no início.
       final samples = Float32List(3 * _sr); // silêncio puro
       final trimmed = trimSegmentsToSpeech([_seg(500, 2500)], samples, _sr);
+      expect(trimmed.single.start.inMilliseconds, 500);
+      expect(trimmed.single.end.inMilliseconds, 800);
+    });
+
+    test('unidade mesclada sem fala detectável mantém a janela', () {
+      final samples = Float32List(3 * _sr);
+      final seg = DubbingSegment(0, const Duration(milliseconds: 500),
+          const Duration(milliseconds: 2500), 'x');
+      final trimmed = trimDubbingSegmentsToSpeech([seg], samples, _sr);
       expect(trimmed.single.start.inMilliseconds, 500);
       expect(trimmed.single.end.inMilliseconds, 2500);
     });

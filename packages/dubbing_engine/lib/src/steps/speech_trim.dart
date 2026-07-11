@@ -10,21 +10,37 @@ import 'package:dubbing_engine/src/models.dart';
 /// realmente começa e termina.
 const _frameMs = 20;
 const _hopMs = 10;
-const _marginMs = 120;
+// Margens assimétricas: começar ANTES da fala original é perceptível
+// (boca fechada e voz falando); terminar um pouco depois é natural.
+const _startMarginMs = 40;
+const _endMarginMs = 120;
 const _minSpeechMs = 250;
 // As âncoras exigem fala SUSTENTADA (alguns frames seguidos): um pico
 // isolado de ruído/vazamento de música não deve segurar a borda.
 const _sustainFrames = 3;
 // Limiar relativo ao pico do próprio segmento (robusto a volumes variados)
 // com um piso absoluto (ruído de fundo/artefatos da separação).
-const _relativeThreshold = 0.1;
-const _absoluteThreshold = 0.01;
+const _relativeThreshold = 0.12;
+const _absoluteThreshold = 0.012;
 
 List<TranscriptSegment> trimSegmentsToSpeech(
     List<TranscriptSegment> segments, Float32List samples, int sampleRate) {
   return segments.map((seg) {
     final bounds = speechBounds(samples, sampleRate, seg.start, seg.end);
-    if (bounds == null) return seg;
+    if (bounds == null) {
+      // Sem fala detectável: janela "fantasma" do whisper (timestamps
+      // largados no silêncio). Encolhe ao início para não inflar as
+      // lacunas usadas na mesclagem — o texto é preservado e será falado
+      // junto com os vizinhos.
+      final windowUs = seg.end.inMicroseconds - seg.start.inMicroseconds;
+      final keepUs = windowUs < 300000 ? windowUs : 300000;
+      return TranscriptSegment(
+        seg.start,
+        Duration(microseconds: seg.start.inMicroseconds + keepUs),
+        seg.text,
+        speaker: seg.speaker,
+      );
+    }
     return TranscriptSegment(bounds.$1, bounds.$2, seg.text, speaker: seg.speaker);
   }).toList();
 }
@@ -45,7 +61,7 @@ List<DubbingSegment> trimDubbingSegmentsToSpeech(
 }
 
 /// Limites (início, fim) da fala sustentada dentro da janela, com margem de
-/// [_marginMs], ou null para manter a janela original (curta demais ou sem
+/// [_startMarginMs]/[_endMarginMs], ou null para manter a janela (curta ou sem
 /// fala detectável).
 (Duration, Duration)? speechBounds(
     Float32List samples, int sampleRate, Duration start, Duration end) {
@@ -84,9 +100,8 @@ List<DubbingSegment> trimDubbingSegmentsToSpeech(
   }
   if (first < 0) return null;
 
-  final marginSamples = sampleRate * _marginMs ~/ 1000;
-  var newStart = segStart + first * hopLen - marginSamples;
-  var newEnd = segStart + last * hopLen + frameLen + marginSamples;
+  var newStart = segStart + first * hopLen - sampleRate * _startMarginMs ~/ 1000;
+  var newEnd = segStart + last * hopLen + frameLen + sampleRate * _endMarginMs ~/ 1000;
   if (newStart < segStart) newStart = segStart;
   if (newEnd > segEnd) newEnd = segEnd;
   if (newEnd - newStart < sampleRate * _minSpeechMs ~/ 1000) return null;

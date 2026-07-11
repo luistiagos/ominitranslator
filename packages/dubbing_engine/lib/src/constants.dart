@@ -18,6 +18,10 @@ const minTotalSpeed = 0.85;
 const pausePreserveSeconds = 1.0;
 // Quanto a dublagem pode invadir uma pausa real, no máximo.
 const pauseSpillSeconds = 0.8;
+// Lacunas originais menores que isto dentro de fala contínua não geram
+// silêncio na dublagem: o segmento seguinte cola no fim do anterior
+// (interrupções artificiais de 0.2-0.6s soam como defeito).
+const seamlessGapSeconds = 0.25;
 // Agendamento das falas dubladas: cada fala entra no seu tempo original ou
 // depois (nunca sobrepondo a anterior). O atraso acumulado ("drift") pode
 // chegar a este teto antes de acelerarmos a fala — traduções mais longas

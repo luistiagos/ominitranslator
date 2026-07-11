@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:dubbing_engine/src/backends/whisper_transcriber.dart';
 import 'package:dubbing_engine/src/wav.dart';
@@ -45,10 +46,18 @@ void main() {
         });
 
         // Pre-create asr_in.wav since mock ffmpeg doesn't create it. WAV
-        // válido (silêncio): o aparador de fala o lê; sem fala detectável
-        // as janelas originais são mantidas.
+        // com "fala" (senóide) cobrindo as janelas dos segmentos, para o
+        // aparador de fala mantê-las intactas.
+        final samples = Float32List(5 * 16000);
+        void burst(double fromSec, double toSec) {
+          for (int i = (fromSec * 16000).round(); i < (toSec * 16000).round(); i++) {
+            samples[i] = 0.4 * math.sin(2 * math.pi * 150 * i / 16000);
+          }
+        }
+        burst(0.0, 2.0);
+        burst(2.5, 4.0);
         writeWavPcm16(p.join(tempDir.path, 'asr_in.wav'),
-            WavData(Float32List(5 * 16000), 16000, 1));
+            WavData(samples, 16000, 1));
 
         final result = await transcriber.transcribe(wavPath, Lang.en, CancellationToken(),
             runToolOverride: (String exePath, List<String> args,
@@ -63,8 +72,8 @@ void main() {
         });
 
         expect(result.length, 2);
-        expect(result[0].start, Duration.zero);
-        expect(result[0].end, Duration(milliseconds: 2000));
+        expect(result[0].start.inMilliseconds, lessThanOrEqualTo(60));
+        expect(result[0].end.inMilliseconds, closeTo(2000, 60));
         expect(result[0].text, 'Hello world');
         expect(result[1].text, 'How are you?');
       } finally {

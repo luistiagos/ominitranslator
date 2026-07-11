@@ -176,6 +176,26 @@ void main() {
       expect(cursor, closeTo(2.0 / 0.85, 0.02));
     });
 
+    test('lacuna minúscula em fala contínua é colada (sem interrupção)', () async {
+      final synth = _FixedSynth(1.0);
+      // Original: fala anterior terminou (cursor 2.0), próxima começa em
+      // 2.2 — 0.2s de lacuna viraria um buraco artificial: cola em 2.0.
+      final seg = _seg(1, 2.2, 3.2);
+      await applyPlanToSegment(seg, _naturalAudio(1.0), 1.0, synth, _tools,
+          tempDir.path, CancellationToken(),
+          cursorSec: 2.0);
+      expect(seg.placedStart.inMilliseconds, 2000);
+    });
+
+    test('pausa real entre falas é mantida (não cola)', () async {
+      final synth = _FixedSynth(1.0);
+      final seg = _seg(1, 4.0, 5.0);
+      await applyPlanToSegment(seg, _naturalAudio(1.0), 1.0, synth, _tools,
+          tempDir.path, CancellationToken(),
+          cursorSec: 2.0);
+      expect(seg.placedStart.inMilliseconds, 4000);
+    });
+
     test('cursor empurra a fala sem sobreposição', () async {
       final synth = _FixedSynth(1.0);
       final seg = _seg(1, 2.0, 3.0);

@@ -196,7 +196,12 @@ Future<double> applyPlanToSegment(
   }
 
   final segStartSec = seg.start.inMicroseconds / 1e6;
-  final placementSec = segStartSec > cursorSec ? segStartSec : cursorSec;
+  var placementSec = segStartSec > cursorSec ? segStartSec : cursorSec;
+  // Fala contínua: uma lacuna minúscula até o início original viraria uma
+  // interrupção artificial no meio da frase — cola no fim da anterior.
+  if (cursorSec > 0 && placementSec - cursorSec < seamlessGapSeconds) {
+    placementSec = cursorSec;
+  }
   seg.placedStart = Duration(microseconds: (placementSec * 1e6).round());
   final finalDurSec = seg.fittedAudio!.length / mixSampleRate;
   return placementSec + finalDurSec;
