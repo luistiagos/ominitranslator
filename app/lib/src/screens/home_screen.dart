@@ -27,12 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _keepOriginalTrack = true;
   bool _generateSrt = true;
 
-  static const _langLabels = {
-    Lang.en: 'Inglês',
-    Lang.pt: 'Português',
-    Lang.es: 'Espanhol',
-  };
-
   static const _cookieBrowsers = {
     '': 'Nenhum',
     'chrome': 'Chrome',
@@ -71,15 +65,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  static List<Lang> get _sourceLangOptions =>
+      Lang.values.toList()..sort((a, b) => a.label.compareTo(b.label));
+
+  static List<Lang> get _targetLangOptions => _sourceLangOptions
+      .where((l) => l.isDubTarget)
+      .toList();
+
   List<String> _requiredModelIds() {
     final presetModelId = _preset == Preset.best ? 'whisper-small-q5_1' : 'whisper-base-q5_1';
-    return [presetModelId, _piperModelId(_targetLang), 'spleeter-2stems-fp16'];
+    return [presetModelId, piperModelId[_targetLang]!, 'spleeter-2stems-fp16'];
   }
 
   bool _canDub(AppState state) {
     if (state.jobRunning) return false;
     if (_videoPath == null && _youtubeController.text.trim().isEmpty) return false;
-    if (_sourceLang == _targetLang) return false;
+    if (!canTranslate(_sourceLang, _targetLang)) return false;
     return _requiredModelIds()
         .every((id) => state.modelStates[id] == ModelState.ready);
   }
@@ -152,11 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final lang = _targetLang;
     final modelsRoot = state.modelManager.modelsRoot;
     final (modelId, sid) = voice;
-    final text = switch (lang) {
-      Lang.pt => 'Esta é uma amostra da voz de dublagem.',
-      Lang.en => 'This is a sample of the dubbing voice.',
-      Lang.es => 'Esta es una muestra de la voz de doblaje.',
-    };
+    final text = voiceSampleSentence[lang] ?? voiceSampleSentence[Lang.en]!;
     final outPath =
         p.join(Directory.systemTemp.path, 'omnitranslator_voice_sample.wav');
     try {
@@ -195,14 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (ready) return null;
     return 'Para vozes diferentes por falante, baixe os modelos de '
         'detecção de falantes na tela Modelos.';
-  }
-
-  String _piperModelId(Lang lang) {
-    return switch (lang) {
-      Lang.pt => 'piper-pt-br',
-      Lang.es => 'piper-es',
-      Lang.en => 'piper-en',
-    };
   }
 
   Future<void> _pickWorkDir(AppState state) async {
@@ -283,13 +272,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ? p.basenameWithoutExtension(File(_videoPath!).path)
         : 'youtube_${DateTime.now().millisecondsSinceEpoch}';
     if (_videoPath != null) {
-      return '${p.dirname(_videoPath!)}\\${baseName}_dub_${_targetLang.name}.mp4';
+      return '${p.dirname(_videoPath!)}\\${baseName}_dub_${_targetLang.code}.mp4';
     }
     final userProfile = Platform.environment['USERPROFILE'];
     final downloadsDir = userProfile != null
         ? '$userProfile\\Downloads'
         : Directory.systemTemp.path;
-    return '$downloadsDir\\${baseName}_dub_${_targetLang.name}.mp4';
+    return '$downloadsDir\\${baseName}_dub_${_targetLang.code}.mp4';
   }
 
   Future<void> _pickOutputPath() async {
@@ -462,9 +451,9 @@ class _HomeScreenState extends State<HomeScreen> {
             DropdownButtonFormField<Lang>(
               value: _sourceLang,
               decoration: const InputDecoration(labelText: 'Idioma do vídeo'),
-              items: Lang.values.map((l) => DropdownMenuItem(
+              items: _sourceLangOptions.map((l) => DropdownMenuItem(
                 value: l,
-                child: Text(_langLabels[l]!),
+                child: Text(l.label),
               )).toList(),
               onChanged: (v) => setState(() => _sourceLang = v!),
             ),
@@ -472,9 +461,9 @@ class _HomeScreenState extends State<HomeScreen> {
             DropdownButtonFormField<Lang>(
               value: _targetLang,
               decoration: const InputDecoration(labelText: 'Dublar para'),
-              items: Lang.values.map((l) => DropdownMenuItem(
+              items: _targetLangOptions.map((l) => DropdownMenuItem(
                 value: l,
-                child: Text(_langLabels[l]!),
+                child: Text(l.label),
               )).toList(),
               onChanged: (v) => setState(() => _targetLang = v!),
             ),

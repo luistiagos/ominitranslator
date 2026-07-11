@@ -130,9 +130,13 @@ class PiperSynthesizer implements Synthesizer {
   PiperSynthesizer(this.targetLang, ModelManager models,
       {(String modelId, int sid)? voiceOverride}) {
     ensureSherpaBindings();
+    final defaultVoiceId = piperModelId[targetLang];
+    if (voiceOverride == null && defaultVoiceId == null) {
+      throw StateError('${targetLang.label} não tem voz de dublagem disponível.');
+    }
     final bank = voiceOverride != null
         ? [voiceOverride.$1]
-        : (piperVoiceBank[targetLang] ?? [piperModelId[targetLang]!]);
+        : (piperVoiceBank[targetLang] ?? [defaultVoiceId!]);
     final engineSpecs = <({int numSpeakers, List<VoiceGender> sidGenders})>[];
     for (final id in bank) {
       if (models.stateOf(id) != ModelState.ready) continue;
@@ -157,7 +161,7 @@ class PiperSynthesizer implements Synthesizer {
     }
     if (_engines.isEmpty) {
       throw StateError(
-          'Nenhum modelo de voz instalado para ${targetLang.name}');
+          'Nenhum modelo de voz instalado para ${targetLang.label}');
     }
     _slots = voiceOverride != null
         ? [(engine: 0, sid: voiceOverride.$2, gender: VoiceGender.unknown)]

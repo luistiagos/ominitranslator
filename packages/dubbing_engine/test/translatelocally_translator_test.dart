@@ -5,7 +5,6 @@ import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 ToolResult _okResult([String stdout = '']) => ToolResult(0, stdout, '');
@@ -40,18 +39,11 @@ void main() {
         final translator = TranslateLocallyTranslator(_tools, models);
 
         final result = await translator.translate(['Hello', 'World'], Lang.en, Lang.pt, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
-              // Grava a saída em encoding LOCAL (cp1252 no Windows), como o
-              // translateLocally real faz — verificado empiricamente.
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                final dstFile = args[dstIdx + 1];
-                File(dstFile).writeAsBytesSync(systemEncoding.encode('Olá\nMundo'));
-              }
-              return _okResult();
+              return _okResult('Olá\nMundo\r\n');
             });
 
         expect(result, ['Olá', 'Mundo']);
@@ -68,21 +60,12 @@ void main() {
 
         var callCount = 0;
         final result = await translator.translate(['Olá'], Lang.pt, Lang.es, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
               callCount++;
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                final dstFile = args[dstIdx + 1];
-                if (callCount == 1) {
-                  File(dstFile).writeAsStringSync('Hello');
-                } else {
-                  File(dstFile).writeAsStringSync('Hola');
-                }
-              }
-              return _okResult();
+              return _okResult(callCount == 1 ? 'Hello' : 'Hola');
             });
 
         // Offline-first: com a tradução funcionando, o download de modelos
@@ -94,24 +77,18 @@ void main() {
       }
     });
 
-    test('handles trailing newline in output file (real translateLocally behavior)', () async {
+    test('handles trailing newline in stdout', () async {
       final tempDir = Directory.systemTemp.createTempSync('trans_test_');
       try {
         final models = ModelManager(tempDir.path, _tools);
         final translator = TranslateLocallyTranslator(_tools, models);
 
         final result = await translator.translate(['Hello', 'World'], Lang.en, Lang.pt, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                final dstFile = args[dstIdx + 1];
-                // Builds que emitam UTF-8 também precisam funcionar.
-                File(dstFile).writeAsBytesSync(utf8.encode('Olá\nMundo\n'));
-              }
-              return _okResult();
+              return _okResult('Olá\nMundo\n');
             });
 
         expect(result, ['Olá', 'Mundo']);
@@ -120,32 +97,77 @@ void main() {
       }
     });
 
-    test('writes the input file in the system encoding (accents intact)', () async {
+    test('sends the input via stdin as UTF-8 bytes (accents intact)', () async {
       final tempDir = Directory.systemTemp.createTempSync('trans_test_');
       try {
         final models = ModelManager(tempDir.path, _tools);
         final translator = TranslateLocallyTranslator(_tools, models);
 
-        List<int>? srcBytes;
+        List<int>? sentStdin;
         await translator.translate(['A ação não é fácil.'], Lang.pt, Lang.en, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
-              final srcIdx = args.indexOf('-i');
-              if (srcIdx >= 0) {
-                srcBytes = File(args[srcIdx + 1]).readAsBytesSync();
-              }
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0) {
-                File(args[dstIdx + 1]).writeAsStringSync('The action is not easy.');
-              }
-              return _okResult();
+              sentStdin = stdinBytes;
+              return _okResult('The action is not easy.');
             });
 
-        // O translateLocally lê no encoding do sistema: entrada UTF-8 com
-        // acentos corrompe a tradução ("fão", "aão").
-        expect(srcBytes, systemEncoding.encode('A ação não é fácil.'));
+        // Diferente do I/O por arquivo (-i/-o, encoding local), o stdin do
+        // translateLocally é UTF-8 puro — acentos passam intactos como
+        // bytes multi-byte, sem passar pelo encoding local do sistema.
+        expect(sentStdin, utf8.encode('A ação não é fácil.\n'));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('transliterates Serbian Cyrillic input to Latin before sending to hbs-eng-tiny', () async {
+      final tempDir = Directory.systemTemp.createTempSync('trans_test_');
+      try {
+        final models = ModelManager(tempDir.path, _tools);
+        final translator = TranslateLocallyTranslator(_tools, models);
+
+        List<int>? sentStdin;
+        String? modelId;
+        await translator.translate(['Мачка спава на каучу.'], Lang.sr, Lang.en, CancellationToken(),
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
+                {String? workingDirectory,
+                Duration timeout = const Duration(minutes: 30),
+                CancellationToken? token}) async {
+              modelId = args[args.indexOf('-m') + 1];
+              sentStdin = stdinBytes;
+              return _okResult('The cat sleeps on the couch.');
+            });
+
+        // hbs-eng-tiny só traduz corretamente sérvio em script latino —
+        // testado empiricamente com o binário real (cirílico produz saída
+        // sem sentido). A transliteração é sem perdas (alfabeto de Vuk
+        // Karadžić).
+        expect(modelId, 'hbs-eng-tiny');
+        expect(utf8.decode(sentStdin!), 'Mačka spava na kauču.\n');
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('leaves Latin-script input for hr/bs untouched', () async {
+      final tempDir = Directory.systemTemp.createTempSync('trans_test_');
+      try {
+        final models = ModelManager(tempDir.path, _tools);
+        final translator = TranslateLocallyTranslator(_tools, models);
+
+        List<int>? sentStdin;
+        await translator.translate(['Mačka spava na kauču.'], Lang.hr, Lang.en, CancellationToken(),
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
+                {String? workingDirectory,
+                Duration timeout = const Duration(minutes: 30),
+                CancellationToken? token}) async {
+              sentStdin = stdinBytes;
+              return _okResult('The cat sleeps on the couch.');
+            });
+
+        expect(utf8.decode(sentStdin!), 'Mačka spava na kauču.\n');
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -159,16 +181,12 @@ void main() {
 
         final downloadCalls = <String>[];
         await translator.translate(['Hello'], Lang.en, Lang.pt, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
               if (args.contains('-d')) downloadCalls.add(args.join(' '));
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                File(args[dstIdx + 1]).writeAsStringSync('Olá');
-              }
-              return _okResult();
+              return _okResult('Olá');
             });
 
         expect(downloadCalls, isEmpty);
@@ -186,21 +204,20 @@ void main() {
         var translateCalls = 0;
         var downloadCalls = 0;
         final result = await translator.translate(['Hello'], Lang.en, Lang.pt, CancellationToken(),
-            runToolOverride: (String exePath, List<String> args,
+            runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                 {String? workingDirectory,
                 Duration timeout = const Duration(minutes: 30),
                 CancellationToken? token}) async {
-              if (args.contains('-d')) {
-                downloadCalls++;
-                return _okResult();
-              }
               translateCalls++;
               // 1ª tradução falha (modelo ausente); depois do -d, funciona.
               if (translateCalls == 1) return _failResult();
-              final dstIdx = args.indexOf('-o');
-              if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                File(args[dstIdx + 1]).writeAsStringSync('Olá');
-              }
+              return _okResult('Olá');
+            },
+            downloadOverride: (String exePath, List<String> args,
+                {String? workingDirectory,
+                Duration timeout = const Duration(minutes: 30),
+                CancellationToken? token}) async {
+              downloadCalls++;
               return _okResult();
             });
 
@@ -220,7 +237,11 @@ void main() {
 
         await expectLater(
           translator.translate(['Hello'], Lang.en, Lang.pt, CancellationToken(),
-              runToolOverride: (_, __,
+              runToolOverride: (_, __, ___,
+                  {String? workingDirectory,
+                  Duration timeout = const Duration(minutes: 30),
+                  CancellationToken? token}) async => _failResult(),
+              downloadOverride: (_, __,
                   {String? workingDirectory,
                   Duration timeout = const Duration(minutes: 30),
                   CancellationToken? token}) async => _failResult()),
@@ -231,7 +252,7 @@ void main() {
       }
     });
 
-    test('throws when output file line count differs from input', () async {
+    test('throws when output line count differs from input', () async {
       final tempDir = Directory.systemTemp.createTempSync('trans_test_');
       try {
         final models = ModelManager(tempDir.path, _tools);
@@ -239,16 +260,16 @@ void main() {
 
         await expectLater(
           translator.translate(['Hello', 'World'], Lang.en, Lang.pt, CancellationToken(),
-              runToolOverride: (String exePath, List<String> args,
+              runToolOverride: (String exePath, List<String> args, List<int> stdinBytes,
                   {String? workingDirectory,
                   Duration timeout = const Duration(minutes: 30),
                   CancellationToken? token}) async {
-                final dstIdx = args.indexOf('-o');
-                if (dstIdx >= 0 && dstIdx + 1 < args.length) {
-                  File(args[dstIdx + 1]).writeAsStringSync('Only one line');
-                }
-                return _okResult();
-              }),
+                return _okResult('Only one line');
+              },
+              downloadOverride: (_, __,
+                  {String? workingDirectory,
+                  Duration timeout = const Duration(minutes: 30),
+                  CancellationToken? token}) async => _okResult()),
           throwsA(isA<PipelineException>()),
         );
       } finally {

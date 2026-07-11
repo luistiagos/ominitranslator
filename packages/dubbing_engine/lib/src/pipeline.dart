@@ -66,9 +66,14 @@ Stream<PipelineEvent> runDubbingJob(
     }
     yield PipelineEvent(PipelineStage.prepare, 1.0, 'Espaço em disco OK');
 
+    final targetVoiceId = piperModelId[config.targetLang];
+    if (targetVoiceId == null) {
+      throw PipelineException(PipelineStage.prepare,
+          'O idioma ${config.targetLang.label} não tem voz de dublagem disponível.');
+    }
     final requiredIds = <String>[
       whisperModelId[config.preset]!,
-      piperModelId[config.targetLang]!,
+      targetVoiceId,
       spleeterModelId,
     ];
     final missing = requiredIds.where((id) => models.stateOf(id) != ModelState.ready).toList();
@@ -301,8 +306,8 @@ Stream<PipelineEvent> runDubbingJob(
     if (config.generateSrt) {
       final baseName = p.basenameWithoutExtension(config.outputPath);
       final outDir = p.dirname(config.outputPath);
-      srtSourcePath = p.join(outDir, '$baseName.${config.sourceLang.name}.srt');
-      srtTargetPath = p.join(outDir, '$baseName.${config.targetLang.name}.srt');
+      srtSourcePath = p.join(outDir, '$baseName.${config.sourceLang.code}.srt');
+      srtTargetPath = p.join(outDir, '$baseName.${config.targetLang.code}.srt');
       File(srtSourcePath).writeAsStringSync(buildSrtContent(segments, true));
       File(srtTargetPath).writeAsStringSync(buildSrtContent(segments, false));
     }

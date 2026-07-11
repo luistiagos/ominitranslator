@@ -2,9 +2,13 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
+import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+ToolResult _okResult() => ToolResult(0, '', '');
 
 final _dummyTools = Tools(
   ffmpeg: 'ffmpeg',
@@ -16,8 +20,53 @@ final _dummyTools = Tools(
 
 void main() {
   group('manifest', () {
-    test('contains exactly 25 entries', () {
-      expect(ModelManager.manifest.length, 25);
+    test('contains exactly 64 entries', () {
+      expect(ModelManager.manifest.length, 64);
+    });
+
+    test('ids are unique', () {
+      final ids = ModelManager.manifest.map((e) => e.id).toList();
+      expect(ids.toSet().length, ids.length);
+    });
+
+    test('every dub target has piperModelId, piperVoiceBank (bank[0] == default), pickableVoices and a sample sentence', () {
+      for (final lang in Lang.values) {
+        if (!lang.isDubTarget) continue;
+        final defaultId = piperModelId[lang];
+        expect(defaultId, isNotNull, reason: '${lang.code}: piperModelId');
+        final bank = piperVoiceBank[lang];
+        expect(bank, isNotNull, reason: '${lang.code}: piperVoiceBank');
+        expect(bank!.first, defaultId, reason: '${lang.code}: bank[0] deve ser o modelo obrigatório');
+        expect(pickableVoices[lang], isNotNull, reason: '${lang.code}: pickableVoices');
+        expect(voiceSampleSentence[lang], isNotNull, reason: '${lang.code}: voiceSampleSentence');
+      }
+    });
+
+    test('every id referenced in piperVoiceBank/pickableVoices/piperModelId exists in the manifest', () {
+      final ids = ModelManager.manifest.map((e) => e.id).toSet();
+      for (final id in piperModelId.values) {
+        expect(ids, contains(id));
+      }
+      for (final bank in piperVoiceBank.values) {
+        for (final id in bank) {
+          expect(ids, contains(id));
+        }
+      }
+      for (final voices in pickableVoices.values) {
+        for (final v in voices) {
+          expect(ids, contains(v.$1));
+        }
+      }
+    });
+
+    test('every piper voice entry declares its language', () {
+      for (final entry in ModelManager.manifest) {
+        if (entry.id.startsWith('piper-')) {
+          expect(entry.lang, isNotNull, reason: entry.id);
+        } else {
+          expect(entry.lang, isNull, reason: entry.id);
+        }
+      }
     });
 
     test('every pickable voice has a manifest entry', () {
@@ -233,6 +282,65 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync('model_delete_missing_');
       final mgr = ModelManager(tempDir.path, _dummyTools);
       await expectLater(mgr.delete('nonexistent'), completes);
+    });
+  });
+
+  group('ensureTranslationModels', () {
+    test('downloads a single deduplicated id for hr/sr/bs -> en', () async {
+      final tempDir = Directory.systemTemp.createTempSync('ensure_models_test_');
+      try {
+        final mgr = ModelManager(tempDir.path, _dummyTools);
+        final downloadedIds = <String>[];
+        await mgr.ensureTranslationModels(Lang.hr, Lang.en, CancellationToken(),
+            runToolOverride: (String exePath, List<String> args,
+                {String? workingDirectory,
+                Duration timeout = const Duration(minutes: 30),
+                CancellationToken? token}) async {
+              downloadedIds.add(args[args.indexOf('-d') + 1]);
+              return _okResult();
+            });
+        expect(downloadedIds, ['hbs-eng-tiny']);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('downloads both hops of the pivot for ca -> pt', () async {
+      final tempDir = Directory.systemTemp.createTempSync('ensure_models_test_');
+      try {
+        final mgr = ModelManager(tempDir.path, _dummyTools);
+        final downloadedIds = <String>[];
+        await mgr.ensureTranslationModels(Lang.ca, Lang.pt, CancellationToken(),
+            runToolOverride: (String exePath, List<String> args,
+                {String? workingDirectory,
+                Duration timeout = const Duration(minutes: 30),
+                CancellationToken? token}) async {
+              downloadedIds.add(args[args.indexOf('-d') + 1]);
+              return _okResult();
+            });
+        expect(downloadedIds.toSet(), {'ca-en-tiny', 'en-pt-base'});
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('throws PipelineException when a download fails', () async {
+      final tempDir = Directory.systemTemp.createTempSync('ensure_models_test_');
+      try {
+        final mgr = ModelManager(tempDir.path, _dummyTools);
+        await expectLater(
+          mgr.ensureTranslationModels(Lang.de, Lang.en, CancellationToken(),
+              runToolOverride: (String exePath, List<String> args,
+                  {String? workingDirectory,
+                  Duration timeout = const Duration(minutes: 30),
+                  CancellationToken? token}) async {
+                return ToolResult(1, '', 'network error');
+              }),
+          throwsA(isA<PipelineException>()),
+        );
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
     });
   });
 }

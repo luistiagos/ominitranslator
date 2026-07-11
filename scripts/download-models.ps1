@@ -20,7 +20,11 @@ $models = @(
     @{ Id = "spleeter-2stems-fp16"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2"; Size = "40 MB" },
     @{ Id = "piper-pt-br"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-faber-medium.tar.bz2"; Size = "65 MB" },
     @{ Id = "piper-es"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-sharvard-medium.tar.bz2"; Size = "65 MB" },
-    @{ Id = "piper-en"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-medium.tar.bz2"; Size = "65 MB" }
+    @{ Id = "piper-en"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-medium.tar.bz2"; Size = "65 MB" },
+    @{ Id = "piper-de-thorsten"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2"; Size = "68 MB" },
+    @{ Id = "piper-fr-siwis"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2"; Size = "68 MB" },
+    @{ Id = "piper-pl-gosia"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pl_PL-gosia-medium.tar.bz2"; Size = "68 MB" },
+    @{ Id = "piper-cs-jirka"; Url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-cs_CZ-jirka-medium.tar.bz2"; Size = "68 MB" }
 )
 
 foreach ($m in $models) {

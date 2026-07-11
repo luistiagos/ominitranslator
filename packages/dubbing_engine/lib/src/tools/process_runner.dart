@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/tools/retry.dart';
@@ -72,6 +73,77 @@ Future<ToolResult> runToolWithRetry(
     );
   }
   return result;
+}
+
+/// Como [RunToolFn], mas envia [stdinBytes] pela entrada padrão do processo
+/// e decodifica a saída padrão como UTF-8. Usado pelo translateLocally: seu
+/// I/O por stdin/stdout é UTF-8 — diferente do I/O por arquivo (-i/-o), que
+/// usa o encoding local do sistema (cp1252 no Windows) e corrompe acentos,
+/// cirílico, grego etc. — verificado empiricamente.
+typedef RunToolStdinFn = Future<ToolResult> Function(
+  String exePath,
+  List<String> args,
+  List<int> stdinBytes, {
+  String? workingDirectory,
+  Duration timeout,
+  CancellationToken? token,
+});
+
+Future<ToolResult> runToolWithStdin(
+  String exePath,
+  List<String> args,
+  List<int> stdinBytes, {
+  String? workingDirectory,
+  Duration timeout = const Duration(minutes: 30),
+  CancellationToken? token,
+}) async {
+  final process = await Process.start(exePath, args,
+      workingDirectory: workingDirectory, runInShell: false);
+  if (token != null) {
+    token.addProcess(process);
+  }
+  final stdoutBuf = StringBuffer();
+  final stderrBuf = StringBuffer();
+  final stdoutStream = process.stdout
+      .transform(utf8.decoder)
+      .handleError((_) => '');
+  final stderrStream = process.stderr
+      .transform(systemEncoding.decoder)
+      .handleError((_) => '');
+  final stdoutFuture = stdoutStream.forEach((s) => stdoutBuf.write(s));
+  final stderrFuture = stderrStream.forEach((s) => stderrBuf.write(s));
+  process.stdin.add(stdinBytes);
+  await process.stdin.close();
+  Timer? timeoutTimer;
+  Timer? pollTimer;
+  bool timedOut = false;
+  if (timeout != Duration.zero) {
+    timeoutTimer = Timer(timeout, () {
+      timedOut = true;
+      process.kill();
+    });
+  }
+  if (token != null) {
+    pollTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (token.isCancelled) {
+        process.kill();
+      }
+    });
+  }
+  try {
+    final exitCode = await process.exitCode;
+    await Future.wait([stdoutFuture, stderrFuture]);
+    final stderrFull = stderrBuf.toString();
+    final lines = stderrFull.split('\n');
+    var tail = lines.length > 50 ? lines.sublist(lines.length - 50).join('\n') : stderrFull;
+    if (timedOut) {
+      tail = 'Processo excedeu o tempo limite de ${timeout.inMinutes} min e foi encerrado.\n$tail';
+    }
+    return ToolResult(exitCode, stdoutBuf.toString(), tail, timedOut: timedOut);
+  } finally {
+    timeoutTimer?.cancel();
+    pollTimer?.cancel();
+  }
 }
 
 Future<ToolResult> _runToolOnce(

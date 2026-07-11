@@ -9,6 +9,7 @@ import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/retry.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/translation_catalog.dart';
 
 enum ModelState { missing, downloading, ready, corrupted }
 
@@ -37,14 +38,6 @@ Stream<double> downloadWithRetry(
   }
 }
 
-/// Identificador do modelo do translateLocally para o par [from]→[to].
-String translationModelId(Lang from, Lang to) {
-  if ((from == Lang.en && to == Lang.es) || (from == Lang.es && to == Lang.en)) {
-    return '${from.name}-${to.name}-tiny';
-  }
-  return '${from.name}-${to.name}-base';
-}
-
 class ModelEntry {
   final String id;
   final String kind;
@@ -56,6 +49,11 @@ class ModelEntry {
   /// SHA-256 esperado do primeiro arquivo em [expects]. Quando presente,
   /// o download é validado contra ele; null desativa a verificação.
   final String? sha256;
+
+  /// Idioma da voz, para vozes piper (usado para agrupar a tela de Modelos
+  /// por idioma). null para modelos que não são vozes (whisper, spleeter,
+  /// diarização, gender-tagging).
+  final Lang? lang;
   const ModelEntry({
     required this.id,
     required this.kind,
@@ -64,6 +62,7 @@ class ModelEntry {
     required this.expects,
     required this.displayName,
     this.sha256,
+    this.lang,
   });
 }
 
@@ -105,6 +104,7 @@ class ModelManager {
       sizeMb: 65,
       expects: ['pt_BR-faber-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-es',
@@ -113,6 +113,7 @@ class ModelManager {
       sizeMb: 65,
       expects: ['es_ES-sharvard-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz — Espanhol',
+      lang: Lang.es,
     ),
     ModelEntry(
       id: 'piper-en',
@@ -121,6 +122,7 @@ class ModelManager {
       sizeMb: 65,
       expects: ['en_US-lessac-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-pt-br-edresson',
@@ -129,6 +131,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['pt_BR-edresson-low.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz extra — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-en-libritts',
@@ -137,6 +140,7 @@ class ModelManager {
       sizeMb: 79,
       expects: ['en_US-libritts_r-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Vozes extras — Inglês (multi)',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-es-davefx',
@@ -145,6 +149,7 @@ class ModelManager {
       sizeMb: 65,
       expects: ['es_ES-davefx-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz extra — Espanhol',
+      lang: Lang.es,
     ),
     ModelEntry(
       id: 'piper-pt-br-dii',
@@ -153,6 +158,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['pt_BR-dii-high.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz feminina — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-en-hfc-female',
@@ -161,6 +167,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-hfc_female-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz feminina — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-en-hfc-male',
@@ -169,6 +176,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-hfc_male-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz masculina — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-pt-br-cadu',
@@ -177,6 +185,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['pt_BR-cadu-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Cadu (masculina) — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-pt-br-jeff',
@@ -185,6 +194,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['pt_BR-jeff-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Jeff (masculina) — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-pt-br-miro',
@@ -193,6 +203,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['pt_BR-miro-high.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Miro — Português (BR)',
+      lang: Lang.pt,
     ),
     ModelEntry(
       id: 'piper-es-daniela',
@@ -201,6 +212,7 @@ class ModelManager {
       sizeMb: 110,
       expects: ['es_AR-daniela-high.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Daniela (feminina) — Espanhol (AR)',
+      lang: Lang.es,
     ),
     ModelEntry(
       id: 'piper-es-claude',
@@ -209,6 +221,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['es_MX-claude-high.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Claude — Espanhol (MX)',
+      lang: Lang.es,
     ),
     ModelEntry(
       id: 'piper-es-ald',
@@ -217,6 +230,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['es_MX-ald-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Ald — Espanhol (MX)',
+      lang: Lang.es,
     ),
     ModelEntry(
       id: 'piper-en-amy',
@@ -225,6 +239,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-amy-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Amy (feminina) — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-en-ryan',
@@ -233,6 +248,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-ryan-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Ryan (masculina) — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-en-kristin',
@@ -241,6 +257,7 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-kristin-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Kristin (feminina) — Inglês',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'piper-en-joe',
@@ -249,6 +266,366 @@ class ModelManager {
       sizeMb: 64,
       expects: ['en_US-joe-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
       displayName: 'Voz Joe (masculina) — Inglês',
+      lang: Lang.en,
+    ),
+
+    // ── Vozes novas (línguas-alvo adicionais: de/fr/pl/cs; e mais vozes
+    // para en/es/pt) — geradas por tool/gen_voice_manifest.dart a partir do
+    // catálogo rhasspy/piper-voices, com cada URL validada via HEAD contra
+    // o release tts-models do sherpa-onnx. Búlgaro (bg) não tem nenhuma voz
+    // piper mirrorada nesse release (confirmado por HEAD 404 + ausência na
+    // documentação oficial) — por isso bg permanece só-origem, sem entrada
+    // de voz aqui e com isDubTarget:false em models.dart.
+    ModelEntry(
+      id: 'piper-de-thorsten',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['de_DE-thorsten-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz — Alemão (Thorsten)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-thorsten-emotional',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten_emotional-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['de_DE-thorsten_emotional-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Thorsten, variações emocionais)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-eva-k',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-eva_k-x_low.tar.bz2',
+      sizeMb: 27,
+      expects: ['de_DE-eva_k-x_low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Eva K, feminina)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-karlsson',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-karlsson-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['de_DE-karlsson-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Karlsson, masculina)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-kerstin',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-kerstin-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['de_DE-kerstin-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Kerstin, feminina)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-pavoque',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-pavoque-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['de_DE-pavoque-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Pavoque, masculina)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-de-ramona',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-ramona-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['de_DE-ramona-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Alemão (Ramona, feminina)',
+      lang: Lang.de,
+    ),
+    ModelEntry(
+      id: 'piper-fr-siwis',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['fr_FR-siwis-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz — Francês (Siwis, feminina)',
+      lang: Lang.fr,
+    ),
+    ModelEntry(
+      id: 'piper-fr-gilles',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-gilles-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['fr_FR-gilles-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Francês (Gilles, masculina)',
+      lang: Lang.fr,
+    ),
+    ModelEntry(
+      id: 'piper-fr-tom',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-tom-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['fr_FR-tom-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Francês (Tom, masculina)',
+      lang: Lang.fr,
+    ),
+    ModelEntry(
+      id: 'piper-fr-upmc',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['fr_FR-upmc-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Francês (UPMC, multi)',
+      lang: Lang.fr,
+    ),
+    ModelEntry(
+      id: 'piper-pl-gosia',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pl_PL-gosia-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['pl_PL-gosia-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz — Polonês (Gosia, feminina)',
+      lang: Lang.pl,
+    ),
+    ModelEntry(
+      id: 'piper-pl-bass',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pl_PL-bass-high.tar.bz2',
+      sizeMb: 116,
+      expects: ['pl_PL-bass-high.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Polonês (Bass, masculina)',
+      lang: Lang.pl,
+    ),
+    ModelEntry(
+      id: 'piper-pl-darkman',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pl_PL-darkman-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['pl_PL-darkman-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Polonês (Darkman, masculina)',
+      lang: Lang.pl,
+    ),
+    ModelEntry(
+      id: 'piper-pl-mc-speech',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pl_PL-mc_speech-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['pl_PL-mc_speech-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Polonês (MC Speech)',
+      lang: Lang.pl,
+    ),
+    ModelEntry(
+      id: 'piper-cs-jirka',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-cs_CZ-jirka-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['cs_CZ-jirka-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz — Tcheco (Jirka, masculina)',
+      lang: Lang.cs,
+    ),
+    ModelEntry(
+      id: 'piper-pt-pt-tugao',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_PT-tugao-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['pt_PT-tugao-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Português (PT) (Tugão)',
+      lang: Lang.pt,
+    ),
+    ModelEntry(
+      id: 'piper-es-carlfm',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-carlfm-x_low.tar.bz2',
+      sizeMb: 27,
+      expects: ['es_ES-carlfm-x_low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Espanhol (CarlFM, masculina)',
+      lang: Lang.es,
+    ),
+    ModelEntry(
+      id: 'piper-en-bryce',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-bryce-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-bryce-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Bryce, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-danny',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-danny-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-danny-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Danny, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-john',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-john-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-john-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (John, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-kathleen',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kathleen-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-kathleen-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Kathleen, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-kusal',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kusal-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-kusal-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Kusal, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-ljspeech',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-ljspeech-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-ljspeech-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (LJSpeech, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-norman',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-norman-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-norman-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Norman, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-reza-ibrahim',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-reza_ibrahim-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-reza_ibrahim-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Reza Ibrahim, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-sam',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-sam-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_US-sam-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (Sam)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-arctic',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-arctic-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['en_US-arctic-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (ARCTIC, multi)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-l2arctic',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-l2arctic-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['en_US-l2arctic-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (L2-ARCTIC, multi, sotaques)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-libritts-high',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts-high.tar.bz2',
+      sizeMb: 132,
+      expects: ['en_US-libritts-high.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (LibriTTS high, multi)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-alan',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-alan-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz — Inglês (GB, Alan, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-alba',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alba-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-alba-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (GB, Alba, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-cori',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-cori-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-cori-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (GB, Cori, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-jenny-dioco',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-jenny_dioco-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-jenny_dioco-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (GB, Jenny, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-northern-male',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-northern_english_male-medium.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-northern_english_male-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (GB, sotaque norte, masculina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-southern-female',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-southern_english_female-low.tar.bz2',
+      sizeMb: 68,
+      expects: ['en_GB-southern_english_female-low.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Voz extra — Inglês (GB, sotaque sul, feminina)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-aru',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-aru-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['en_GB-aru-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (GB, ARU, multi)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-semaine',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-semaine-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['en_GB-semaine-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (GB, SEMAINE, multi)',
+      lang: Lang.en,
+    ),
+    ModelEntry(
+      id: 'piper-en-gb-vctk',
+      kind: 'tarbz2',
+      url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-vctk-medium.tar.bz2',
+      sizeMb: 81,
+      expects: ['en_GB-vctk-medium.onnx', 'tokens.txt', 'espeak-ng-data'],
+      displayName: 'Vozes extras — Inglês (GB, VCTK, multi)',
+      lang: Lang.en,
     ),
     ModelEntry(
       id: 'gender-tagging',
@@ -462,18 +839,12 @@ class ModelManager {
   Future<void> ensureTranslationModels(Lang from, Lang to, CancellationToken token, {RunToolFn? runToolOverride}) async {
     // Rede: o download dos modelos de tradução merece retry.
     final exec = runToolOverride ?? runToolWithRetry;
-    final pairs = <(Lang, Lang)>{};
-    if (from == Lang.pt && to == Lang.es) {
-      pairs.add((from, Lang.en));
-      pairs.add((Lang.en, to));
-    } else if (from == Lang.es && to == Lang.pt) {
-      pairs.add((from, Lang.en));
-      pairs.add((Lang.en, to));
-    } else {
-      pairs.add((from, to));
-    }
-    for (final pair in pairs) {
-      final id = translationModelId(pair.$1, pair.$2);
+    // Ids únicos: alguns pares compartilham modelo (ex.: hr-en/sr-en/bs-en
+    // são todos 'hbs-eng-tiny') — baixar uma vez basta.
+    final ids = <String>{
+      for (final (f, t) in translationPath(from, to)) directTranslationModelId(f, t)!,
+    };
+    for (final id in ids) {
       final r = await exec(tools.translateLocally, ['-d', id],
           token: token, timeout: toolTimeout);
       if (r.exitCode != 0) {

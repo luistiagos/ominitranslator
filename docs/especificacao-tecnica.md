@@ -8,6 +8,8 @@ Documento-pai: [plano-de-desenvolvimento.md](plano-de-desenvolvimento.md).
 
 O OmniTranslator dubla vídeos de um idioma para outro **100% localmente** (sem nuvem). Idiomas suportados no MVP: inglês (`en`), português (`pt`) e espanhol (`es`), nas 6 direções. O MVP é um app Flutter para Windows que recebe um arquivo de vídeo, e produz: (a) um vídeo com a faixa de áudio dublada (mantendo a original como faixa secundária) e (b) legendas SRT no idioma original e no traduzido.
 
+> **Nota (pós-MVP):** o suporte a idiomas foi expandido para 23 línguas (7 idiomas-alvo de dublagem: en/pt/es/de/fr/pl/cs; as demais só como origem). O `enum Lang` (§5) deixou de ser um enum simples e virou um *enhanced enum* com metadados (`code`, `label`, `iso639_2`, `isDubTarget`, `whisperCode`); os pares de tradução passaram a ser uma tabela declarativa em `packages/dubbing_engine/lib/src/translation_catalog.dart` (com pivô generalizado via inglês); e o manifest de vozes em `model_manager.dart` cresceu para 64 entradas. Os trechos de código abaixo (§5, §P6, §10) permanecem como registro histórico do que foi implementado no MVP — para o estado atual, use esses arquivos-fonte como referência, não este documento.
+
 **Regras de ouro — leia antes de escrever qualquer código:**
 
 1. **Não troque ferramentas, modelos ou URLs pinados nesta spec.** Eles foram verificados. Se algo estiver fora do ar, pare e registre o problema em `docs/decisoes.md`; não substitua por outra coisa por conta própria.

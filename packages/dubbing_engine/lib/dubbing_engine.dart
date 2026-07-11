@@ -1,6 +1,7 @@
 library dubbing_engine;
 export 'src/models.dart';
 export 'src/constants.dart';
+export 'src/translation_catalog.dart';
 export 'src/pipeline.dart';
 export 'src/model_manager.dart';
 export 'src/wav.dart';
