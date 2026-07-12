@@ -88,6 +88,27 @@ void main() {
       expect(stopwatch.elapsed, lessThan(const Duration(seconds: 5)));
     });
 
+    test('pre-cancelled token returns without starting the process', () async {
+      final token = CancellationToken()..cancel();
+      // Executável inexistente: sem o guard de pré-cancelamento, o
+      // Process.start lançaria ProcessException antes de qualquer kill.
+      final r = await runTool('Z:\\nao\\existe\\ferramenta.exe', [],
+          token: token, timeout: const Duration(seconds: 10));
+      expect(r.exitCode, -1);
+      expect(r.stderrTail, contains('Cancelado'));
+    });
+
+    test('runToolWithStdin with a pre-cancelled token returns without starting', () async {
+      final token = CancellationToken()..cancel();
+      // Sem o guard, o cancelável mataria o processo na hora e a escrita de
+      // stdin num processo morto lançaria (a corrida do achado 2 da revisão).
+      final r = await runToolWithStdin(
+          'Z:\\nao\\existe\\ferramenta.exe', [], [1, 2, 3],
+          token: token, timeout: const Duration(seconds: 10));
+      expect(r.exitCode, -1);
+      expect(r.stderrTail, contains('Cancelado'));
+    });
+
     test('truncates stderr to last 50 lines', () async {
       final tempDir = Directory.systemTemp.createTempSync('stderr_test_');
       try {

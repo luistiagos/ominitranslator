@@ -97,6 +97,12 @@ Future<ToolResult> runToolWithStdin(
   Duration timeout = const Duration(minutes: 30),
   CancellationToken? token,
 }) async {
+  // Token já cancelado: não vale a pena nem iniciar o subprocesso (o
+  // addCancellable abaixo o mataria imediatamente, e a escrita de stdin num
+  // processo morto lançaria).
+  if (token != null && token.isCancelled) {
+    return ToolResult(-1, '', 'Cancelado pelo usuário antes de iniciar');
+  }
   final process = await Process.start(exePath, args,
       workingDirectory: workingDirectory, runInShell: false);
   final cancelReg = token?.addCancellable(() => process.kill());
@@ -110,8 +116,13 @@ Future<ToolResult> runToolWithStdin(
       .handleError((_) => '');
   final stdoutFuture = stdoutStream.forEach((s) => stdoutBuf.write(s));
   final stderrFuture = stderrStream.forEach((s) => stderrBuf.write(s));
-  process.stdin.add(stdinBytes);
-  await process.stdin.close();
+  // O processo pode ser morto a qualquer momento (cancelamento concorrente);
+  // escrever no stdin de um processo morto lança — o exitCode adiante já
+  // reporta a falha, então o erro de escrita em si é irrelevante.
+  try {
+    process.stdin.add(stdinBytes);
+    await process.stdin.close();
+  } catch (_) {}
   Timer? timeoutTimer;
   Timer? pollTimer;
   bool timedOut = false;
@@ -152,6 +163,9 @@ Future<ToolResult> _runToolOnce(
   Duration timeout = const Duration(minutes: 30),
   CancellationToken? token,
 }) async {
+  if (token != null && token.isCancelled) {
+    return ToolResult(-1, '', 'Cancelado pelo usuário antes de iniciar');
+  }
   final process = await Process.start(exePath, args,
       workingDirectory: workingDirectory,
       runInShell: false);
