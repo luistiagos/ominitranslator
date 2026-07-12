@@ -68,6 +68,19 @@ void main() {
       expect(order, ['first', 'second']);
     });
 
+    test('a throwing callback does not stop the others from firing', () {
+      final token = CancellationToken();
+      final fired = <String>[];
+      token.addCancellable(() => fired.add('a'));
+      token.addCancellable(() => throw StateError('boom'));
+      token.addCancellable(() => fired.add('c'));
+      // cancel() must not rethrow, and every well-behaved cancellable must run
+      // — otherwise a failing FFmpeg cancel would orphan the sherpa/loop ones.
+      expect(() => token.cancel(), returnsNormally);
+      expect(fired, ['a', 'c']);
+      expect(token.isCancelled, isTrue);
+    });
+
     test('throwIfCancelled throws only after cancel', () {
       final token = CancellationToken();
       expect(() => token.throwIfCancelled(PipelineStage.mix), returnsNormally);

@@ -200,7 +200,12 @@ class CancellationToken {
     _cancelled = true;
     // Cópia defensiva: um onCancel pode se desregistrar ao ser disparado.
     for (final cb in List.of(_callbacks)) {
-      cb();
+      // Um cancelável que falha não pode impedir os outros de serem
+      // cancelados — senão FFmpeg, sherpa ou os loops Dart ficariam órfãos,
+      // que é justamente o que a regra #10 e o §19.4 exigem evitar.
+      try {
+        cb();
+      } catch (_) {}
     }
     _callbacks.clear();
   }
