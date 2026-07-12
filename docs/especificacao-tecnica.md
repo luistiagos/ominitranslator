@@ -1,6 +1,6 @@
 # OmniTranslator — Especificação Técnica v1
 
-Este documento especifica a implementação do OmniTranslator em nível executável: comandos literais, URLs exatas, assinaturas de código, algoritmos com constantes definidas e critérios de aceite mecânicos. Ele cobre em **micro-detalhe** a Fase 0 (spikes) e a Fase 1 (MVP desktop Windows — dublagem de arquivo de vídeo); a Fase 2 (tempo real) em detalhe médio; e as Fases 3–4 (Android/iOS) apenas direcionalmente — elas serão especificadas em documento próprio ao fim da Fase 2.
+Este documento especifica a implementação do OmniTranslator em nível executável: comandos literais, URLs exatas, assinaturas de código, algoritmos com constantes definidas e critérios de aceite mecânicos. Ele cobre em **micro-detalhe** a Fase 0 (spikes) e a Fase 1 (MVP desktop Windows — dublagem de arquivo de vídeo), e a Fase 2 (tempo real) em detalhe médio. O Android possui especificação normativa própria em [especificacao-android.md](especificacao-android.md).
 
 Documento-pai: [plano-de-desenvolvimento.md](plano-de-desenvolvimento.md).
 
@@ -16,6 +16,7 @@ O OmniTranslator dubla vídeos de um idioma para outro **100% localmente** (sem 
 2. **Se a spec não define algo, escolha a opção mais simples** e registre a decisão (1 linha) em `docs/decisoes.md`.
 3. **Nunca use FFI customizado nem compile C/C++.** Todo componente pesado do desktop é subprocesso CLI ou o pacote Dart `sherpa_onnx` (binário pré-compilado via pub.dev).
 4. **Nunca trunque fala dublada** para caber no tempo. A ordem de recursos é: acelerar via TTS → acelerar via `atempo` → aceitar estouro com warning (ver P7).
+   **Exceção única (2026-07-12, decisão D-b):** a cauda que ultrapassa o **fim do vídeo** não tem para onde ir — o `amix=duration=first` do P8 amarra a saída à duração do áudio original. Ali o pipeline (a) aperta o último run até o teto `tailSpeedMax` para fazer a fala caber, e (b) corta o que ainda sobrar, **medindo e reportando** (`truncatedTailMs` no `sync_report.json`). Corte acima de `tailTruncationCapMs` é falha de qualidade, não sucesso. Em nenhum outro ponto do pipeline se trunca fala.
 5. Todo passo do pipeline valida sua saída (arquivo existe e não está vazio, contagem de linhas bate etc.) e falha com `PipelineException` descritiva — nunca prossiga com dado inválido.
 6. Texto de UI em pt-BR; identificadores de código, comentários e commits em inglês.
 
@@ -531,6 +532,10 @@ para cada segmento i (com next = segmento i+1 ou null):
 
 Formatar `atempo` com 4 casas decimais (`1.1834`). Ao final, emitir `PipelineEvent(fit, 1.0, 'X segmentos acelerados, Y com estouro')`.
 
+**`overflow` e `segmentsWithOverflow` são campos mortos hoje** — `DubbingSegment.overflow` (`models.dart:96`) e `DubbingResult.segmentsWithOverflow` estão declarados e **nunca são escritos**. Portanto o "Y com estouro" acima não tem fonte de dados, e o formulário de aceite não tem como preencher a coluna "Overflow". Isso é corrigido junto com a D-b.
+
+**Deadline do fim do vídeo (D-b).** O cursor de `applyPlanToSegment` (`fitter.dart:198-207`) é monotônico e o atraso acumula ao longo do vídeo — é isso que produz a cauda excedente. `planDubSchedule` passa a receber `videoDurationSec` e a tratar o fim do vídeo como deadline do último run, com o mesmo mecanismo já usado para `maxDubDriftSeconds`, podendo subir até `tailSpeedMax` (acima do `maxTotalSpeed`/`atempoMax` normais) para a fala caber. Só o resíduo é cortado, e ele é medido.
+
 ### P8 — Mixagem (`steps/mixer.dart`)
 
 **Etapa A — montar a faixa de voz dublada em Dart** (`buildDubTrack`):
@@ -562,6 +567,10 @@ ffmpeg -y -i <workDir>/audio_full.wav -i <workDir>/dub_voice.wav
 ```
 
 Nota: `sidechaincompress` consome a 2ª entrada como sidechain; por isso `dub_voice` aparece duas vezes (uma como sidechain, outra no `amix`). **Validação**: `dubbed.wav` existe e sua duração (header) = `videoDuration` ± 0.5 s.
+
+**Sobre o `duration=first` (decisão D-b, 2026-07-12).** `first` é o **input 0** — `audio_full.wav` (ou `accompaniment.wav`), que tem exatamente a duração do vídeo. Portanto o `amix` amarra a saída à duração do vídeo e **descarta qualquer cauda de dublagem** que a ultrapasse. Isso contradizia frontalmente o `buildDubTrack`, que estende o buffer justamente para preservar essa cauda (`mixer.dart:16-24`, com comentário explícito) — as duas funções do mesmo arquivo se anulavam, e a última fala era cortada sem erro nem warning.
+
+A validação acima (`= videoDuration ± 0.5 s`) é, portanto, **intencional e mantida**. O que muda é que ela deixa de ser acidental: o P7 passa a garantir que a dublagem já cabe (deadline do fim do vídeo), e o resíduo cortado é medido em `truncatedTailMs`. Não usar `duration=longest` nem `-shortest`.
 
 ### P9 — Mux (`steps/muxer.dart`) + legendas (`steps/subtitles.dart`)
 
@@ -732,13 +741,17 @@ Executar manualmente e registrar em `docs/aceite-mvp.md` (tabela por caso):
 - **DelayedPlayer**: vídeo no player `media_kit` com volume da faixa original reduzido (ducking fixo, ex. 20%) e início atrasado em `D`; falas dubladas agendadas em `timestamp_original + D` e tocadas num output de áudio separado; sincronia por polling da posição do player (200 ms). *Risco aberto: media_kit não expõe tap de PCM — por isso o áudio para ASR vem do AudioTap (2ª decodificação do mesmo arquivo/URL), o que é aceitável para arquivo/HTTP.*
 - **Aceite da fase**: latência fim-a-fim medida ≤ D+1 s; 10 min de reprodução sem drift > 200 ms; uso de CPU sustentável (< 80% em máquina de referência).
 
-## 15. Fases 3–4 — Android e além (direcional)
+## 15. Fases 3–4 — Android e além
 
-- Mesmo pacote `dubbing_engine`; trocar implementações das interfaces: `Transcriber`/`Synthesizer`/VAD via FFI do próprio pacote `sherpa_onnx` (que já suporta Android), modelos leves (whisper tiny/base q5, Kroko, Piper).
-- **Risco aberto nº 1 — tradução no Android**: translateLocally é desktop. Candidatos: compilar bergamot-translator via NDK; ou modelo Marian/OPUS-MT em ONNX com decodificação própria. Decidir com spike próprio.
-- FFmpeg no Android: compilar via NDK ou substituir P1/P9 por Media3 Transformer.
-- Dublagem de arquivo roda em foreground service; tempo real usa o player embutido; `AudioPlaybackCapture` (Android 10+) e modo microfone entram na Fase 4.
-- **Gatilho**: ao aceitar a Fase 2, escrever `docs/especificacao-android.md` no mesmo nível de detalhe deste documento.
+A implementação Android é definida em [especificacao-android.md](especificacao-android.md). Resumo não normativo:
+
+- Windows e Android permanecem no mesmo repositório/app Flutter e compartilham `dubbing_engine`.
+- Antes do port, o engine recebe `DubbingRuntime`, áudio intermediário em disco, leitura por janela, writer WAV sequencial e checkpoints retomáveis.
+- Android M1 cobre arquivo local en/pt/es, Whisper tiny/base ONNX, tradução local, Piper fixo, voice-over com ducking e SRT.
+- Tradução en↔pt é gate obrigatório. O slimt só suporta a arquitetura `tiny`, então o Android usa os pares `enpt`/`pten` **tiny** (Mozilla, MPL-2.0); o desktop mantém `base-memory`. Fallback, se o tiny reprovar em qualidade: bergamot-translator completo via NDK, com time-box.
+- FFmpegKitNext oficial, compilado do código-fonte em variante LGPL, atende aos filtros e ao mux; Media3 não substitui esse pipeline de áudio.
+- Jobs longos rodam em foreground service direto `mediaProcessing`, com estado persistido e retomada; entrada/saída usam Storage Access Framework.
+- Separação, diarização, YouTube, tempo real, `AudioPlaybackCapture` e microfone são marcos posteriores.
 
 ## 16. Licenças
 
@@ -747,7 +760,9 @@ Executar manualmente e registrar em `docs/aceite-mvp.md` (tabela por caso):
 | sherpa-onnx (runtime + pacote Dart) | Apache-2.0 | ok comercial |
 | whisper.cpp + modelos Whisper | MIT | ok |
 | FFmpeg (build BtbN **lgpl**) | LGPL-2.1 | usar como subprocesso (sem link estático); não usar builds GPL na distribuição |
+| FFmpegKitNext/FFmpeg no Android | LGPL-3.0 por padrão | compilar do código-fonte, fixar commit/configuração e nunca habilitar `--enable-gpl` |
 | translateLocally | MIT | ok |
+| slimt ou bergamot-translator no Android | conferir a licença do commit fixado | registrar código, patches, dependências nativas e notices antes do release |
 | Modelos Bergamot/Firefox Translations | CC-BY-SA 4.0 (maioria) | ok com atribuição; conferir por modelo no `-a` |
 | Modelos OPUS-MT | CC-BY 4.0 | ok com atribuição |
 | Piper (engine) | MIT | vozes têm cartões próprios — **conferir `MODEL_CARD` dentro de cada pacote de voz** antes de distribuir |
@@ -856,4 +871,3 @@ Hoje vamos falar sobre tecnologia.
 | `aacBitrate` | 192k | P9 |
 | `toolTimeout` | 30 min | runTool |
 | `realtimeDelayDefault` | 3 s | Fase 2 |
-
