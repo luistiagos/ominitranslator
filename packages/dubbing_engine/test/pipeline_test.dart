@@ -17,11 +17,16 @@ int? _ampleFreeBytes(String _) => 999 * 1024 * 1024 * 1024;
 class _MockSeparator implements Separator {
   final bool available;
   final String failureReason;
-  _MockSeparator(this.available, {this.failureReason = 'mock: separação indisponível'});
+  final SeparationFailureReason reason;
+  _MockSeparator(this.available,
+      {this.failureReason = 'mock: separação indisponível',
+      this.reason = SeparationFailureReason.toolFailed});
   @override
   Future<SeparationOutcome> separate(
       String inputWav, String workDir, CancellationToken token) async {
-    if (!available) return SeparationOutcome.failure(failureReason);
+    if (!available) {
+      return SeparationOutcome.failure(reason, detail: failureReason);
+    }
     final vocals = p.join(workDir, 'vocals.wav');
     final accomp = p.join(workDir, 'accompaniment.wav');
     File(vocals).writeAsBytesSync(List.filled(100, 0));
@@ -259,6 +264,69 @@ void main() {
         final outDir = tempDir.path;
         expect(File(p.join(outDir, 'out.en.srt')).existsSync(), isTrue);
         expect(File(p.join(outDir, 'out.pt.srt')).existsSync(), isTrue);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('unsupported-on-platform separation yields an informative event, not a warning', () async {
+      final tempDir = Directory.systemTemp.createTempSync('pipeline_vo_expected_');
+      try {
+        final models = ModelManager(tempDir.path, _dummyTools);
+        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+            extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
+        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+            extraFiles: ['accompaniment.fp16.onnx']);
+
+        final config = DubbingJobConfig(
+          inputVideo: p.join(tempDir.path, 'input.mp4'),
+          sourceLang: Lang.en,
+          targetLang: Lang.pt,
+          preset: Preset.best,
+          generateSrt: false,
+          workDir: p.join(tempDir.path, 'work'),
+          outputPath: p.join(tempDir.path, 'out.mp4'),
+        );
+        File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
+        Directory(config.workDir).createSync(recursive: true);
+        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
+
+        final RunToolFn runToolMock = (
+          String exePath,
+          List<String> args, {
+          String? workingDirectory,
+          Duration timeout = const Duration(minutes: 30),
+          CancellationToken? token,
+        }) async {
+          if (exePath == 'ffprobe') return _okResult('5.0\n');
+          return _okResult();
+        };
+
+        final events = await runDubbingJob(
+          config,
+          CancellationToken(),
+          tools: _dummyTools,
+          models: models,
+          separatorFactory: (_, __) => _MockSeparator(false,
+              reason: SeparationFailureReason.notSupportedOnPlatform,
+              failureReason: 'unused diagnostic'),
+          transcriberFactory: (_, __, ___) => _MockTranscriber(),
+          translatorFactory: (_, __) => _MockTranslator(),
+          synthesizerFactory: (_, __) => _MockSynthesizer(),
+          runToolOverride: runToolMock,
+          freeBytesOverride: _ampleFreeBytes,
+        ).handleError((_) {}).toList();
+
+        final separateEvent = events.firstWhere(
+            (e) => e.stage == PipelineStage.separate && e.progress >= 1.0);
+        expect(separateEvent.isWarning, isFalse,
+            reason: 'voice-over is the expected Android M1 mode, not a warning');
+        expect(separateEvent.message, contains('voice-over'));
+        // The diagnostic detail must never leak into the user-facing message.
+        expect(separateEvent.message, isNot(contains('unused diagnostic')));
       } finally {
         tempDir.deleteSync(recursive: true);
       }

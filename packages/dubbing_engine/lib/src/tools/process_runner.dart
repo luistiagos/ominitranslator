@@ -99,9 +99,7 @@ Future<ToolResult> runToolWithStdin(
 }) async {
   final process = await Process.start(exePath, args,
       workingDirectory: workingDirectory, runInShell: false);
-  if (token != null) {
-    token.addProcess(process);
-  }
+  final cancelReg = token?.addCancellable(() => process.kill());
   final stdoutBuf = StringBuffer();
   final stderrBuf = StringBuffer();
   final stdoutStream = process.stdout
@@ -143,6 +141,7 @@ Future<ToolResult> runToolWithStdin(
   } finally {
     timeoutTimer?.cancel();
     pollTimer?.cancel();
+    cancelReg?.dispose();
   }
 }
 
@@ -158,9 +157,7 @@ Future<ToolResult> _runToolOnce(
       runInShell: false);
   final stdoutBuf = StringBuffer();
   final stderrBuf = StringBuffer();
-  if (token != null) {
-    token.addProcess(process);
-  }
+  final cancelReg = token?.addCancellable(() => process.kill());
   final stdoutStream = process.stdout
       .transform(systemEncoding.decoder)
       .handleError((_) => '');
@@ -198,5 +195,6 @@ Future<ToolResult> _runToolOnce(
   } finally {
     timeoutTimer?.cancel();
     pollTimer?.cancel();
+    cancelReg?.dispose();
   }
 }

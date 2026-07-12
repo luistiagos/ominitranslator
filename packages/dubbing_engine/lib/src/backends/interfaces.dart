@@ -1,16 +1,35 @@
 import 'dart:typed_data';
 import 'package:dubbing_engine/src/models.dart';
 
-/// Resultado da separação de voz: sucesso com os arquivos gerados, ou
-/// falha com o motivo (usado pelo pipeline para explicar o modo voice-over).
+/// Por que a separação de voz não foi feita. A UI deriva o texto do usuário
+/// deste código; o [SeparationOutcome.detail] é diagnóstico e nunca vai para a
+/// tela. `notSupportedOnPlatform` é o caso do Android M1 — comportamento
+/// esperado, não erro.
+enum SeparationFailureReason {
+  notSupportedOnPlatform,
+  modelNotReady,
+  cancelled,
+  toolFailed,
+  unsupportedAudio,
+}
+
+/// Resultado da separação de voz: sucesso com os arquivos gerados, ou falha
+/// com um [reason] tipado (para a UI) e um [detail] livre (só diagnóstico).
 class SeparationOutcome {
   final ({String vocalsWav, String accompanimentWav})? files;
-  final String? failureReason;
+  final SeparationFailureReason? reason;
+  final String? detail;
   const SeparationOutcome.success(
       ({String vocalsWav, String accompanimentWav}) this.files)
-      : failureReason = null;
-  const SeparationOutcome.failure(String this.failureReason) : files = null;
+      : reason = null,
+        detail = null;
+  const SeparationOutcome.failure(SeparationFailureReason this.reason,
+      {this.detail})
+      : files = null;
   bool get ok => files != null;
+
+  /// O modo voice-over do Android M1 é esperado; qualquer outra falha é técnica.
+  bool get isExpected => reason == SeparationFailureReason.notSupportedOnPlatform;
 }
 
 abstract class Separator {

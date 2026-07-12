@@ -125,15 +125,22 @@ Stream<PipelineEvent> runDubbingJob(
         ? p.join(workDir, 'audio_full.wav')
         : separationOutcome.files!.vocalsWav;
 
-    yield voiceOverMode
-        ? PipelineEvent(
-            PipelineStage.separate,
-            1.0,
-            'Separação indisponível — modo voice-over (o áudio original '
-            'permanecerá audível sob a dublagem). '
-            'Motivo: ${separationOutcome.failureReason}',
-            isWarning: true)
-        : PipelineEvent(PipelineStage.separate, 1.0, 'Voz separada com sucesso');
+    if (!voiceOverMode) {
+      yield PipelineEvent(PipelineStage.separate, 1.0, 'Voz separada com sucesso');
+    } else if (separationOutcome.isExpected) {
+      // Android M1: voice-over é o modo previsto, não uma falha. Evento
+      // informativo, sem warning técnico.
+      yield PipelineEvent(PipelineStage.separate, 1.0,
+          'Modo voice-over: o áudio original permanece baixo sob a dublagem.');
+    } else {
+      yield PipelineEvent(
+          PipelineStage.separate,
+          1.0,
+          'Separação indisponível — modo voice-over (o áudio original '
+          'permanecerá audível sob a dublagem). '
+          'Motivo: ${separationOutcome.detail ?? separationOutcome.reason?.name}',
+          isWarning: true);
+    }
 
     // Diarização (multi-vozes): opcional — sem os modelos instalados a
     // dublagem segue com voz única. Com voz fixa escolhida pelo usuário,

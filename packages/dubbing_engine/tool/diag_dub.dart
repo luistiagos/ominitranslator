@@ -41,7 +41,7 @@ Future<void> main(List<String> argv) async {
   print('Separando voz da trilha...');
   final sep = await SherpaSeparator(tools, models).separate(audioFull, workDir, token);
   final audioForAsr = sep.ok ? sep.files!.vocalsWav : audioFull;
-  print(sep.ok ? 'Vocals separados.' : 'Separação falhou: ${sep.failureReason}');
+  print(sep.ok ? 'Vocals separados.' : 'Separação falhou: ${sep.detail}');
 
   print('Transcrevendo...');
   final raw = await WhisperTranscriber(tools, models, Preset.best)

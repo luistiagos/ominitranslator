@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 enum Lang {
@@ -170,18 +169,59 @@ class PipelineException implements Exception {
   String toString() => 'Erro na etapa ${stage.name}: $message';
 }
 
+/// Handle para remover um callback de cancelamento antes de o token disparar.
+/// Descartar quando o recurso encerra sozinho evita acumular callbacks mortos
+/// num job longo com muitos subprocessos em sequência.
+class CancellationRegistration {
+  CancellationRegistration._(this._token, this._callback);
+  final CancellationToken _token;
+  void Function()? _callback;
+  void dispose() {
+    final cb = _callback;
+    if (cb == null) return;
+    _token._callbacks.remove(cb);
+    _callback = null;
+  }
+}
+
+/// Cancelamento cooperativo compartilhado por todo o pipeline. Não conhece
+/// `dart:io`: um subprocesso desktop, uma sessão FFmpegKit no Android ou um
+/// loop de inferência sherpa registram cada um o seu `onCancel`, e `cancel()`
+/// dispara todos. É o que torna a regra obrigatória #10 exequível fora do
+/// desktop.
 class CancellationToken {
   bool _cancelled = false;
-  final List<Process> _processes = [];
+  final List<void Function()> _callbacks = [];
+
   bool get isCancelled => _cancelled;
+
   void cancel() {
+    if (_cancelled) return;
     _cancelled = true;
-    for (final p in _processes) {
-      p.kill();
+    // Cópia defensiva: um onCancel pode se desregistrar ao ser disparado.
+    for (final cb in List.of(_callbacks)) {
+      cb();
     }
+    _callbacks.clear();
   }
-  void addProcess(Process p) {
-    _processes.add(p);
+
+  /// Registra uma ação para quando o token for cancelado. Se já estiver
+  /// cancelado, executa na hora. Devolve um handle para remover o callback
+  /// quando o recurso terminar por conta própria.
+  CancellationRegistration addCancellable(void Function() onCancel) {
+    if (_cancelled) {
+      onCancel();
+      return CancellationRegistration._(this, null);
+    }
+    _callbacks.add(onCancel);
+    return CancellationRegistration._(this, onCancel);
+  }
+
+  /// Aborta um estágio do pipeline se o token estiver cancelado.
+  void throwIfCancelled(PipelineStage stage) {
+    if (_cancelled) {
+      throw PipelineException(stage, 'Cancelado pelo usuário');
+    }
   }
 }
 

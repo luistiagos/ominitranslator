@@ -29,7 +29,7 @@ void main() {
         _writeFakeInputWav(inputWav, 10);
         final outcome = await separator.separate(inputWav, tempDir.path, CancellationToken());
         expect(outcome.ok, isFalse);
-        expect(outcome.failureReason, contains('não está pronto'));
+        expect(outcome.detail, contains('não está pronto'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -51,7 +51,7 @@ void main() {
         _writeFakeInputWav(inputWav, 10);
         final outcome = await separator.separate(inputWav, tempDir.path, CancellationToken());
         expect(outcome.ok, isFalse);
-        expect(outcome.failureReason, contains('não encontrado'));
+        expect(outcome.detail, contains('não encontrado'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -77,8 +77,8 @@ void main() {
         final outcome = await separator.separate(inputWav, tempDir.path, CancellationToken(),
             runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _failResult());
         expect(outcome.ok, isFalse);
-        expect(outcome.failureReason, contains('código 1'));
-        expect(outcome.failureReason, contains('error'));
+        expect(outcome.detail, contains('código 1'));
+        expect(outcome.detail, contains('error'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -136,7 +136,7 @@ void main() {
         final outcome = await separator.separate(inputWav, tempDir.path, CancellationToken(),
             runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult());
         expect(outcome.ok, isFalse);
-        expect(outcome.failureReason, contains('não gerou'));
+        expect(outcome.detail, contains('não gerou'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -239,7 +239,7 @@ void main() {
           return _okResult();
         });
 
-        expect(outcome.ok, isTrue, reason: outcome.failureReason);
+        expect(outcome.ok, isTrue, reason: outcome.detail);
         expect(sherpaCalls.length, 3);
         expect(ffmpegCalls.length, 3); // 1 segment + 2 concat
         expect(File(p.join(tempDir.path, 'vocals.wav')).existsSync(), isTrue);
@@ -301,7 +301,7 @@ void main() {
           return _okResult();
         });
 
-        expect(outcome.ok, isTrue, reason: outcome.failureReason);
+        expect(outcome.ok, isTrue, reason: outcome.detail);
         expect(segmentTimes, ['30', '15']);
         expect(File(p.join(tempDir.path, 'vocals.wav')).existsSync(), isTrue);
         expect(File(p.join(tempDir.path, 'accompaniment.wav')).existsSync(), isTrue);
@@ -350,8 +350,8 @@ void main() {
         expect(outcome.ok, isFalse);
         // 15 ~/ 2 = 7 < minSeparationChunkSeconds (10) -> para em 15s.
         expect(segmentTimes, ['30', '15']);
-        expect(outcome.failureReason, contains('com chunks de 15s'));
-        expect(outcome.failureReason, contains('BFCArena'));
+        expect(outcome.detail, contains('com chunks de 15s'));
+        expect(outcome.detail, contains('BFCArena'));
         expect(Directory(p.join(tempDir.path, 'sep_chunks')).existsSync(), isFalse);
         expect(File(p.join(tempDir.path, 'vocals.wav')).existsSync(), isFalse);
       } finally {
@@ -388,7 +388,7 @@ void main() {
 
         expect(outcome.ok, isFalse);
         expect(ffmpegCalls, 1);
-        expect(outcome.failureReason, contains('ffmpeg segment falhou'));
+        expect(outcome.detail, contains('ffmpeg segment falhou'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }

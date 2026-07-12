@@ -40,11 +40,12 @@ class SherpaSeparator implements Separator {
       String inputWav, String workDir, CancellationToken token, {RunToolFn? runToolOverride}) async {
     final exec = runToolOverride ?? runTool;
     if (models.stateOf(spleeterModelId) != ModelState.ready) {
-      return SeparationOutcome.failure('Modelo $spleeterModelId não está pronto');
+      return SeparationOutcome.failure(SeparationFailureReason.modelNotReady,
+          detail: 'Modelo $spleeterModelId não está pronto');
     }
     if (!File(tools.sherpaSourceSeparation).existsSync()) {
-      return SeparationOutcome.failure(
-          'Executável não encontrado: ${tools.sherpaSourceSeparation}');
+      return SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+          detail: 'Executável não encontrado: ${tools.sherpaSourceSeparation}');
     }
     final vocalsWav = p.join(workDir, 'vocals.wav');
     final accompanimentWav = p.join(workDir, 'accompaniment.wav');
@@ -52,7 +53,8 @@ class SherpaSeparator implements Separator {
     try {
       durationSec = wavDurationSeconds(inputWav);
     } on FormatException catch (e) {
-      return SeparationOutcome.failure('WAV de entrada inválido: ${e.message}');
+      return SeparationOutcome.failure(SeparationFailureReason.unsupportedAudio,
+          detail: 'WAV de entrada inválido: ${e.message}');
     }
     // Falha do sherpa (provável falta de memória) é retryable: tenta de novo
     // com chunks progressivamente menores até o piso.
@@ -83,14 +85,15 @@ class SherpaSeparator implements Separator {
     );
     if (result.exitCode != 0) {
       return (
-        outcome: SeparationOutcome.failure(
-            'sherpa saiu com código ${result.exitCode}: ${_tail(result.stderrTail)}'),
+        outcome: SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+            detail: 'sherpa saiu com código ${result.exitCode}: ${_tail(result.stderrTail)}'),
         retryable: true,
       );
     }
     if (!File(vocalsWav).existsSync() || !File(accompanimentWav).existsSync()) {
       return (
-        outcome: const SeparationOutcome.failure('sherpa não gerou os arquivos de saída'),
+        outcome: const SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+            detail: 'sherpa não gerou os arquivos de saída'),
         retryable: true,
       );
     }
@@ -117,8 +120,8 @@ class SherpaSeparator implements Separator {
       ], workingDirectory: chunkDir, token: token);
       if (split.exitCode != 0) {
         return (
-          outcome: SeparationOutcome.failure(
-              'ffmpeg segment falhou: ${_tail(split.stderrTail)}'),
+          outcome: SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+              detail: 'ffmpeg segment falhou: ${_tail(split.stderrTail)}'),
           retryable: false,
         );
       }
@@ -132,7 +135,8 @@ class SherpaSeparator implements Separator {
         ..sort();
       if (chunks.isEmpty) {
         return (
-          outcome: const SeparationOutcome.failure('ffmpeg segment não gerou chunks'),
+          outcome: const SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+              detail: 'ffmpeg segment não gerou chunks'),
           retryable: false,
         );
       }
@@ -142,7 +146,8 @@ class SherpaSeparator implements Separator {
       for (int i = 0; i < chunks.length; i++) {
         if (token.isCancelled) {
           return (
-            outcome: const SeparationOutcome.failure('Cancelado pelo usuário'),
+            outcome: const SeparationOutcome.failure(SeparationFailureReason.cancelled,
+                detail: 'Cancelado pelo usuário'),
             retryable: false,
           );
         }
@@ -159,17 +164,17 @@ class SherpaSeparator implements Separator {
         );
         if (r.exitCode != 0) {
           return (
-            outcome: SeparationOutcome.failure(
-                'sherpa falhou no chunk ${i + 1}/${chunks.length} com chunks de '
-                '${chunkSeconds}s (código ${r.exitCode}): ${_tail(r.stderrTail)}'),
+            outcome: SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+                detail: 'sherpa falhou no chunk ${i + 1}/${chunks.length} com chunks de '
+                    '${chunkSeconds}s (código ${r.exitCode}): ${_tail(r.stderrTail)}'),
             retryable: true,
           );
         }
         if (!File(v).existsSync() || !File(a).existsSync()) {
           return (
-            outcome: SeparationOutcome.failure(
-                'sherpa não gerou saídas para o chunk ${i + 1}/${chunks.length} '
-                'com chunks de ${chunkSeconds}s'),
+            outcome: SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+                detail: 'sherpa não gerou saídas para o chunk ${i + 1}/${chunks.length} '
+                    'com chunks de ${chunkSeconds}s'),
             retryable: true,
           );
         }
@@ -194,16 +199,16 @@ class SherpaSeparator implements Separator {
         ], workingDirectory: chunkDir, token: token);
         if (r.exitCode != 0) {
           return (
-            outcome: SeparationOutcome.failure(
-                'concat de ${job.list} falhou: ${_tail(r.stderrTail)}'),
+            outcome: SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+                detail: 'concat de ${job.list} falhou: ${_tail(r.stderrTail)}'),
             retryable: false,
           );
         }
       }
       if (!File(vocalsWav).existsSync() || !File(accompanimentWav).existsSync()) {
         return (
-          outcome: const SeparationOutcome.failure(
-              'arquivos concatenados não foram gerados'),
+          outcome: const SeparationOutcome.failure(SeparationFailureReason.toolFailed,
+              detail: 'arquivos concatenados não foram gerados'),
           retryable: false,
         );
       }
