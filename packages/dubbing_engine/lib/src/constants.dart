@@ -29,10 +29,23 @@ const seamlessGapSeconds = 0.25;
 const maxDubDriftSeconds = 1.5;
 // Acelerações menores que isso não valem uma nova síntese (imperceptíveis).
 const minResynthSpeed = 1.05;
+// O mix final amarra a saída à duração do áudio original (`amix duration=first`),
+// então o fim do vídeo é um prazo do qual não há como escapar: o que passar dele
+// é cortado pelo ffmpeg. Um run que ameace ultrapassá-lo pode acelerar até este
+// teto — acima do maxTotalSpeed normal — porque uma fala um pouco atropelada é
+// melhor que uma fala cortada no meio. É o máximo que os clamps existentes
+// alcançam (vitsSpeedMax × atempoMax = 1.6875).
+const tailSpeedMax = 1.65;
+// Cauda que sobra depois disso é cortada. Até este teto o corte é aceitável
+// (some no decaimento da última sílaba); acima dele é falha de qualidade.
+const tailTruncationCap = Duration(milliseconds: 200);
 const ttsSampleRate = 22050;
 const mixSampleRate = 44100;
 const asrSampleRate = 16000;
 const aacBitrate = '192k';
+// Bitrate do re-encode de vídeo no fallback do mux (containers cujo codec o MP4
+// não aceita, ex.: VP9 de um WebM). Só é usado quando `-c:v copy` falha.
+const reencodeVideoBitrate = '5M';
 const toolTimeout = Duration(minutes: 30);
 // sherpa-onnx processa o WAV inteiro em memória: pico medido de ~300 MB
 // base + ~11 MB por segundo de áudio (120s ≈ 1,7 GB; 300s ≈ 3,6 GB, que já

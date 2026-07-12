@@ -91,10 +91,23 @@ List<DubPlanItem> planDubSchedule(
       cum += naturalDursSec[k];
     }
 
+    // Deadline do fim do vídeo: o mix final tem a duração do áudio original,
+    // então tudo que passar daqui o ffmpeg corta. Vale acelerar acima do teto
+    // normal para não perder o fim da última fala.
+    var ceiling = maxTotalSpeed;
+    final tailAvail = videoDurationSec - runStart;
+    if (tailAvail > 0 && content / speedNeeded > tailAvail) {
+      final needed = content / tailAvail;
+      if (needed > speedNeeded) {
+        speedNeeded = needed;
+        ceiling = tailSpeedMax;
+      }
+    }
+
     var speed = speedNeeded;
     var clamped = false;
-    if (speed > maxTotalSpeed) {
-      speed = maxTotalSpeed;
+    if (speed > ceiling) {
+      speed = ceiling;
       clamped = true;
     }
     if (speed < minTotalSpeed) speed = minTotalSpeed;
@@ -204,5 +217,12 @@ Future<double> applyPlanToSegment(
   }
   seg.placedStart = Duration(microseconds: (placementSec * 1e6).round());
   final finalDurSec = seg.fittedAudio!.length / mixSampleRate;
-  return placementSec + finalDurSec;
+  final dubEndSec = placementSec + finalDurSec;
+  // Quanto a fala dublada passou do fim da janela original. Alimenta o
+  // relatório de sincronia e a contagem de estouros no resultado.
+  final segEndSec = seg.end.inMicroseconds / 1e6;
+  seg.overflow = dubEndSec > segEndSec
+      ? Duration(microseconds: ((dubEndSec - segEndSec) * 1e6).round())
+      : Duration.zero;
+  return dubEndSec;
 }

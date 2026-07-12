@@ -117,6 +117,31 @@ void main() {
       expect(plan.map((p) => p.clamped), everyElement(isTrue));
       expect(plan.map((p) => p.speed), everyElement(maxTotalSpeed));
     });
+
+    test('última fala acelera acima do teto normal para caber no fim do vídeo', () {
+      // 12s de dublagem numa janela que termina junto com o vídeo (10s). O
+      // transbordo levaria a fala a 10.8s — 800ms além do fim, que o ffmpeg
+      // cortaria. O fim do vídeo é prazo duro: acelera para 1.2x e cabe.
+      final plan = planDubSchedule([0], [10.0], [12.0], 10.0);
+      expect(plan.single.speed, closeTo(1.2, 0.001));
+      expect(plan.single.clamped, isFalse);
+    });
+
+    test('o teto de emergência não vale quando o vídeo tem folga', () {
+      // Mesmo excesso, mas o vídeo continua por mais 20s: o gargalo é a janela
+      // da fala, não o fim do vídeo — vale o teto normal, e a fala transborda.
+      final plan = planDubSchedule([0], [2.0], [5.0], 30.0);
+      expect(plan.single.speed, maxTotalSpeed);
+      expect(plan.single.clamped, isTrue);
+    });
+
+    test('excesso grande no fim do vídeo para no teto de emergência', () {
+      // 20s de dublagem para 10s de vídeo: nem 1.65x resolve. Clampa e o
+      // resíduo vira cauda cortada, contada por buildDubTrack.
+      final plan = planDubSchedule([0], [10.0], [20.0], 10.0);
+      expect(plan.single.speed, tailSpeedMax);
+      expect(plan.single.clamped, isTrue);
+    });
   });
 
   group('applyPlanToSegment', () {

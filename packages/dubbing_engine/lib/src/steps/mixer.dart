@@ -7,25 +7,28 @@ import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:dubbing_engine/src/wav.dart';
 import 'package:path/path.dart' as p;
 
-Future<String> buildDubTrack(
+/// Monta a faixa de voz dublada com EXATAMENTE a duração do vídeo.
+///
+/// O mix final usa `amix=duration=first`, e o primeiro input é o áudio original
+/// — cuja duração é a do vídeo. Logo, o que passar do fim do vídeo é descartado
+/// pelo ffmpeg de qualquer jeito. Estender o buffer aqui só criaria a ilusão de
+/// que a cauda foi preservada. O agendamento (`planDubSchedule`) já acelera o
+/// último run para caber; o resíduo que ainda assim sobrar é devolvido em
+/// [truncatedTail] para ser medido e reportado, nunca cortado em silêncio.
+Future<({String path, Duration truncatedTail})> buildDubTrack(
   List<DubbingSegment> segments,
   double videoDurationSec,
   String workDir,
   CancellationToken token,
 ) async {
-  // A última fala pode ultrapassar o fim do vídeo por causa do atraso
-  // acumulado do agendamento; reserva espaço para não cortá-la.
-  var totalSamples = (videoDurationSec * mixSampleRate).round();
-  for (final seg in segments) {
-    if (seg.fittedAudio == null) continue;
-    final end = (seg.placedStart.inMicroseconds / 1000000.0 * mixSampleRate).round() +
-        seg.fittedAudio!.length;
-    if (end > totalSamples) totalSamples = end;
-  }
+  final totalSamples = (videoDurationSec * mixSampleRate).round();
+  var overrunSamples = 0;
   final buffer = Float32List(totalSamples);
   for (final seg in segments) {
     if (seg.fittedAudio == null) continue;
     final offset = (seg.placedStart.inMicroseconds / 1000000.0 * mixSampleRate).round();
+    final end = offset + seg.fittedAudio!.length;
+    if (end - totalSamples > overrunSamples) overrunSamples = end - totalSamples;
     for (int j = 0; j < seg.fittedAudio!.length; j++) {
       final idx = offset + j;
       if (idx < buffer.length) {
@@ -39,7 +42,11 @@ Future<String> buildDubTrack(
   }
   final dubVoicePath = p.join(workDir, 'dub_voice.wav');
   writeWavPcm16(dubVoicePath, WavData(buffer, mixSampleRate, 1));
-  return dubVoicePath;
+  return (
+    path: dubVoicePath,
+    truncatedTail: Duration(
+        microseconds: (overrunSamples / mixSampleRate * 1e6).round()),
+  );
 }
 
 Future<String> buildFinalMix(

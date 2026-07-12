@@ -195,6 +195,16 @@ class DubbingResult {
   final String? originalVideo;
   final bool voiceOverMode;
   final int segmentsWithOverflow;
+
+  /// Cauda da última fala que não coube antes do fim do vídeo e foi cortada.
+  /// Zero na esmagadora maioria dos jobs — o agendamento acelera o último run
+  /// justamente para evitá-la. Acima de [tailTruncationCap] é falha de
+  /// qualidade, não sucesso.
+  final Duration truncatedTail;
+
+  /// Relatório de sincronia do job (`<saída>.sync.json`): delta por fala,
+  /// percentual dentro de ±300 ms e cauda cortada.
+  final String? syncReport;
   final Duration elapsed;
   const DubbingResult({
     required this.outputVideo,
@@ -203,6 +213,8 @@ class DubbingResult {
     this.originalVideo,
     required this.voiceOverMode,
     required this.segmentsWithOverflow,
+    this.truncatedTail = Duration.zero,
+    this.syncReport,
     required this.elapsed,
   });
 }

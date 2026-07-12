@@ -92,7 +92,7 @@ void main() {
       expect(result, config.outputPath);
     });
 
-    test('retries with libx264 on failure for .mp4 and succeeds', () async {
+    test('retries with libopenh264 on failure for .mp4 and succeeds', () async {
       File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
       var callCount = 0;
 
@@ -106,7 +106,14 @@ void main() {
         }) async {
           callCount++;
           if (callCount == 1) return _failResult(1);
-          expect(args.contains('libx264'), isTrue, reason: 'retry should use libx264');
+          // O ffmpeg distribuído é LGPL (`--disable-libx264`): pedir x264 aqui
+          // fazia o fallback falhar sempre, justo no caso que ele existe para
+          // salvar (VP9/WebM). Este teste antes exigia libx264 e passava, porque
+          // o ffmpeg é mockado e ninguém rodava o comando de verdade.
+          expect(args.contains('libopenh264'), isTrue,
+              reason: 'retry should re-encode with the LGPL H.264 encoder');
+          expect(args.contains('libx264'), isFalse,
+              reason: 'libx264 is not compiled into the shipped ffmpeg');
           return _okResult();
         },
       );
@@ -134,7 +141,7 @@ void main() {
       );
     });
 
-    test('retries with libx264 for non-mp4 inputs too (e.g. WebM/VP9)', () async {
+    test('retries with libopenh264 for non-mp4 inputs too (e.g. WebM/VP9)', () async {
       config = DubbingJobConfig(
         inputVideo: p.join(tempDir.path, 'input.webm'),
         sourceLang: Lang.en,
@@ -158,7 +165,8 @@ void main() {
           callCount++;
           // "-c:v copy" de VP9 num container MP4 falha; o re-encode salva.
           if (callCount == 1) return _failResult(1);
-          expect(args.contains('libx264'), isTrue);
+          expect(args.contains('libopenh264'), isTrue);
+          expect(args.contains('libx264'), isFalse);
           return _okResult();
         },
       );

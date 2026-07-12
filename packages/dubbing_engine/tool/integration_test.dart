@@ -108,7 +108,8 @@ void main() async {
     '-y',
     '-f', 'lavfi', '-i', 'color=c=blue:s=640x360:d=${totalDur + 2}',
     '-i', speechPath,
-    '-c:v', 'libx264', '-preset', 'veryfast',
+    // O ffmpeg do repo é LGPL e não tem libx264.
+    '-c:v', 'libopenh264', '-b:v', '1M',
     '-c:a', 'aac',
     '-shortest',
     fixtureVideo,

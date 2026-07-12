@@ -19,6 +19,7 @@ import 'package:dubbing_engine/src/steps/segmenter.dart';
 import 'package:dubbing_engine/src/steps/speaker_assign.dart';
 import 'package:dubbing_engine/src/steps/speech_trim.dart';
 import 'package:dubbing_engine/src/steps/subtitles.dart';
+import 'package:dubbing_engine/src/steps/sync_report.dart';
 import 'package:dubbing_engine/src/steps/youtube.dart';
 import 'package:dubbing_engine/src/tools/disk_space.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
@@ -49,6 +50,8 @@ Stream<PipelineEvent> runDubbingJob(
   String? srtTargetPath;
   bool voiceOverMode = false;
   int segmentsWithOverflow = 0;
+  Duration truncatedTail = Duration.zero;
+  String? syncReportPath;
   String workDir = config.workDir;
   String inputVideo = config.inputVideo;
 
@@ -286,8 +289,16 @@ Stream<PipelineEvent> runDubbingJob(
     yield PipelineEvent(PipelineStage.mix, 0.0, 'Mixando áudio final...');
     if (token.isCancelled) throw PipelineException(PipelineStage.mix, 'Cancelado pelo usuário');
 
-    await buildDubTrack(segments, videoDuration, workDir, token);
+    final dubTrack = await buildDubTrack(segments, videoDuration, workDir, token);
+    truncatedTail = dubTrack.truncatedTail;
     await buildFinalMix(voiceOverMode, workDir, tools, token, runToolOverride: runToolOverride);
+
+    if (truncatedTail > Duration.zero) {
+      final ms = truncatedTail.inMilliseconds;
+      yield PipelineEvent(PipelineStage.mix, 1.0,
+          'A última fala passou ${ms}ms do fim do vídeo e foi cortada.',
+          isWarning: truncatedTail > tailTruncationCap);
+    }
 
     yield PipelineEvent(PipelineStage.mix, 1.0, 'Mixagem concluída');
 
@@ -311,6 +322,19 @@ Stream<PipelineEvent> runDubbingJob(
       File(srtSourcePath).writeAsStringSync(buildSrtContent(segments, true));
       File(srtTargetPath).writeAsStringSync(buildSrtContent(segments, false));
     }
+
+    // Relatório de sincronia: fica ao lado da saída (o workDir é apagado
+    // abaixo). É o que torna o critério de ±300ms mensurável, e é o baseline
+    // contra o qual o Android vai ser comparado.
+    final report = buildSyncReport(segments, videoDuration, truncatedTail);
+    syncReportPath = p.join(p.dirname(config.outputPath),
+        '${p.basenameWithoutExtension(config.outputPath)}.sync.json');
+    File(syncReportPath).writeAsStringSync(report.json);
+    yield PipelineEvent(
+        PipelineStage.mux,
+        0.9,
+        'Sincronia: ${report.summary.withinPct.toStringAsFixed(1)}% das falas '
+        'dentro de ±${syncToleranceMs}ms (pior: ${report.summary.worstDeltaMs}ms)');
 
     // Vídeo baixado do YouTube: preserva o original na pasta de saída
     // (o diretório de trabalho, onde ele foi baixado, é apagado abaixo).
@@ -338,6 +362,8 @@ Stream<PipelineEvent> runDubbingJob(
       originalVideo: originalVideoPath,
       voiceOverMode: voiceOverMode,
       segmentsWithOverflow: segmentsWithOverflow,
+      truncatedTail: truncatedTail,
+      syncReport: syncReportPath,
       elapsed: stopwatch.elapsed,
     );
     onDone?.call(result);

@@ -36,8 +36,13 @@ Future<String> buildFinalVideo(
     if (config.keepOriginalTrack) {
       retryArgs.addAll(['-map', '0:a:0']);
     }
+    // libopenh264, não libx264: o ffmpeg distribuído é LGPL
+    // (`--disable-libx264`), então o x264 simplesmente não existe no binário e
+    // este fallback falhava sempre — justo no caminho que ele deveria salvar
+    // (VP9/WebM). O openh264 não aceita `-crf`/`-preset`; a qualidade sai por
+    // bitrate.
     retryArgs.addAll([
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+      '-c:v', 'libopenh264', '-b:v', reencodeVideoBitrate,
       '-c:a', 'aac', '-b:a', aacBitrate,
     ]);
     retryArgs.addAll(['-metadata:s:a:0', 'language=${config.targetLang.iso639_2}']);

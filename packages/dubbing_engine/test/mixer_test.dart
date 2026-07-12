@@ -23,9 +23,10 @@ void main() {
   group('buildDubTrack buffer', () {
     test('1 second buffer has expected sample count', () async {
       final segments = <DubbingSegment>[];
-      final path = await buildDubTrack(segments, 1.0, Directory.systemTemp.path, CancellationToken());
-      final wav = readWav(path);
+      final track = await buildDubTrack(segments, 1.0, Directory.systemTemp.path, CancellationToken());
+      final wav = readWav(track.path);
       expect(wav.samples.length, 44100);
+      expect(track.truncatedTail, Duration.zero);
     });
 
     test('clamps overlapping samples at 1.0', () async {
@@ -36,19 +37,32 @@ void main() {
       seg2.fittedAudio = Float32List(22050);
       seg2.fittedAudio!.fillRange(0, 22050, 0.5);
 
-      final path = await buildDubTrack([seg, seg2], 1.0, Directory.systemTemp.path, CancellationToken());
-      final wav = readWav(path);
+      final track = await buildDubTrack([seg, seg2], 1.0, Directory.systemTemp.path, CancellationToken());
+      final wav = readWav(track.path);
       expect(wav.samples[0], closeTo(1.0, 0.001));
     });
 
-    test('segment past end of buffer does not throw', () async {
+    test('track has exactly the video duration even when a speech overruns it', () async {
+      // Fala colocada em 900 ms com 1 s de áudio, num vídeo de 1 s: passa
+      // 900 ms do fim. O ffmpeg cortaria isso de qualquer forma (amix
+      // duration=first), então o WAV já sai com a duração do vídeo.
       final seg = DubbingSegment(0, Duration(milliseconds: 900), Duration(milliseconds: 1100), 'test');
+      seg.placedStart = Duration(milliseconds: 900);
       seg.fittedAudio = Float32List(44100);
 
-      await expectLater(
-        () => buildDubTrack([seg], 1.0, Directory.systemTemp.path, CancellationToken()),
-        returnsNormally,
-      );
+      final track = await buildDubTrack([seg], 1.0, Directory.systemTemp.path, CancellationToken());
+      final wav = readWav(track.path);
+      expect(wav.samples.length, 44100);
+      expect(track.truncatedTail.inMilliseconds, 900);
+    });
+
+    test('speech that ends exactly at the video end is not reported as truncated', () async {
+      final seg = DubbingSegment(0, Duration.zero, Duration(seconds: 1), 'test');
+      seg.placedStart = Duration.zero;
+      seg.fittedAudio = Float32List(44100);
+
+      final track = await buildDubTrack([seg], 1.0, Directory.systemTemp.path, CancellationToken());
+      expect(track.truncatedTail, Duration.zero);
     });
   });
 

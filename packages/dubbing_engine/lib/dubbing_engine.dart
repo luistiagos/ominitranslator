@@ -3,6 +3,7 @@ export 'src/models.dart';
 export 'src/constants.dart';
 export 'src/translation_catalog.dart';
 export 'src/pipeline.dart';
+export 'src/steps/sync_report.dart';
 export 'src/model_manager.dart';
 export 'src/wav.dart';
 export 'src/backends/interfaces.dart';
