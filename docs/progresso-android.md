@@ -17,7 +17,9 @@
 | D2 | **AT-1** — tradução pt | 🟡 fonte/licença/qualidade resolvidas; execução no device pendente |
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
 | D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
-| D1 | Refatoração de memória (áudio em disco, writer sequencial, `WavReader`) | ⬜ pendente (próximo) |
+| D1 | **Refatoração de memória** (áudio em disco, writer sequencial, `WavReader`) | ✅ **concluída** (ver §3.6) |
+| D1 | `JobCheckpointStore` e retomada | ⬜ pendente |
+| D1 | `MediaToolRunner` (§5.2) | ⬜ pendente |
 | D1 | `tool/verify.ps1` + `check_native_libs.dart` | ⬜ pendente |
 | D2 | AT-2 / AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
@@ -94,12 +96,33 @@ O que a auditoria chamava de "lacunas de contrato": a §5 se dizia normativa mas
 
 **Revisão dos contratos** (feita antes de seguir): G-3 saiu limpo; em G-2 achei e corrigi dois bugs reais — `cancel()` abortava os cancelamentos restantes se um deles lançasse (o que deixaria FFmpeg/sherpa órfãos, exatamente o que a §19.4 proíbe), e havia uma corrida de `stdin` com token pré-cancelado.
 
+### 3.6 D1 — memória ✅ (§7 da spec)
+
+Era **o** bloqueio do celular: a memória crescia com a duração do vídeo.
+
+| Antes | Agora |
+|---|---|
+| O pipeline guardava a síntese de **todas** as falas num `List<Float32List>` antes de planejar. | Síntese em **duas passagens**: a fase 1 grava `seg_<id>_natural.wav` e retém só a **duração** — que é tudo de que o `planDubSchedule` precisa. |
+| `DubbingSegment.fittedAudio` era um `Float32List` por fala, todas vivas até o mix. | O segmento carrega **paths e metadados** (`fittedAudioPath`, `fittedSampleRate/Count`); o natural é apagado assim que o fitted é validado. |
+| `buildDubTrack` alocava **um `Float32List` do vídeo inteiro** e somava cada fala dentro dele. | **Writer sequencial**: escreve o silêncio da lacuna e copia os quadros PCM16 de cada fala — sem conversão para float, sem soma. O working set é um bloco de 64K quadros, **independente da duração**. |
+| `asr_in.wav` era lido **inteiro, duas vezes por job** (~230 MB/hora). | `WavReader` por janela: cada segmento lê só o seu próprio trecho. |
+| `writeWavPcm16` materializava uma `List<int>` **boxed** do arquivo inteiro (spread). | Duas escritas diretas, sem boxing. |
+
+**Medido** (vídeo de 1 hora, 600 falas):
+
+| | Pico de RSS do processo |
+|---|---:|
+| Buffer antigo (`Float32List` de 158.760.000 amostras = 605 MB) | **841 MB** (a alocação sozinha subiu o RSS em 592 MB) |
+| Writer sequencial | **329 MB** — e nada disso escala com a duração |
+
+O writer também passou a **rejeitar sobreposição** de falas em vez de somá-las em silêncio: o scheduler garante que não há sobreposição, então uma violação é um bug que merece aparecer (§19.1: "writer rejeita overlap").
+
 ---
 
 ## 4. Verificação executada
 
 - **`main`:** `dart test` → **199 passam** (baseline original preservado).
-- **`android-port`:** `dart test` → **241 passam** (199 + 42 novos).
+- **`android-port`:** `dart test` → **262 passam** (199 + 63 novos).
 - **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real com whisper-cli, translateLocally, Piper e ffmpeg): **9/9 asserções**, saída com a duração exata do vídeo e **100 % das falas dentro de ±300 ms**.
 - `dart analyze` e `flutter analyze` sem erros nem warnings novos; teste de widget do app passa.
 
@@ -119,7 +142,6 @@ Mesmo assim, com fixture de SHA-256 idêntico, a segmentação ainda oscila 5↔
 
 ### 5.1 D1 restante (desbloqueado — não precisa de device)
 
-- **Memória:** áudio por segmento em disco, writer WAV sequencial, `WavReader` por janela, correção do spread boxed em `writeWavPcm16`. É o maior item restante da D1 e o que de fato viabiliza o celular.
 - **`JobCheckpointStore`** (§5.7): a interface está especificada, falta implementar o store e a política de retomada.
 - **`MediaToolRunner`** (§5.2): `tools` e `runTool` ainda estão no `DubbingRuntime` como transitórios — saem quando o runner tipado entrar, tirando os paths de executável do core.
 - **`tool/verify.ps1`** (analyze + testes, falha se regredir) e **`tool/check_native_libs.dart`** (inventário de `.so`).
