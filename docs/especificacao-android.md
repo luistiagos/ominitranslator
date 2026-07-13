@@ -859,6 +859,8 @@ Slimt é escolhido somente se **en→pt e pt→en** cumprirem todos os critério
 
 **en↔es e os pivôs pt↔es são medição informativa, não gate** — en↔es tiny já é o que o desktop usa em produção hoje, então reprová-lo aqui reprovaria o produto atual. O formulário `aceite-android.md` §4 pede as 6 direções: as 4 linhas de pivô/es são registro, e só en→pt e pt→en decidem.
 
+**Os critérios avaliam a saída do BACKEND de tradução completo, não o binário cru** (decisão de 2026-07-13, `decisoes.md`). O slimt decodifica guloso e, nos modelos pt, produz "tradução correta + eco"; o backend aplica `dedupRepeatedTail` (`translation_postprocess.dart`) antes de devolver — validado sobre as 100 saídas reais do moto g86 (17→0 degeneradas, nenhuma frase limpa alterada). É o que o usuário ouve, e há precedente: o backend desktop já pós-processa a *entrada* (transliteração sérvia). O `AndroidTranslator` DEVE aplicar o dedup.
+
 Se qualquer critério de gate falhar, usar bergamot-translator completo (time-box do §10.2). Não criar um terceiro backend no M1.
 
 ## 11. ASR Android — gate AT-2

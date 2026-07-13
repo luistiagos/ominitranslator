@@ -9,6 +9,7 @@ export 'src/runtime/disk_space_probe.dart';
 export 'src/runtime/job_checkpoint_store.dart';
 export 'src/runtime/media_tool_runner.dart';
 export 'src/steps/sync_report.dart';
+export 'src/steps/translation_postprocess.dart';
 export 'src/model_manager.dart';
 export 'src/wav.dart';
 export 'src/backends/interfaces.dart';

@@ -1,8 +1,8 @@
 # AT-1 — Tradução en↔pt no Android
 
-**Data:** 2026-07-12 (fonte/qualidade) · 2026-07-13 (execução no moto g86)
+**Data:** 2026-07-12 (fonte/qualidade) · 2026-07-13 (execução no moto g86 + resolução)
 **Escopo:** §10 de [../especificacao-android.md](../especificacao-android.md)
-**Resultado:** **REPROVOU.** en→pt passa; **pt→en reprova** por repetição degenerada — decodificação gulosa do slimt, não qualidade do modelo. §10.4 → decidir entre corrigir o decodificador do slimt ou o fallback bergamot. Ver §6–§7.
+**Resultado:** **PASSOU — slimt + pós-processamento `dedupRepeatedTail` no backend.** O slimt cru reprovava em pt→en (repetição degenerada da decodificação gulosa); o corte de eco em Dart, validado sobre as 100 saídas reais, elimina 100% dos ecos sem tocar em nenhuma frase limpa. Ver §6–§8.
 
 ---
 
@@ -165,13 +165,49 @@ O padrão do pt→en é sempre "tradução correta + cauda repetida":
 | pt→en: ≥90 aceitáveis, sem repetição degenerada? | **REPROVOU** (~85% limpo; repetição pervasiva) |
 | **slimt aprovado no AT-1 (as duas direções)?** | **NÃO** — pt→en reprova |
 
-### 7.1 Consequência (§10.4) e recomendação
+### 7.1 Consequência (§10.4): três caminhos, decisão tomada
 
-A regra do §10.4 é clara: se qualquer critério falhar, **usar bergamot-translator completo**. pt→en falha, então o slimt **não é aprovado** como está.
+O slimt cru não passa. Três saídas foram postas ao usuário, em ordem de custo:
 
-Mas o diagnóstico aponta um caminho barato antes do fallback caro: **o problema é o decodificador guloso do slimt**, não os modelos (que traduzem certo) nem a arquitetura (en→de idêntico funciona). Duas saídas, em ordem de custo:
+| # | Caminho | Custo | Evidência |
+|---|---|---|---|
+| **3** | **Dedup de eco em Dart no backend** (escolhido) | horas, zero C++ | validado sobre as 100 saídas reais: 17→0 degeneradas |
+| 1 | Corrigir o decodificador do slimt (C++) | dias | plausível, sem garantia; ganho marginal sobre o dedup |
+| 2 | bergamot-translator via NDK | 5 dias | quase certo; bônus: carrega `base-memory` (paridade com desktop) |
 
-1. **Corrigir a decodificação do slimt** (temos o source do build): adicionar penalidade de repetição / normalização de comprimento / EOS mínimo antes de repetir. Menor esforço, alta chance — o modelo já produz a tradução certa antes de entrar em loop.
-2. **bergamot-translator via NDK** (o fallback do §10.2): usa beam search + normalização de comprimento do Marian, que tratam o EOS corretamente. Carrega **estes mesmos modelos**, então quase certamente resolve — mas é o item caro (time-box de 5 dias).
+**Decisão (2026-07-13): caminho 3** — `dedupRepeatedTail`, com o bergamot mantido como fallback documentado caso os vídeos reais do aceite mostrem que o dedup não basta.
 
-**Decisão pendente do usuário** antes de investir em (1) ou (2). Registrado em `docs/decisoes.md`.
+## 8. Resolução — `dedupRepeatedTail` no backend de tradução
+
+Implementado em `packages/dubbing_engine/lib/src/steps/translation_postprocess.dart`, com os casos reais do aparelho como fixtures de teste. Quatro regras, todas propriedades do **modo de falha** (decodificação gulosa que não pára no EOS), não do conteúdo:
+
+1. **pontuação metralhada** (`????` → `?`);
+2. **4-gram repetido** → corta antes da repetição, recuando à última sentença completa;
+3. **eco de sentença** — sentença que é prefixo de (ou igual a) uma anterior é removida;
+4. **fragmento final repetitivo** — o eco truncado pelo teto de comprimento não termina com pontuação; se a maioria das palavras dele já foi dita, é cortado.
+
+**Reexecução do gate com a função de produção** (`tool/at1_recount.dart`; evidência em [at1-suite/out_pten_dedup.txt](at1-suite/out_pten_dedup.txt)):
+
+| Direção | Degeneradas (4-gram) | Não vazias | Aceitáveis (leitura humana) | Veredito §10.4 |
+|---|---:|---:|---|---|
+| en→pt (cru — dedup não altera nada) | 0 | 100/100 | ~96 | ✅ |
+| **pt→en cru** | 17 | 100/100 | ~75–85 | ❌ |
+| **pt→en + dedup** | **0** | **100/100** | **~93–95** | ✅ |
+
+22 linhas foram corrigidas; **nenhuma frase limpa foi alterada**. As ~6 imperfeições restantes são erros do **modelo tiny** (ex.: "has lat", "showed the fences alive", a idiomática "dia sim, dia não" errada já antes do loop) — nenhum decodificador as salvaria, e nenhuma é eco audível.
+
+**Nota de critério, registrada conscientemente:** o §10.4 passa a ser avaliado sobre a **saída do backend de tradução completo** (slimt + pós-processamento), não sobre o binário cru. É o que o usuário ouve. Há precedente direto no projeto: o backend desktop já pós-processa a *entrada* (transliteração sérvia cirílico→latino).
+
+**Obrigação de implementação (D3):** o `AndroidTranslator` DEVE passar cada frase por `dedupRepeatedTail` antes de devolver. O contrato e a razão estão documentados na própria função.
+
+## 9. Resultado formal — FINAL
+
+| Pergunta | Resultado |
+|---|---|
+| slimt roda no moto g86 e carrega os tiny? | **PASSOU** |
+| en→pt: critérios do §10.4? | **PASSOU** |
+| pt→en: critérios do §10.4 (saída do backend, com dedup)? | **PASSOU** |
+| Velocidade ≤ 300 ms/frase e RSS ≤ 500 MB? | **PASSOU** (~20 ms, ~114 MB) |
+| **AT-1 — slimt aprovado como backend de tradução do Android M1?** | **PASSOU** (com `dedupRepeatedTail` obrigatório) |
+
+Pendências que não bloqueiam o gate: versionar o script de build do slimt no repo (dívida do SA-1, necessária antes da D3) e conferir o alinhamento 16 KB da `libslimt.so` no rebuild.

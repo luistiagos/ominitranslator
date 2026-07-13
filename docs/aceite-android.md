@@ -37,7 +37,7 @@
 | Gate | Critério resumido | Resultado | Relatório |
 |---|---|---|---|
 | **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** (parte estática; runtime pendente da D3) | `spikes-android/AT0.md` |
-| AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **FALHOU** (en→pt passa; pt→en repete) | `spikes-android/AT1.md` |
+| AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **PASSOU** (slimt + `dedupRepeatedTail` no backend) | `spikes-android/AT1.md` |
 | AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | | `spikes-android/AT2.md` |
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | | `spikes-android/AT2.md` |
 | AT-3 FFmpeg | matriz completa e LGPL | | `spikes-android/AT3.md` |
@@ -69,7 +69,7 @@ Relatório: [spikes-android/AT0.md](spikes-android/AT0.md). O risco caro (recomp
 | Direção | Gate? | Frases | Não vazias | Aceitáveis | Mediana ms | Pico RSS | Crashes | Resultado |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | en→pt | **sim** | 100 | 100 | ~96 | ~20 | 114 MB | 0 | **PASSOU** |
-| pt→en | **sim** | 100 | 100 | ~85 (4-gram) / ~75 (humano) | ~21 | 112 MB | 0 | **FALHOU** (repetição) |
+| pt→en | **sim** | 100 | 100 | cru ~75–85 → **~93–95 com dedup** | ~21 | 112 MB | 0 | **PASSOU** (backend = slimt + `dedupRepeatedTail`) |
 | en→es | não | 100 | | | | | | não testado |
 | es→en | não | 100 | | | | | | não testado |
 | pt→es (pivô) | não | 100 | | | | | | não testado |
