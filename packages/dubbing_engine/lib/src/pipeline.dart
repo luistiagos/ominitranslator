@@ -56,15 +56,22 @@ Stream<PipelineEvent> runDubbingJob(
     }
     yield PipelineEvent(PipelineStage.prepare, 1.0, 'Espaço em disco OK');
 
-    final targetVoiceId = piperModelId[config.targetLang];
+    final catalog = models.catalog;
+    final targetVoiceId = catalog.defaultVoiceIds[config.targetLang];
     if (targetVoiceId == null) {
       throw PipelineException(PipelineStage.prepare,
           'O idioma ${config.targetLang.label} não tem voz de dublagem disponível.');
     }
+    final asrId = catalog.asrModelIds[config.preset];
+    if (asrId == null) {
+      throw PipelineException(PipelineStage.prepare,
+          'O preset ${config.preset.name} não tem modelo de ASR nesta plataforma.');
+    }
     final requiredIds = <String>[
-      whisperModelId[config.preset]!,
+      asrId,
       targetVoiceId,
-      spleeterModelId,
+      // Plataforma sem separação (Android M1) não exige o modelo.
+      if (catalog.separatorModelId != null) catalog.separatorModelId!,
     ];
     final missing = requiredIds.where((id) => models.stateOf(id) != ModelState.ready).toList();
     if (missing.isNotEmpty) {

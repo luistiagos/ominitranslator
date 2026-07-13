@@ -130,7 +130,7 @@ class PiperSynthesizer implements Synthesizer {
   PiperSynthesizer(this.targetLang, ModelManager models,
       {(String modelId, int sid)? voiceOverride}) {
     ensureSherpaBindings();
-    final defaultVoiceId = piperModelId[targetLang];
+    final defaultVoiceId = models.catalog.defaultVoiceIds[targetLang];
     if (voiceOverride == null && defaultVoiceId == null) {
       throw StateError('${targetLang.label} não tem voz de dublagem disponível.');
     }
@@ -140,7 +140,7 @@ class PiperSynthesizer implements Synthesizer {
     final engineSpecs = <({int numSpeakers, List<VoiceGender> sidGenders})>[];
     for (final id in bank) {
       if (models.stateOf(id) != ModelState.ready) continue;
-      final entry = ModelManager.manifest.firstWhere((e) => e.id == id);
+      final entry = models.catalog.entryOf(id)!;
       final modelPath = models.pathOf(id);
       final tts = sherpa.OfflineTts(sherpa.OfflineTtsConfig(
         model: sherpa.OfflineTtsModelConfig(

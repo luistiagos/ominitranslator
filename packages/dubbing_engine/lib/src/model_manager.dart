@@ -66,13 +66,69 @@ class ModelEntry {
   });
 }
 
+enum ModelPlatform { windows, android }
+
+/// Quais modelos existem numa plataforma, e quais são os escolhidos por padrão.
+///
+/// O mesmo ID não pode significar `.bin` no Windows e ONNX no Android, e o
+/// pipeline não pode mais decidir isso com IDs hardcoded (era o que o estágio
+/// `prepare` fazia). Cada plataforma monta o seu catálogo; o `ModelManager`
+/// carrega um.
+class ModelCatalog {
+  final ModelPlatform platform;
+  final List<ModelEntry> entries;
+
+  /// Modelo de ASR por preset.
+  final Map<Preset, String> asrModelIds;
+
+  /// Voz padrão por idioma de destino.
+  final Map<Lang, String> defaultVoiceIds;
+
+  /// Separação de voz/trilha. Null quando a plataforma não separa — é assim
+  /// que o Android M1 (voice-over puro) expressa a ausência, e por isso o
+  /// `prepare` não exige o modelo lá.
+  final String? separatorModelId;
+
+  const ModelCatalog({
+    required this.platform,
+    required this.entries,
+    required this.asrModelIds,
+    required this.defaultVoiceIds,
+    this.separatorModelId,
+  });
+
+  static ModelCatalog windows() => ModelCatalog(
+        platform: ModelPlatform.windows,
+        entries: ModelManager._windowsEntries,
+        asrModelIds: whisperModelId,
+        defaultVoiceIds: piperModelId,
+        separatorModelId: spleeterModelId,
+      );
+
+  // ModelCatalog.android() entra quando o AT-2 fixar os nomes e URLs reais dos
+  // assets ONNX do sherpa. A spec proíbe inferi-los (§6.1).
+
+  ModelEntry? entryOf(String id) {
+    for (final e in entries) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+}
+
 class ModelManager {
   final String modelsRoot;
   final Tools tools;
+  final ModelCatalog catalog;
 
-  ModelManager(this.modelsRoot, this.tools);
+  ModelManager(this.modelsRoot, this.tools, {ModelCatalog? catalog})
+      : catalog = catalog ?? ModelCatalog.windows();
 
-  static List<ModelEntry> get manifest => [
+  /// Compatibilidade: o manifest do Windows. Código novo deve usar
+  /// `catalog.entries`, que é por plataforma.
+  static List<ModelEntry> get manifest => ModelCatalog.windows().entries;
+
+  static List<ModelEntry> get _windowsEntries => [
     ModelEntry(
       id: 'whisper-small-q5_1',
       kind: 'file',

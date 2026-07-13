@@ -22,10 +22,8 @@ class SherpaDiarizer implements Diarizer {
   Future<DiarizationResult> diarize(
       String wav16kMonoPath, CancellationToken token) async {
     ensureSherpaBindings();
-    final segEntry = ModelManager.manifest
-        .firstWhere((e) => e.id == diarizationSegmentationModelId);
-    final embEntry = ModelManager.manifest
-        .firstWhere((e) => e.id == diarizationEmbeddingModelId);
+    final segEntry = models.catalog.entryOf(diarizationSegmentationModelId)!;
+    final embEntry = models.catalog.entryOf(diarizationEmbeddingModelId)!;
     final segmentationModel =
         models.pathOf(diarizationSegmentationModelId, segEntry.expects.first);
     final embeddingModel =

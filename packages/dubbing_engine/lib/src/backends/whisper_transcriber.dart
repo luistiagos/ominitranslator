@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:dubbing_engine/src/backends/interfaces.dart';
-import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
@@ -22,8 +21,8 @@ class WhisperTranscriber implements Transcriber {
       String wav16kMono, Lang sourceLang, CancellationToken token, {RunToolFn? runToolOverride}) async {
     final exec = runToolOverride ?? runTool;
     final workDir = p.dirname(wav16kMono);
-    final whisperId = whisperModelId[preset]!;
-    final whisperEntry = ModelManager.manifest.firstWhere((e) => e.id == whisperId);
+    final whisperId = models.catalog.asrModelIds[preset]!;
+    final whisperEntry = models.catalog.entryOf(whisperId)!;
     final modelFile = models.pathOf(whisperId, whisperEntry.expects.first);
     final r1 = await exec(tools.ffmpeg, [
       '-y', '-i', wav16kMono,

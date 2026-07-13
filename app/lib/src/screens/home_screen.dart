@@ -102,22 +102,27 @@ class _HomeScreenState extends State<HomeScreen> {
       .where((l) => l.isDubTarget)
       .toList();
 
-  List<String> _requiredModelIds() {
-    final presetModelId = _preset == Preset.best ? 'whisper-small-q5_1' : 'whisper-base-q5_1';
-    return [presetModelId, piperModelId[_targetLang]!, 'spleeter-2stems-fp16'];
+  List<String> _requiredModelIds(AppState state) {
+    final catalog = state.modelManager.catalog;
+    return [
+      catalog.asrModelIds[_preset]!,
+      catalog.defaultVoiceIds[_targetLang]!,
+      // Plataforma sem separação (Android M1) não exige o modelo.
+      if (catalog.separatorModelId != null) catalog.separatorModelId!,
+    ];
   }
 
   bool _canDub(AppState state) {
     if (state.jobRunning) return false;
     if (_videoPath == null && _youtubeController.text.trim().isEmpty) return false;
     if (!canTranslate(_sourceLang, _targetLang)) return false;
-    return _requiredModelIds()
+    return _requiredModelIds(state)
         .every((id) => state.modelStates[id] == ModelState.ready);
   }
 
   String? _missingModels(AppState state) {
     final missing = <String>[];
-    for (final id in _requiredModelIds()) {
+    for (final id in _requiredModelIds(state)) {
       if (state.modelStates[id] != ModelState.ready) {
         missing.add(state.modelStates[id] == ModelState.corrupted ? 'corrompido' : 'ausente');
       }

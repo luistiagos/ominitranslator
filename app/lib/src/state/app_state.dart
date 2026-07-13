@@ -125,7 +125,7 @@ class AppState extends ChangeNotifier {
   bool _jobFinished = false;
 
   Future<void> refreshModelStates() async {
-    for (final entry in ModelManager.manifest) {
+    for (final entry in modelManager.catalog.entries) {
       _modelStates[entry.id] = modelManager.stateOf(entry.id);
     }
     notifyListeners();

@@ -171,9 +171,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
 
   /// Vozes por idioma-alvo, na ordem de `Lang.values`, com a voz padrão
   /// (`piperModelId`) sempre listada primeiro.
-  Map<Lang, List<ModelEntry>> _voicesByLang() {
+  Map<Lang, List<ModelEntry>> _voicesByLang(ModelCatalog catalog) {
     final byLang = <Lang, List<ModelEntry>>{};
-    for (final entry in ModelManager.manifest) {
+    for (final entry in catalog.entries) {
       if (entry.lang == null) continue;
       byLang.putIfAbsent(entry.lang!, () => []).add(entry);
     }
@@ -216,8 +216,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final essentials = ModelManager.manifest.where((e) => e.lang == null).toList();
-    final voicesByLang = _voicesByLang();
+    final catalog = appState.modelManager.catalog;
+    final essentials = catalog.entries.where((e) => e.lang == null).toList();
+    final voicesByLang = _voicesByLang(catalog);
     final dubTargets = Lang.values.where((l) => l.isDubTarget && voicesByLang.containsKey(l)).toList();
     final sourceOnlyModels = _sourceOnlyModelsById();
 

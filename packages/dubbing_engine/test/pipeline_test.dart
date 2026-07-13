@@ -159,6 +159,68 @@ void main() {
       }
     });
 
+    test('a catalog without a separator does not require the separation model', () async {
+      final tempDir = Directory.systemTemp.createTempSync('pipeline_nosep_');
+      try {
+        // Catálogo estilo Android M1: voice-over puro, sem spleeter. O prepare
+        // não pode exigir um modelo que a plataforma nem usa — antes ele pedia
+        // 'spleeter-2stems-fp16' hardcoded e o job morreria aqui.
+        final catalog = ModelCatalog(
+          platform: ModelPlatform.android,
+          entries: ModelCatalog.windows().entries,
+          asrModelIds: const {Preset.best: 'whisper-small-q5_1'},
+          defaultVoiceIds: const {Lang.pt: 'piper-pt-br'},
+        );
+        final models = ModelManager(tempDir.path, _dummyTools, catalog: catalog);
+        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+            extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
+        // spleeter propositalmente AUSENTE.
+
+        final config = DubbingJobConfig(
+          inputVideo: p.join(tempDir.path, 'input.mp4'),
+          sourceLang: Lang.en,
+          targetLang: Lang.pt,
+          preset: Preset.best,
+          generateSrt: false,
+          workDir: p.join(tempDir.path, 'work'),
+          outputPath: p.join(tempDir.path, 'out.mp4'),
+        );
+        File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
+        Directory(config.workDir).createSync(recursive: true);
+        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
+
+        final RunToolFn runToolMock = (
+          String exePath,
+          List<String> args, {
+          String? workingDirectory,
+          Duration timeout = const Duration(minutes: 30),
+          CancellationToken? token,
+        }) async {
+          if (exePath == 'ffprobe') return _okResult('5.0\n');
+          return _okResult();
+        };
+
+        PipelineException? error;
+        await runDubbingJob(config, CancellationToken(),
+                runtime: _runtime(models,
+                    runToolOverride: runToolMock,
+                    createSeparator: () => _MockSeparator(false,
+                        reason: SeparationFailureReason.notSupportedOnPlatform)))
+            .handleError((e) {
+              if (e is PipelineException) error = e;
+            }).toList();
+
+        expect(error, isNull,
+            reason: 'prepare must not demand a model the platform never uses');
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
     test('a runtime without a downloader refuses a remote URL instead of crashing', () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_nodl_');
       try {
