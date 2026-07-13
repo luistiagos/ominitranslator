@@ -6,6 +6,7 @@ export 'src/pipeline.dart';
 export 'src/runtime/dubbing_runtime.dart';
 export 'src/runtime/desktop_runtime.dart';
 export 'src/runtime/disk_space_probe.dart';
+export 'src/runtime/job_checkpoint_store.dart';
 export 'src/runtime/media_tool_runner.dart';
 export 'src/steps/sync_report.dart';
 export 'src/model_manager.dart';
