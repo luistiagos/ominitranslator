@@ -896,6 +896,8 @@ O backend retorna `List<TranscriptSegment>` com:
 
 O último item era, antes desta revisão, "diferença perceptual contra whisper-cli documentada e aceitável" — formulação vaga demais para um gate. Mas é justamente o critério de release da §19.4. Do jeito antigo, era possível aprovar o AT-2, construir o pipeline inteiro e só descobrir na fase D4 que a sincronia não fecha. Medir aqui custa uma tarde e responde a pergunta antes de existir pipeline.
 
+**O baseline desktop é uma FAIXA, não um número único.** Medido em 2026-07-13 (ver `decisoes.md`): mesmo com fixture de SHA-256 idêntico, a segmentação oscila entre execuções porque a inferência nativa multi-thread injeta jitter sub-ms nos timestamps, que às vezes cruza o `mergeMaxPause` de 600 ms. whisper-cli e spleeter são individualmente determinísticos; a fragilidade está no limiar de merge. Portanto o baseline deve ser a **mediana de N ≥ 5 execuções** do mesmo clipe no desktop, e o gate compara medianas — não uma única run contra outra única run.
+
 Os nomes exatos dos assets sherpa e o código de configuração aprovado devem ser anexados ao relatório `docs/spikes-android/AT2.md` antes de integrar o pipeline.
 
 ### 11.4 Aceite AT-2b — TTS Piper no device

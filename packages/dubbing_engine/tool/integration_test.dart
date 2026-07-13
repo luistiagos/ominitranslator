@@ -66,60 +66,86 @@ void main() async {
   }
   print('  Models ready');
 
-  // 1. Generate fixture
-  print('\n--- Step 1: Generate fixture ---');
+  // 1. Fixture
+  //
+  // A fixture é gerada UMA VEZ e depois reusada. O Piper é um VITS com
+  // `noise_scale_w = 0.8`: a síntese é ESTOCÁSTICA, então regerar a fixture a
+  // cada execução mudava o áudio de entrada, os timestamps do whisper e, por
+  // consequência, a segmentação (medido: 4 a 6 unidades para o mesmo texto) e
+  // o percentual de sincronia (83% a 100%). Com entrada variável não existe
+  // baseline — e o baseline de ±300ms é justamente o que a fase D1 precisa
+  // registrar. Apague o jobDir para forçar uma fixture nova.
+  print('\n--- Step 1: Fixture ---');
   final tempDir = Directory.systemTemp.path;
   final jobDir = '$tempDir\\omnitranslator_integration_test';
-  if (Directory(jobDir).existsSync()) {
-    Directory(jobDir).deleteSync(recursive: true);
-  }
   Directory(jobDir).createSync(recursive: true);
-
-  // Synthesize 5 sentences with Piper-en
-  final synthesizer = PiperSynthesizer(Lang.en, models);
-  final sentences = [
-    'The weather is beautiful today.',
-    'I would like a cup of coffee.',
-    'The train leaves at seven in the morning.',
-    'She bought three books yesterday.',
-    'We are going to the beach this weekend.',
-  ];
-  final allSamples = <double>[];
-  for (final sentence in sentences) {
-    final audio = synthesizer.synthesize(sentence);
-    allSamples.addAll(audio.samples);
-    // 1 second silence between sentences
-    allSamples.addAll(Float32List(audio.sampleRate * 1));
-  }
-  synthesizer.dispose();
-
-  // Convert to mono PCM16 and write
-  final speechPath = '$jobDir\\fixture_speech.wav';
-  final speechSamples = Float32List(allSamples.length);
-  for (int i = 0; i < allSamples.length; i++) {
-    speechSamples[i] = allSamples[i];
-  }
-  final totalDur = speechSamples.length / 22050;
-  writeWavPcm16(speechPath, WavData(speechSamples, 22050, 1));
-
-  // Create video
   final fixtureVideo = '$jobDir\\fixture.mp4';
-  final r = await runTool(tools.ffmpeg, [
-    '-y',
-    '-f', 'lavfi', '-i', 'color=c=blue:s=640x360:d=${totalDur + 2}',
-    '-i', speechPath,
-    // O ffmpeg do repo é LGPL e não tem libx264.
-    '-c:v', 'libopenh264', '-b:v', '1M',
-    '-c:a', 'aac',
-    '-shortest',
-    fixtureVideo,
-  ]);
-  if (r.exitCode != 0) {
-    print('  FAIL: Could not generate fixture video: ${r.stderrTail}');
-    exitCode = 1;
-    return;
+  final speechPath = '$jobDir\\fixture_speech.wav';
+
+  if (File(fixtureVideo).existsSync() && File(speechPath).existsSync()) {
+    print('  Reusing existing fixture: $fixtureVideo');
+  } else {
+    // Synthesize 5 sentences with Piper-en
+    final synthesizer = PiperSynthesizer(Lang.en, models);
+    final sentences = [
+      'The weather is beautiful today.',
+      'I would like a cup of coffee.',
+      'The train leaves at seven in the morning.',
+      'She bought three books yesterday.',
+      'We are going to the beach this weekend.',
+    ];
+    final allSamples = <double>[];
+    for (final sentence in sentences) {
+      final audio = synthesizer.synthesize(sentence);
+      allSamples.addAll(audio.samples);
+      // 1 second silence between sentences
+      allSamples.addAll(Float32List(audio.sampleRate * 1));
+    }
+    synthesizer.dispose();
+
+    // Convert to mono PCM16 and write
+    final speechSamples = Float32List(allSamples.length);
+    for (int i = 0; i < allSamples.length; i++) {
+      speechSamples[i] = allSamples[i];
+    }
+    final totalDur = speechSamples.length / 22050;
+    writeWavPcm16(speechPath, WavData(speechSamples, 22050, 1));
+
+    final r = await runTool(tools.ffmpeg, [
+      '-y',
+      '-f', 'lavfi', '-i', 'color=c=blue:s=640x360:d=${totalDur + 2}',
+      '-i', speechPath,
+      // O ffmpeg do repo é LGPL e não tem libx264.
+      '-c:v', 'libopenh264', '-b:v', '1M',
+      '-c:a', 'aac',
+      '-shortest',
+      fixtureVideo,
+    ]);
+    if (r.exitCode != 0) {
+      print('  FAIL: Could not generate fixture video: ${r.stderrTail}');
+      exitCode = 1;
+      return;
+    }
+    print('  Fixture video generated: $fixtureVideo');
   }
-  print('  Fixture video generated: $fixtureVideo');
+
+  // Saídas da execução anterior não podem contaminar as asserções.
+  for (final stale in [
+    '$jobDir\\work',
+    '$jobDir\\fixture_dub_pt.mp4',
+    '$jobDir\\fixture_dub_pt.en.srt',
+    '$jobDir\\fixture_dub_pt.pt.srt',
+    '$jobDir\\fixture_dub_pt.sync.json',
+  ]) {
+    if (FileSystemEntity.isDirectorySync(stale)) {
+      Directory(stale).deleteSync(recursive: true);
+    } else if (File(stale).existsSync()) {
+      File(stale).deleteSync();
+    }
+  }
+
+  // Lido do WAV (e não guardado da geração): a fixture pode ter vindo do reuso.
+  final totalDur = wavDurationSeconds(speechPath);
 
   // 2. Run dubbing job
   print('\n--- Step 2: Run dubbing job (en→pt, fast) ---');
@@ -139,7 +165,8 @@ void main() async {
   PipelineException? jobError;
 
   try {
-    await for (final event in runDubbingJob(config, token, tools: tools, models: models)) {
+    final runtime = desktopRuntime(tools: tools, models: models);
+    await for (final event in runDubbingJob(config, token, runtime: runtime)) {
       print('  [${event.stage.name}] ${event.message}');
     }
   } on PipelineException catch (e) {
