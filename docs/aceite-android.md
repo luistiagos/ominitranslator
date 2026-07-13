@@ -19,21 +19,25 @@
 
 ## 2. Inventário do aparelho principal
 
-| Campo | Valor esperado | Medido |
+| Campo | Valor esperado | Medido (2026-07-13, serial `ZY32LMNN9B`) |
 |---|---|---|
-| Modelo | moto g86 5G | |
-| Android/API | Android 16/API 36 | |
-| ABI | arm64-v8a | |
-| RAM total | registrar | |
-| Page size | registrar | |
-| Espaço livre inicial | ≥ reserva calculada | |
+| Modelo | moto g86 5G | moto g86 5G (motorola) ✅ |
+| Android/API | Android 16/API 36 | Android 16 / API 36 ✅ |
+| ABI | arm64-v8a | `arm64-v8a` — **abilist só arm64** (sem v7a/x86) ✅ |
+| RAM total | registrar | 7.569.880 kB (~7,2 GiB) |
+| Page size | registrar | **4096 (4 KB)** — ver nota abaixo |
+| Espaço livre inicial | ≥ reserva calculada | ~163 GiB livres em `/data` (28% usado) |
+| Kernel | — | 6.1.141-android14 |
+| Security patch | — | 2026-05-01 |
+
+> **Nota sobre o page size (afeta o AT-0):** o moto g86 roda **páginas de 4 KB**. Portanto **este aparelho não valida o carregamento em ambiente de 16 KB** — ele carregaria `.so` de 4 KB sem reclamar. A parte estática do AT-0 (as `.so` do sherpa já são 16 KB-alinhadas, ORT 1.27.0) garante a aceitação na Play; a confirmação de *runtime* em 16 KB precisa de um **emulador Android 15+ com imagem de 16 KB**, não do g86. Ver `spikes-android/AT0.md`.
 
 ## 3. Gates técnicos
 
 | Gate | Critério resumido | Resultado | Relatório |
 |---|---|---|---|
 | **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** (parte estática; runtime pendente da D3) | `spikes-android/AT0.md` |
-| AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | | `spikes-android/AT1.md` |
+| AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **FALHOU** (en→pt passa; pt→en repete) | `spikes-android/AT1.md` |
 | AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | | `spikes-android/AT2.md` |
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | | `spikes-android/AT2.md` |
 | AT-3 FFmpeg | matriz completa e LGPL | | `spikes-android/AT3.md` |
@@ -64,12 +68,14 @@ Relatório: [spikes-android/AT0.md](spikes-android/AT0.md). O risco caro (recomp
 
 | Direção | Gate? | Frases | Não vazias | Aceitáveis | Mediana ms | Pico RSS | Crashes | Resultado |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| en→pt | **sim** | 100 | | | | | | |
-| pt→en | **sim** | 100 | | | | | | |
-| en→es | não | 100 | | | | | | |
-| es→en | não | 100 | | | | | | |
-| pt→es (pivô) | não | 100 | | | | | | |
-| es→pt (pivô) | não | 100 | | | | | | |
+| en→pt | **sim** | 100 | 100 | ~96 | ~20 | 114 MB | 0 | **PASSOU** |
+| pt→en | **sim** | 100 | 100 | ~85 (4-gram) / ~75 (humano) | ~21 | 112 MB | 0 | **FALHOU** (repetição) |
+| en→es | não | 100 | | | | | | não testado |
+| es→en | não | 100 | | | | | | não testado |
+| pt→es (pivô) | não | 100 | | | | | | não testado |
+| es→pt (pivô) | não | 100 | | | | | | não testado |
+
+**Aparelho:** moto g86 5G, Android 16, arm64. **Backend:** slimt (build do SA-1). **Sem `--shortlist`** (o lex degenera a saída). Detalhes e evidência: `spikes-android/AT1.md` §6–§7 e `spikes-android/at1-suite/`.
 
 Fonte dos modelos — tier **tiny** (`version: "1.0"`), **Remote Settings do Firefox** (MPL-2.0). O repo `mozilla/firefox-translations-models` **não serve para download**: os objetos LFS foram removidos (410). Ver [spikes-android/AT1.md](spikes-android/AT1.md).
 

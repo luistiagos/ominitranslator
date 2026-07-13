@@ -1,8 +1,8 @@
 # AT-1 — Tradução en↔pt no Android
 
-**Data:** 2026-07-12
+**Data:** 2026-07-12 (fonte/qualidade) · 2026-07-13 (execução no moto g86)
 **Escopo:** §10 de [../especificacao-android.md](../especificacao-android.md)
-**Resultado parcial:** **fonte, licença, hashes e qualidade RESOLVIDOS.** As 100 frases por direção no aparelho continuam **PENDENTES** (ver §6).
+**Resultado:** **REPROVOU.** en→pt passa; **pt→en reprova** por repetição degenerada — decodificação gulosa do slimt, não qualidade do modelo. §10.4 → decidir entre corrigir o decodificador do slimt ou o fallback bergamot. Ver §6–§7.
 
 ---
 
@@ -114,11 +114,64 @@ Base CDN: `https://firefox-settings-attachments.cdn.mozilla.net/`
 | A qualidade do tiny é aceitável ante o `base-memory`? | **PASSOU** (−0,6 / −0,1 BLEU nos pares de gate) |
 | Fonte reproduzível para o `base-memory` do desktop? | **PASSOU** (bit a bit idêntico ao v2.1) |
 
-## 6. O que falta (passos 3–5 da §10.2) — bloqueado em dois pré-requisitos
+## 6. Execução no device — moto g86 5G (2026-07-13)
 
-1. **O `libslimt.so` do SA-1 não existe mais.** O spike foi feito no protótipo irmão (`E:\projects\omnitranslator-android`) e o artefato não foi versionado. O próprio SA-1 §5 já avisava: *"os patches e versões deverão ser transformados em script versionado antes de qualquer uso de produção"*. **Primeira tarefa do AT-1 continuado:** transformar o build do slimt num script versionado neste repositório (patches do PCRE2/`-Werror` inclusos), e conferir o alinhamento de 16 KB da `.so` gerada (NDK ≥ r27 já alinha por padrão — ver `AT0.md`).
-2. **Nenhum aparelho conectado** (`adb devices` vazio). As 100 frases/direção e as métricas do §10.4 (mediana ≤ 300 ms, RSS ≤ 500 MB) exigem o moto g86.
+**Aparelho:** moto g86 5G, Android 16, arm64-v8a. **Binário:** o `slimt-cli` (32,5 MB) e a `libslimt.so` (3,0 MB, ELF AARCH64) do build do SA-1, recuperados do cache (`E:\dev_cache\temp`). **Modelos:** tiny v1.0 baixados do Remote Settings (SHA-256 conferido). **Suíte:** 100 frases por direção, versionadas em [at1-suite/](at1-suite/) (`en.txt`, `pt.txt`).
 
-A **suíte fixa de 100 frases** por direção também ainda não existe — precisa ser criada e versionada antes da execução.
+**Invocação:** sem `--shortlist` (ver §6.1). Uma direção = uma passada do `slimt-cli` com stdin/stdout.
 
-Nada disso muda a decisão de arquitetura: o caminho é slimt + tiny, e a probabilidade de reprovação caiu muito com os números da §2.
+### 6.1 Achado de configuração — o shortlist (lex) degenera a saída
+
+Com o shortlist (`--shortlist lex.50.50.*.s2t.bin`), as duas direções produzem lixo (palavras não traduzidas, `......`, repetição). **Sem o shortlist, a tradução fica correta.** O lex restringe o vocabulário de saída por token de origem e, no formato destes modelos, incompatibiliza com o slimt. Consequência: **o pacote Android não precisa dos arquivos `lex`** — só `model` + `vocab` (economiza ~4,3 MB por par).
+
+Os warnings `Failed to ingest Wemb_QuantMultA` e `special:model.yml` aparecem sempre, mas são **benignos**: o modelo en→de (§6.3) mostra os mesmos e traduz limpo.
+
+### 6.2 Métricas (§10.4)
+
+| Direção | Frases | Não vazias | Tempo total | ms/frase | Pico RSS | Crashes |
+|---|---:|---:|---:|---:|---:|---:|
+| **en→pt** | 100 | 100 | 1978 ms | ~20 | 114 MB | 0 |
+| **pt→en** | 100 | 100 | 2110 ms | ~21 | 112 MB | 0 |
+
+Velocidade e memória passam com folga enorme (teto: 300 ms/frase e 500 MB). **O gargalo é só qualidade.**
+
+### 6.3 Qualidade — a assimetria que reprova o gate
+
+| Direção | Limpas (4-gram estrito) | Leitura humana | Veredito §10.4 |
+|---|---:|---|---|
+| **en→pt** | **100/100** | ~96 boas (erros isolados: "deleitado", "regogo", 2 repetições curtas) | ✅ **passa** |
+| **pt→en** | **85/100** | ~75 boas — **repetição degenerada pervasiva** | ❌ **reprova** (< 90) |
+
+O padrão do pt→en é sempre "tradução correta + cauda repetida":
+
+- `Eu gostaria de uma xícara de café.` → `I would like a cup of coffee. I would like a cup of coffee.`
+- `Ela fala quatro idiomas fluentemente.` → `She speaks four languages fluently. She speaks four languages fluently.`
+- `Eu rego as plantas dia sim, dia não.` → `I water the plants day out day, day out, I revel in the plants day out. Day, I re…` (severa)
+
+**Não é problema de qualidade do modelo nem de arquitetura:**
+
+- as traduções em si estão corretas — é a decodificação que não pára no EOS e repete;
+- `--limit-tgt` só corta o comprimento, não desfaz o loop (testado com 1.2 / 1.5 / 3.0);
+- o slimt-cli decodifica **guloso** (beam 1), sem normalização de comprimento nem penalidade de repetição — nenhuma dessas é exposta na CLI;
+- **en→de tiny (mesma arquitetura, mesma fonte, mesmos warnings) traduz limpo, sem repetir.** Logo o defeito é a interação do decodificador guloso do slimt com os modelos **pt** especificamente.
+
+## 7. Resultado formal do AT-1
+
+| Pergunta | Resultado |
+|---|---|
+| slimt roda no moto g86 e carrega os tiny? | **PASSOU** |
+| en→pt: 100/100 não vazias, ≥90 aceitáveis, sem crash/degeneração? | **PASSOU** |
+| Velocidade ≤ 300 ms/frase e RSS ≤ 500 MB? | **PASSOU** (~20 ms, ~114 MB) |
+| pt→en: ≥90 aceitáveis, sem repetição degenerada? | **REPROVOU** (~85% limpo; repetição pervasiva) |
+| **slimt aprovado no AT-1 (as duas direções)?** | **NÃO** — pt→en reprova |
+
+### 7.1 Consequência (§10.4) e recomendação
+
+A regra do §10.4 é clara: se qualquer critério falhar, **usar bergamot-translator completo**. pt→en falha, então o slimt **não é aprovado** como está.
+
+Mas o diagnóstico aponta um caminho barato antes do fallback caro: **o problema é o decodificador guloso do slimt**, não os modelos (que traduzem certo) nem a arquitetura (en→de idêntico funciona). Duas saídas, em ordem de custo:
+
+1. **Corrigir a decodificação do slimt** (temos o source do build): adicionar penalidade de repetição / normalização de comprimento / EOS mínimo antes de repetir. Menor esforço, alta chance — o modelo já produz a tradução certa antes de entrar em loop.
+2. **bergamot-translator via NDK** (o fallback do §10.2): usa beam search + normalização de comprimento do Marian, que tratam o EOS corretamente. Carrega **estes mesmos modelos**, então quase certamente resolve — mas é o item caro (time-box de 5 dias).
+
+**Decisão pendente do usuário** antes de investir em (1) ou (2). Registrado em `docs/decisoes.md`.
