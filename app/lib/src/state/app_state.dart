@@ -29,8 +29,10 @@ Future<void> _jobEntry(_JobArgs args) async {
     final stream = runDubbingJob(
       args.config,
       token,
-      tools: args.tools,
-      models: ModelManager(args.modelsRoot, args.tools),
+      runtime: desktopRuntime(
+        tools: args.tools,
+        models: ModelManager(args.modelsRoot, args.tools),
+      ),
       onDone: (r) => result = r,
     );
     await for (final event in stream) {

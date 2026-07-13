@@ -3,14 +3,10 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:dubbing_engine/src/backends/interfaces.dart';
-import 'package:dubbing_engine/src/backends/piper_synthesizer.dart';
-import 'package:dubbing_engine/src/backends/sherpa_diarizer.dart';
-import 'package:dubbing_engine/src/backends/sherpa_separator.dart';
-import 'package:dubbing_engine/src/backends/translatelocally_translator.dart';
-import 'package:dubbing_engine/src/backends/whisper_transcriber.dart';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
 import 'package:dubbing_engine/src/steps/demux.dart';
 import 'package:dubbing_engine/src/steps/fitter.dart';
 import 'package:dubbing_engine/src/steps/mixer.dart';
@@ -20,10 +16,8 @@ import 'package:dubbing_engine/src/steps/speaker_assign.dart';
 import 'package:dubbing_engine/src/steps/speech_trim.dart';
 import 'package:dubbing_engine/src/steps/subtitles.dart';
 import 'package:dubbing_engine/src/steps/sync_report.dart';
-import 'package:dubbing_engine/src/steps/youtube.dart';
-import 'package:dubbing_engine/src/tools/disk_space.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+// Só pelo `driveOf` da mensagem de erro; sai junto com o DiskSpaceProbe (G-7).
+import 'package:dubbing_engine/src/tools/disk_space.dart' show driveOf;
 import 'package:dubbing_engine/src/wav.dart';
 
 /// Espaço mínimo livre recomendado no disco do diretório de trabalho.
@@ -34,17 +28,12 @@ const int minFreeDiskBytes = 2 * 1024 * 1024 * 1024; // 2 GB
 Stream<PipelineEvent> runDubbingJob(
   DubbingJobConfig config,
   CancellationToken token, {
-  required Tools tools,
-  required ModelManager models,
+  required DubbingRuntime runtime,
   void Function(DubbingResult)? onDone,
-  Separator Function(Tools, ModelManager)? separatorFactory,
-  Diarizer Function(ModelManager)? diarizerFactory,
-  Transcriber Function(Tools, ModelManager, Preset)? transcriberFactory,
-  Translator Function(Tools, ModelManager)? translatorFactory,
-  Synthesizer Function(Lang, ModelManager)? synthesizerFactory,
-  RunToolFn? runToolOverride,
-  int? Function(String)? freeBytesOverride,
 }) async* {
+  final models = runtime.models;
+  final tools = runtime.tools;
+  final exec = runtime.runTool;
   final stopwatch = Stopwatch()..start();
   String? srtSourcePath;
   String? srtTargetPath;
@@ -59,7 +48,7 @@ Stream<PipelineEvent> runDubbingJob(
     _ensureDirectories(workDir);
 
     yield PipelineEvent(PipelineStage.prepare, 0.0, 'Verificando espaço em disco...');
-    final freeBytes = freeBytesOverride != null ? freeBytesOverride(workDir) : freeBytesForPath(workDir);
+    final freeBytes = runtime.freeBytes(workDir);
     if (freeBytes != null && freeBytes < minFreeDiskBytes) {
       final freeMb = (freeBytes / (1024 * 1024)).round();
       final drive = driveOf(workDir);
@@ -86,20 +75,15 @@ Stream<PipelineEvent> runDubbingJob(
     }
 
     if (config.youtubeUrl != null) {
-      if (!tools.hasYtDlp) {
+      // A plataforma que não baixa vídeo remoto (Android M1) expressa isso com
+      // um createDownloader nulo — e a recusa é explícita, não um crash.
+      final createDownloader = runtime.createDownloader;
+      if (createDownloader == null) {
         throw PipelineException(PipelineStage.download,
-            'yt-dlp não encontrado. Baixe yt-dlp.exe e coloque em tools/win/');
+            'Download de vídeo remoto não é suportado nesta plataforma.');
       }
       yield PipelineEvent(PipelineStage.download, 0.0, 'Baixando vídeo do YouTube...');
-      inputVideo = await downloadFromYoutube(
-        config.youtubeUrl!,
-        workDir,
-        tools.ytDlp,
-        token,
-        runToolOverride: runToolOverride,
-        cookiesFromBrowser: config.ytDlpCookiesFromBrowser,
-        cookiesFile: config.ytDlpCookiesFile,
-      );
+      inputVideo = await createDownloader().download(config, workDir, token);
       yield PipelineEvent(PipelineStage.download, 1.0, 'Download concluído');
     }
 
@@ -107,14 +91,14 @@ Stream<PipelineEvent> runDubbingJob(
 
     if (token.isCancelled) throw PipelineException(PipelineStage.demux, 'Cancelado pelo usuário');
     final videoDuration = await runDemux(config, tools, token,
-        runToolOverride: runToolOverride, inputVideoOverride: inputVideo);
+        runToolOverride: exec, inputVideoOverride: inputVideo);
 
     yield PipelineEvent(PipelineStage.demux, 1.0, 'Áudio extraído com sucesso');
 
     yield PipelineEvent(PipelineStage.separate, 0.0, 'Separando voz da trilha...');
     if (token.isCancelled) throw PipelineException(PipelineStage.separate, 'Cancelado pelo usuário');
 
-    final separator = separatorFactory != null ? separatorFactory(tools, models) : SherpaSeparator(tools, models);
+    final separator = runtime.createSeparator();
     final separationOutcome = await separator.separate(
       p.join(workDir, 'audio_full.wav'),
       workDir,
@@ -147,7 +131,8 @@ Stream<PipelineEvent> runDubbingJob(
     // a detecção de falantes é desnecessária.
     var speakerTurns = const <SpeakerTurn>[];
     var speakerProfiles = const <int, SpeakerProfile>{};
-    final diarizationReady =
+    final createDiarizer = runtime.createDiarizer;
+    final diarizationReady = createDiarizer != null &&
         models.stateOf(diarizationSegmentationModelId) == ModelState.ready &&
             models.stateOf(diarizationEmbeddingModelId) == ModelState.ready;
     if (config.voiceModelId != null) {
@@ -157,7 +142,6 @@ Stream<PipelineEvent> runDubbingJob(
       yield PipelineEvent(PipelineStage.diarize, 0.0, 'Detectando falantes...');
       if (token.isCancelled) throw PipelineException(PipelineStage.diarize, 'Cancelado pelo usuário');
       final diarIn = p.join(workDir, 'diar_in.wav');
-      final exec = runToolOverride ?? runTool;
       // Sempre o áudio ORIGINAL: os artefatos da separação (spleeter)
       // degradam os embeddings de falante (fragmenta clusters) e atenuam
       // os graves masculinos (troca o sexo detectado pelo pitch).
@@ -170,9 +154,7 @@ Stream<PipelineEvent> runDubbingJob(
         throw PipelineException(PipelineStage.diarize,
             'Erro ao preparar áudio para diarização: ${rConv.stderrTail}');
       }
-      final diarizer = diarizerFactory != null
-          ? diarizerFactory(models)
-          : SherpaDiarizer(models, numClusters: config.speakerCount);
+      final diarizer = createDiarizer(speakerCount: config.speakerCount);
       final diarization = await diarizer.diarize(diarIn, token);
       speakerTurns = diarization.turns;
       // Renumera o mapa de perfis com o mesmo critério de assignSpeakers
@@ -205,7 +187,7 @@ Stream<PipelineEvent> runDubbingJob(
     yield PipelineEvent(PipelineStage.transcribe, 0.0, 'Transcrevendo áudio...');
     if (token.isCancelled) throw PipelineException(PipelineStage.transcribe, 'Cancelado pelo usuário');
 
-    final transcriber = transcriberFactory != null ? transcriberFactory(tools, models, config.preset) : WhisperTranscriber(tools, models, config.preset);
+    final transcriber = runtime.createTranscriber(config.preset);
     final rawSegments = await transcriber.transcribe(audioForAsr, config.sourceLang, token);
 
     yield PipelineEvent(PipelineStage.transcribe, 1.0,
@@ -230,7 +212,7 @@ Stream<PipelineEvent> runDubbingJob(
     yield PipelineEvent(PipelineStage.translate, 0.0, 'Traduzindo falas...');
     if (token.isCancelled) throw PipelineException(PipelineStage.translate, 'Cancelado pelo usuário');
 
-    final translator = translatorFactory != null ? translatorFactory(tools, models) : TranslateLocallyTranslator(tools, models);
+    final translator = runtime.createTranslator();
     final sentences = segments.map((s) => s.sourceText).toList();
     final translated = await translator.translate(
         sentences, config.sourceLang, config.targetLang, token);
@@ -243,12 +225,11 @@ Stream<PipelineEvent> runDubbingJob(
     yield PipelineEvent(PipelineStage.synthesize, 0.0, 'Sintetizando vozes...');
     if (token.isCancelled) throw PipelineException(PipelineStage.synthesize, 'Cancelado pelo usuário');
 
-    final synthesizer = synthesizerFactory != null
-        ? synthesizerFactory(config.targetLang, models)
-        : PiperSynthesizer(config.targetLang, models,
-            voiceOverride: config.voiceModelId != null
-                ? (config.voiceModelId!, config.voiceSid)
-                : null);
+    final synthesizer = runtime.createSynthesizer(
+      config.targetLang,
+      voiceModelId: config.voiceModelId,
+      voiceSid: config.voiceSid,
+    );
     try {
       synthesizer.configureSpeakerVoices(speakerProfiles);
       final childSpeakers = {
@@ -282,7 +263,7 @@ Stream<PipelineEvent> runDubbingJob(
         if (token.isCancelled) throw PipelineException(PipelineStage.fit, 'Cancelado pelo usuário');
         cursor = await applyPlanToSegment(
             segments[i], naturalAudios[i], plan[i].speed, synthesizer, tools, workDir, token,
-            runToolOverride: runToolOverride, childSpeakers: childSpeakers, cursorSec: cursor);
+            runToolOverride: exec, childSpeakers: childSpeakers, cursorSec: cursor);
         yield PipelineEvent(PipelineStage.fit, (i + 1) / totalSegs,
             'Ajustando fala ${i + 1}/$totalSegs');
       }
@@ -298,7 +279,7 @@ Stream<PipelineEvent> runDubbingJob(
 
     final dubTrack = await buildDubTrack(segments, videoDuration, workDir, token);
     truncatedTail = dubTrack.truncatedTail;
-    await buildFinalMix(voiceOverMode, workDir, tools, token, runToolOverride: runToolOverride);
+    await buildFinalMix(voiceOverMode, workDir, tools, token, runToolOverride: exec);
 
     if (truncatedTail > Duration.zero) {
       final ms = truncatedTail.inMilliseconds;
@@ -317,7 +298,7 @@ Stream<PipelineEvent> runDubbingJob(
       p.join(workDir, 'dubbed.wav'),
       tools,
       token,
-      runToolOverride: runToolOverride,
+      runToolOverride: exec,
       inputVideoOverride: inputVideo,
     );
 

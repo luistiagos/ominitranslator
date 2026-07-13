@@ -4,7 +4,9 @@ import 'package:dubbing_engine/src/wav.dart';
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/backends/youtube_downloader.dart';
 import 'package:dubbing_engine/src/pipeline.dart';
+import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:path/path.dart' as p;
@@ -91,6 +93,41 @@ final _dummyTools = Tools(
   sherpaSourceSeparation: 'sherpa-separation',
 );
 
+/// Runtime de teste: backends mockados por padrão, cada peça sobrescrevível.
+/// Substitui as cinco factories soltas que `runDubbingJob` recebia antes —
+/// agora existe um único ponto de injeção.
+DubbingRuntime _runtime(
+  ModelManager models, {
+  Tools? tools,
+  RunToolFn? runToolOverride,
+  int? Function(String)? freeBytes,
+  SeparatorFactory? createSeparator,
+  DiarizerFactory? createDiarizer,
+  TranscriberFactory? createTranscriber,
+  TranslatorFactory? createTranslator,
+  SynthesizerFactory? createSynthesizer,
+  bool withDownloader = true,
+}) {
+  final t = tools ?? _dummyTools;
+  return DubbingRuntime(
+    models: models,
+    tools: t,
+    runTool: runToolOverride ?? runTool,
+    freeBytes: freeBytes ?? _ampleFreeBytes,
+    createSeparator: createSeparator ?? () => _MockSeparator(true),
+    // Nulo por padrão: sem diarizer, a dublagem é de voz única (é também como
+    // o Android M1 expressa a ausência de diarização).
+    createDiarizer: createDiarizer,
+    createTranscriber: createTranscriber ?? (_) => _MockTranscriber(),
+    createTranslator: createTranslator ?? () => _MockTranslator(),
+    createSynthesizer: createSynthesizer ??
+        (_, {String? voiceModelId, int voiceSid = 0}) => _MockSynthesizer(),
+    createDownloader: withDownloader
+        ? () => YoutubeDownloader(t, runToolOverride: runToolOverride)
+        : null,
+  );
+}
+
 void main() {
   group('runDubbingJob', () {
     test('throws when required models are missing', () async {
@@ -109,13 +146,51 @@ void main() {
 
         PipelineException? error;
         final events = await runDubbingJob(config, CancellationToken(),
-                tools: _dummyTools, models: models, freeBytesOverride: _ampleFreeBytes)
+                runtime: _runtime(models))
             .handleError((e) {
               if (e is PipelineException) error = e;
             }).toList();
 
         expect(error, isNotNull);
         expect(error!.message, contains('Modelos necessários'));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('a runtime without a downloader refuses a remote URL instead of crashing', () async {
+      final tempDir = Directory.systemTemp.createTempSync('pipeline_nodl_');
+      try {
+        final models = ModelManager(tempDir.path, _dummyTools);
+        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+            extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
+        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+            extraFiles: ['accompaniment.fp16.onnx']);
+
+        final config = DubbingJobConfig(
+          inputVideo: 'https://youtube.com/watch?v=abc',
+          youtubeUrl: 'https://youtube.com/watch?v=abc',
+          sourceLang: Lang.en,
+          targetLang: Lang.pt,
+          preset: Preset.best,
+          workDir: p.join(tempDir.path, 'work'),
+          outputPath: p.join(tempDir.path, 'out.mp4'),
+        );
+
+        PipelineException? error;
+        // É assim que o Android M1 expressa "não baixo vídeo remoto": sem
+        // downloader no runtime. O pipeline recusa explicitamente, em vez de
+        // importar um backend concreto que lá nem existiria.
+        await runDubbingJob(config, CancellationToken(),
+                runtime: _runtime(models, withDownloader: false))
+            .handleError((e) {
+              if (e is PipelineException) error = e;
+            }).toList();
+
+        expect(error, isNotNull);
+        expect(error!.stage, PipelineStage.download);
+        expect(error!.message, contains('não é suportado nesta plataforma'));
       } finally {
         tempDir.deleteSync(recursive: true);
       }
@@ -142,7 +217,7 @@ void main() {
 
         PipelineException? error;
         await runDubbingJob(config, CancellationToken(),
-                tools: _dummyTools, models: models, freeBytesOverride: _ampleFreeBytes)
+                runtime: _runtime(models))
             .handleError((e) {
               if (e is PipelineException) error = e;
             }).toList();
@@ -170,9 +245,7 @@ void main() {
 
         PipelineException? error;
         await runDubbingJob(config, CancellationToken(),
-                tools: _dummyTools,
-                models: models,
-                freeBytesOverride: (_) => 100 * 1024 * 1024)
+                runtime: _runtime(models, freeBytes: (_) => 100 * 1024 * 1024))
             .handleError((e) {
               if (e is PipelineException) error = e;
             }).toList();
@@ -231,15 +304,13 @@ void main() {
         final events = await runDubbingJob(
           config,
           CancellationToken(),
-          tools: _dummyTools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(false, failureReason: 'mock: OOM no chunk 2'),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => _MockSynthesizer(),
-          runToolOverride: runToolMock,
+          runtime: _runtime(
+            models,
+            runToolOverride: runToolMock,
+            createSeparator: () =>
+                _MockSeparator(false, failureReason: 'mock: OOM no chunk 2'),
+          ),
           onDone: (r) => result = r,
-          freeBytesOverride: _ampleFreeBytes,
         ).handleError((e) {
           if (e is PipelineException) error = e;
         }).toList();
@@ -308,16 +379,13 @@ void main() {
         final events = await runDubbingJob(
           config,
           CancellationToken(),
-          tools: _dummyTools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(false,
-              reason: SeparationFailureReason.notSupportedOnPlatform,
-              failureReason: 'unused diagnostic'),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => _MockSynthesizer(),
-          runToolOverride: runToolMock,
-          freeBytesOverride: _ampleFreeBytes,
+          runtime: _runtime(
+            models,
+            runToolOverride: runToolMock,
+            createSeparator: () => _MockSeparator(false,
+                reason: SeparationFailureReason.notSupportedOnPlatform,
+                failureReason: 'unused diagnostic'),
+          ),
         ).handleError((_) {}).toList();
 
         final separateEvent = events.firstWhere(
@@ -377,15 +445,12 @@ void main() {
         final events = await runDubbingJob(
           config,
           CancellationToken(),
-          tools: _dummyTools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(true),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => _MockSynthesizer(),
-          runToolOverride: runToolMock,
+          runtime: _runtime(
+            models,
+            runToolOverride: runToolMock,
+            createSeparator: () => _MockSeparator(true),
+          ),
           onDone: (r) => result = r,
-          freeBytesOverride: _ampleFreeBytes,
         ).toList();
 
         expect(events.last.message, 'Vídeo gerado com sucesso');
@@ -446,24 +511,22 @@ void main() {
         final events = await runDubbingJob(
           config,
           CancellationToken(),
-          tools: _dummyTools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(true),
-          diarizerFactory: (_) => _MockDiarizer(
-            const [
-              SpeakerTurn(0.0, 0.5, 7),
-              SpeakerTurn(0.6, 1.0, 3),
-            ],
-            profiles: const {
-              7: SpeakerProfile(VoiceGender.female, AgeBand.adult),
-              3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
-            },
+          runtime: _runtime(
+            models,
+            runToolOverride: runToolMock,
+            createSeparator: () => _MockSeparator(true),
+            createDiarizer: ({int? speakerCount}) => _MockDiarizer(
+              const [
+                SpeakerTurn(0.0, 0.5, 7),
+                SpeakerTurn(0.6, 1.0, 3),
+              ],
+              profiles: const {
+                7: SpeakerProfile(VoiceGender.female, AgeBand.adult),
+                3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
+              },
+            ),
+            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) => synth,
           ),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => synth,
-          runToolOverride: runToolMock,
-          freeBytesOverride: _ampleFreeBytes,
         ).toList();
 
         final diarizeDone = events.firstWhere(
@@ -546,24 +609,22 @@ void main() {
         final events = await runDubbingJob(
           config,
           CancellationToken(),
-          tools: _dummyTools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(true),
-          diarizerFactory: (_) => _MockDiarizer(
-            const [
-              SpeakerTurn(0.0, 0.5, 7),
-              SpeakerTurn(0.6, 1.0, 3),
-            ],
-            profiles: const {
-              7: SpeakerProfile(VoiceGender.unknown, AgeBand.child),
-              3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
-            },
+          runtime: _runtime(
+            models,
+            runToolOverride: runToolMock,
+            createSeparator: () => _MockSeparator(true),
+            createDiarizer: ({int? speakerCount}) => _MockDiarizer(
+              const [
+                SpeakerTurn(0.0, 0.5, 7),
+                SpeakerTurn(0.6, 1.0, 3),
+              ],
+              profiles: const {
+                7: SpeakerProfile(VoiceGender.unknown, AgeBand.child),
+                3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
+              },
+            ),
+            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) => synth,
           ),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => synth,
-          runToolOverride: runToolMock,
-          freeBytesOverride: _ampleFreeBytes,
         ).toList();
 
         final diarizeDone = events.firstWhere(
@@ -642,15 +703,13 @@ void main() {
         await runDubbingJob(
           config,
           CancellationToken(),
-          tools: tools,
-          models: models,
-          separatorFactory: (_, __) => _MockSeparator(false),
-          transcriberFactory: (_, __, ___) => _MockTranscriber(),
-          translatorFactory: (_, __) => _MockTranslator(),
-          synthesizerFactory: (_, __) => _MockSynthesizer(),
-          runToolOverride: runToolMock,
+          runtime: _runtime(
+            models,
+            tools: tools,
+            runToolOverride: runToolMock,
+            createSeparator: () => _MockSeparator(false),
+          ),
           onDone: (r) => result = r,
-          freeBytesOverride: _ampleFreeBytes,
         ).toList();
 
         final originalPath = p.join(outDir, 'meu_video_dub_pt_original.mp4');
@@ -689,13 +748,8 @@ void main() {
 
         await expectLater(
           () => runDubbingJob(config, token,
-                  tools: _dummyTools,
-                  models: models,
-                  separatorFactory: (_, __) => _MockSeparator(false),
-                  transcriberFactory: (_, __, ___) => _MockTranscriber(),
-                  translatorFactory: (_, __) => _MockTranslator(),
-                  synthesizerFactory: (_, __) => _MockSynthesizer(),
-                  freeBytesOverride: _ampleFreeBytes)
+                  runtime: _runtime(models,
+                      createSeparator: () => _MockSeparator(false)))
               .toList(),
           throwsA(isA<PipelineException>()),
         );
