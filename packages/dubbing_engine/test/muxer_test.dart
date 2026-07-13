@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/steps/muxer.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
@@ -16,6 +16,9 @@ void main() {
   late Tools tools;
   late CancellationToken token;
   late String dubbedWav;
+
+  MediaToolRunner media(RunToolFn fn) =>
+      DesktopMediaToolRunner(tools, runToolOverride: fn);
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('muxer_test_');
@@ -49,8 +52,10 @@ void main() {
   group('buildFinalVideo', () {
     test('succeeds with copy codec and returns output path', () async {
       File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
-      final result = await buildFinalVideo(config, dubbedWav, tools, token,
-        runToolOverride: (
+      final result = await buildFinalVideo(
+        config,
+        dubbedWav,
+        media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -58,13 +63,15 @@ void main() {
           CancellationToken? token,
         }) async {
           return _okResult();
-        },
+        }),
+        token,
       );
 
       expect(result, config.outputPath);
     });
 
-    test('succeeds with keepOriginalTrack=false and returns output path', () async {
+    test('succeeds with keepOriginalTrack=false and returns output path',
+        () async {
       config = DubbingJobConfig(
         inputVideo: p.join(tempDir.path, 'input.mp4'),
         sourceLang: Lang.en,
@@ -77,8 +84,10 @@ void main() {
       );
       File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
-      final result = await buildFinalVideo(config, dubbedWav, tools, token,
-        runToolOverride: (
+      final result = await buildFinalVideo(
+        config,
+        dubbedWav,
+        media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -86,7 +95,8 @@ void main() {
           CancellationToken? token,
         }) async {
           return _okResult();
-        },
+        }),
+        token,
       );
 
       expect(result, config.outputPath);
@@ -96,8 +106,10 @@ void main() {
       File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
       var callCount = 0;
 
-      final result = await buildFinalVideo(config, dubbedWav, tools, token,
-        runToolOverride: (
+      final result = await buildFinalVideo(
+        config,
+        dubbedWav,
+        media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -115,7 +127,8 @@ void main() {
           expect(args.contains('libx264'), isFalse,
               reason: 'libx264 is not compiled into the shipped ffmpeg');
           return _okResult();
-        },
+        }),
+        token,
       );
 
       expect(callCount, 2);
@@ -124,15 +137,20 @@ void main() {
 
     test('retry for .mp4 throws when both attempts fail', () async {
       await expectLater(
-        buildFinalVideo(config, dubbedWav, tools, token, runToolOverride: (
-          String exePath,
-          List<String> args, {
-          String? workingDirectory,
-          Duration timeout = const Duration(minutes: 30),
-          CancellationToken? token,
-        }) async {
-          return _failResult(1);
-        }),
+        buildFinalVideo(
+          config,
+          dubbedWav,
+          media((
+            String exePath,
+            List<String> args, {
+            String? workingDirectory,
+            Duration timeout = const Duration(minutes: 30),
+            CancellationToken? token,
+          }) async {
+            return _failResult(1);
+          }),
+          token,
+        ),
         throwsA(isA<PipelineException>().having(
           (e) => e.stage,
           'stage',
@@ -141,7 +159,8 @@ void main() {
       );
     });
 
-    test('retries with libopenh264 for non-mp4 inputs too (e.g. WebM/VP9)', () async {
+    test('retries with libopenh264 for non-mp4 inputs too (e.g. WebM/VP9)',
+        () async {
       config = DubbingJobConfig(
         inputVideo: p.join(tempDir.path, 'input.webm'),
         sourceLang: Lang.en,
@@ -154,8 +173,10 @@ void main() {
       File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
       var callCount = 0;
-      final result = await buildFinalVideo(config, dubbedWav, tools, token,
-        runToolOverride: (
+      final result = await buildFinalVideo(
+        config,
+        dubbedWav,
+        media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -168,7 +189,8 @@ void main() {
           expect(args.contains('libopenh264'), isTrue);
           expect(args.contains('libx264'), isFalse);
           return _okResult();
-        },
+        }),
+        token,
       );
 
       expect(callCount, 2);
@@ -186,15 +208,20 @@ void main() {
       );
 
       await expectLater(
-        buildFinalVideo(config, dubbedWav, tools, token, runToolOverride: (
-          String exePath,
-          List<String> args, {
-          String? workingDirectory,
-          Duration timeout = const Duration(minutes: 30),
-          CancellationToken? token,
-        }) async {
-          return _okResult();
-        }),
+        buildFinalVideo(
+          config,
+          dubbedWav,
+          media((
+            String exePath,
+            List<String> args, {
+            String? workingDirectory,
+            Duration timeout = const Duration(minutes: 30),
+            CancellationToken? token,
+          }) async {
+            return _okResult();
+          }),
+          token,
+        ),
         throwsA(isA<PipelineException>().having(
           (e) => e.stage,
           'stage',

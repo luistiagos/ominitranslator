@@ -7,6 +7,7 @@ import 'package:dubbing_engine/src/backends/youtube_downloader.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
 import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 
@@ -21,11 +22,9 @@ DubbingRuntime desktopRuntime({
   RunToolFn? runToolOverride,
   DiskSpaceProbe? diskSpace,
 }) {
-  final exec = runToolOverride ?? runTool;
   return DubbingRuntime(
     models: models,
-    tools: tools,
-    runTool: exec,
+    mediaTools: DesktopMediaToolRunner(tools, runToolOverride: runToolOverride),
     diskSpace: diskSpace ?? const WindowsDiskSpaceProbe(),
     createSeparator: () => SherpaSeparator(tools, models),
     createDiarizer: ({int? speakerCount}) =>

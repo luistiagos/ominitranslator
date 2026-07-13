@@ -6,6 +6,7 @@ import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/steps/demux.dart';
 import 'package:dubbing_engine/src/steps/fitter.dart';
 import 'package:dubbing_engine/src/steps/mixer.dart';
@@ -28,8 +29,7 @@ Stream<PipelineEvent> runDubbingJob(
   void Function(DubbingResult)? onDone,
 }) async* {
   final models = runtime.models;
-  final tools = runtime.tools;
-  final exec = runtime.runTool;
+  final media = runtime.mediaTools;
   final stopwatch = Stopwatch()..start();
   String? srtSourcePath;
   String? srtTargetPath;
@@ -93,8 +93,8 @@ Stream<PipelineEvent> runDubbingJob(
     yield PipelineEvent(PipelineStage.demux, 0.0, 'Extraindo áudio do vídeo...');
 
     if (token.isCancelled) throw PipelineException(PipelineStage.demux, 'Cancelado pelo usuário');
-    final videoDuration = await runDemux(config, tools, token,
-        runToolOverride: exec, inputVideoOverride: inputVideo);
+    final videoDuration = await runDemux(config, media, token,
+        inputVideoOverride: inputVideo);
 
     yield PipelineEvent(PipelineStage.demux, 1.0, 'Áudio extraído com sucesso');
 
@@ -148,7 +148,7 @@ Stream<PipelineEvent> runDubbingJob(
       // Sempre o áudio ORIGINAL: os artefatos da separação (spleeter)
       // degradam os embeddings de falante (fragmenta clusters) e atenuam
       // os graves masculinos (troca o sexo detectado pelo pitch).
-      final rConv = await exec(tools.ffmpeg, [
+      final rConv = await media.run(MediaTool.ffmpeg, [
         '-y', '-i', p.join(workDir, 'audio_full.wav'),
         '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le',
         diarIn,
@@ -264,8 +264,8 @@ Stream<PipelineEvent> runDubbingJob(
       for (int i = 0; i < totalSegs; i++) {
         token.throwIfCancelled(PipelineStage.fit);
         cursor = await applyPlanToSegment(
-            segments[i], plan[i].speed, synthesizer, tools, workDir, token,
-            runToolOverride: exec, childSpeakers: childSpeakers, cursorSec: cursor);
+            segments[i], plan[i].speed, synthesizer, media, workDir, token,
+            childSpeakers: childSpeakers, cursorSec: cursor);
         yield PipelineEvent(PipelineStage.fit, (i + 1) / totalSegs,
             'Ajustando fala ${i + 1}/$totalSegs');
       }
@@ -281,7 +281,7 @@ Stream<PipelineEvent> runDubbingJob(
 
     final dubTrack = await buildDubTrack(segments, videoDuration, workDir, token);
     truncatedTail = dubTrack.truncatedTail;
-    await buildFinalMix(voiceOverMode, workDir, tools, token, runToolOverride: exec);
+    await buildFinalMix(voiceOverMode, workDir, media, token);
 
     if (truncatedTail > Duration.zero) {
       final ms = truncatedTail.inMilliseconds;
@@ -298,9 +298,8 @@ Stream<PipelineEvent> runDubbingJob(
     final outputVideo = await buildFinalVideo(
       config,
       p.join(workDir, 'dubbed.wav'),
-      tools,
+      media,
       token,
-      runToolOverride: exec,
       inputVideoOverride: inputVideo,
     );
 

@@ -2,8 +2,7 @@ import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 
 typedef SeparatorFactory = Separator Function();
 typedef DiarizerFactory = Diarizer Function({int? speakerCount});
@@ -52,13 +51,9 @@ class DubbingRuntime {
 
   final ModelManager models;
 
-  // --- Transitório ---------------------------------------------------------
-  // `tools` e `runTool` só existem enquanto os passos de mídia (demux, fit,
-  // mix, mux) recebem paths de executável. Eles somem quando o `MediaToolRunner`
-  // da §5.2 entrar; no Android nenhum dos dois faz sentido.
-  final Tools tools;
-  final RunToolFn runTool;
-  // -------------------------------------------------------------------------
+  /// ffmpeg/ffprobe (§5.2). O engine pede a FERRAMENTA, não um path: no Android
+  /// o ffmpeg é biblioteca in-process, não `.exe`.
+  final MediaToolRunner mediaTools;
 
   /// Espaço livre em disco (§5.4). Assíncrono porque o `StatFs` do Android vem
   /// por MethodChannel.
@@ -72,8 +67,7 @@ class DubbingRuntime {
     required this.createSynthesizer,
     this.createDownloader,
     required this.models,
-    required this.tools,
-    required this.runTool,
+    required this.mediaTools,
     required this.diskSpace,
   });
 }

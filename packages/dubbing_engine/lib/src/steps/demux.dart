@@ -1,21 +1,18 @@
 import 'dart:io';
 import 'package:dubbing_engine/src/models.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:path/path.dart' as p;
 
 Future<double> runDemux(
   DubbingJobConfig config,
-  Tools tools,
+  MediaToolRunner media,
   CancellationToken token, {
-  RunToolFn? runToolOverride,
   String? inputVideoOverride,
 }) async {
-  final exec = runToolOverride ?? runTool;
   final video = inputVideoOverride ?? config.inputVideo;
-  final videoDuration = await _getDuration(video, tools, token, runToolOverride: exec);
+  final videoDuration = await _getDuration(video, media, token);
   final audioOut = p.join(config.workDir, 'audio_full.wav');
-  final r2 = await exec(tools.ffmpeg, [
+  final r2 = await media.run(MediaTool.ffmpeg, [
     '-y', '-i', video,
     '-vn', '-ac', '2', '-ar', '44100', '-c:a', 'pcm_s16le',
     audioOut,
@@ -33,12 +30,10 @@ Future<double> runDemux(
 
 Future<double> _getDuration(
   String inputVideo,
-  Tools tools,
-  CancellationToken token, {
-  RunToolFn? runToolOverride,
-}) async {
-  final exec = runToolOverride ?? runTool;
-  final r = await exec(tools.ffprobe, [
+  MediaToolRunner media,
+  CancellationToken token,
+) async {
+  final r = await media.run(MediaTool.ffprobe, [
     '-v', 'error',
     '-show_entries', 'format=duration',
     '-of', 'default=noprint_wrappers=1:nokey=1',

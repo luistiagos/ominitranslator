@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:dubbing_engine/src/steps/mixer.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:dubbing_engine/src/wav.dart';
@@ -18,6 +19,9 @@ final _tools = Tools(
   translateLocally: 'translateLocally',
   sherpaSourceSeparation: 'sherpa-separation',
 );
+
+MediaToolRunner _media(RunToolFn fn) =>
+    DesktopMediaToolRunner(_tools, runToolOverride: fn);
 
 /// Cria o `seg_<id>_fit.wav` em disco (44,1 kHz mono) e aponta o segmento nele —
 /// é assim que o fitter entrega o áudio agora.
@@ -144,8 +148,9 @@ void main() {
         File(p.join(tempDir.path, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
         File(p.join(tempDir.path, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
 
-        final result = await buildFinalMix(true, tempDir.path, _tools, CancellationToken(),
-            runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult());
+        final result = await buildFinalMix(true, tempDir.path,
+            _media((_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult()),
+            CancellationToken());
         expect(result, dubbedPath);
       } finally {
         tempDir.deleteSync(recursive: true);
@@ -160,8 +165,9 @@ void main() {
         File(p.join(tempDir.path, 'accompaniment.wav')).writeAsBytesSync(List.filled(100, 0));
         File(p.join(tempDir.path, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
 
-        final result = await buildFinalMix(false, tempDir.path, _tools, CancellationToken(),
-            runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult());
+        final result = await buildFinalMix(false, tempDir.path,
+            _media((_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult()),
+            CancellationToken());
         expect(result, dubbedPath);
       } finally {
         tempDir.deleteSync(recursive: true);
@@ -175,8 +181,9 @@ void main() {
         File(p.join(tempDir.path, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
 
         await expectLater(
-          buildFinalMix(true, tempDir.path, _tools, CancellationToken(),
-              runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _failResult()),
+          buildFinalMix(true, tempDir.path,
+              _media((_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _failResult()),
+              CancellationToken()),
           throwsA(isA<PipelineException>()),
         );
       } finally {
@@ -191,8 +198,9 @@ void main() {
         File(p.join(tempDir.path, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
 
         await expectLater(
-          buildFinalMix(false, tempDir.path, _tools, CancellationToken(),
-              runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _failResult()),
+          buildFinalMix(false, tempDir.path,
+              _media((_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _failResult()),
+              CancellationToken()),
           throwsA(isA<PipelineException>()),
         );
       } finally {
@@ -207,8 +215,9 @@ void main() {
         File(p.join(tempDir.path, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
 
         await expectLater(
-          buildFinalMix(true, tempDir.path, _tools, CancellationToken(),
-              runToolOverride: (_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult()),
+          buildFinalMix(true, tempDir.path,
+              _media((_, __, {String? workingDirectory, Duration timeout = const Duration(minutes: 30), CancellationToken? token}) async => _okResult()),
+              CancellationToken()),
           throwsA(isA<PipelineException>()),
         );
       } finally {

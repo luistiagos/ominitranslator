@@ -8,6 +8,7 @@ import 'package:dubbing_engine/src/backends/youtube_downloader.dart';
 import 'package:dubbing_engine/src/pipeline.dart';
 import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
 import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:path/path.dart' as p;
@@ -34,7 +35,8 @@ class _MockSeparator implements Separator {
     final accomp = p.join(workDir, 'accompaniment.wav');
     File(vocals).writeAsBytesSync(List.filled(100, 0));
     File(accomp).writeAsBytesSync(List.filled(100, 0));
-    return SeparationOutcome.success((vocalsWav: vocals, accompanimentWav: accomp));
+    return SeparationOutcome.success(
+        (vocalsWav: vocals, accompanimentWav: accomp));
   }
 }
 
@@ -43,17 +45,21 @@ class _MockTranscriber implements Transcriber {
   Future<List<TranscriptSegment>> transcribe(
       String wav16kMono, Lang sourceLang, CancellationToken token) async {
     return [
-      TranscriptSegment(Duration.zero, Duration(milliseconds: 500), 'Hello world.'),
-      TranscriptSegment(Duration(milliseconds: 600), Duration(milliseconds: 1000), 'How are you?'),
+      TranscriptSegment(
+          Duration.zero, Duration(milliseconds: 500), 'Hello world.'),
+      TranscriptSegment(Duration(milliseconds: 600),
+          Duration(milliseconds: 1000), 'How are you?'),
     ];
   }
 }
 
 class _MockTranslator implements Translator {
   @override
-  Future<List<String>> translate(
-      List<String> sentences, Lang from, Lang to, CancellationToken token) async {
-    return sentences.map((s) => s == 'Hello world.' ? 'Olá mundo.' : 'Como vai você?').toList();
+  Future<List<String>> translate(List<String> sentences, Lang from, Lang to,
+      CancellationToken token) async {
+    return sentences
+        .map((s) => s == 'Hello world.' ? 'Olá mundo.' : 'Como vai você?')
+        .toList();
   }
 }
 
@@ -81,7 +87,8 @@ class _MockDiarizer implements Diarizer {
   final Map<int, SpeakerProfile> profiles;
   _MockDiarizer(this.turns, {this.profiles = const {}});
   @override
-  Future<DiarizationResult> diarize(String wav16kMonoPath, CancellationToken token) async {
+  Future<DiarizationResult> diarize(
+      String wav16kMonoPath, CancellationToken token) async {
     return DiarizationResult(turns, profiles);
   }
 }
@@ -112,8 +119,7 @@ DubbingRuntime _runtime(
   final t = tools ?? _dummyTools;
   return DubbingRuntime(
     models: models,
-    tools: t,
-    runTool: runToolOverride ?? runTool,
+    mediaTools: DesktopMediaToolRunner(t, runToolOverride: runToolOverride),
     diskSpace: diskSpace ?? const FixedDiskSpaceProbe(_ampleFreeBytes),
     createSeparator: createSeparator ?? () => _MockSeparator(true),
     // Nulo por padrão: sem diarizer, a dublagem é de voz única (é também como
@@ -149,8 +155,8 @@ void main() {
         final events = await runDubbingJob(config, CancellationToken(),
                 runtime: _runtime(models))
             .handleError((e) {
-              if (e is PipelineException) error = e;
-            }).toList();
+          if (e is PipelineException) error = e;
+        }).toList();
 
         expect(error, isNotNull);
         expect(error!.message, contains('Modelos necessários'));
@@ -159,7 +165,8 @@ void main() {
       }
     });
 
-    test('a catalog without a separator does not require the separation model', () async {
+    test('a catalog without a separator does not require the separation model',
+        () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_nosep_');
       try {
         // Catálogo estilo Android M1: voice-over puro, sem spleeter. O prepare
@@ -171,9 +178,12 @@ void main() {
           asrModelIds: const {Preset.best: 'whisper-small-q5_1'},
           defaultVoiceIds: const {Lang.pt: 'piper-pt-br'},
         );
-        final models = ModelManager(tempDir.path, _dummyTools, catalog: catalog);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        final models =
+            ModelManager(tempDir.path, _dummyTools, catalog: catalog);
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
         // spleeter propositalmente AUSENTE.
 
@@ -188,12 +198,15 @@ void main() {
         );
         File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -202,17 +215,17 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('5.0\n');
           return _okResult();
-        };
+        }
 
         PipelineException? error;
         await runDubbingJob(config, CancellationToken(),
-                runtime: _runtime(models,
-                    runToolOverride: runToolMock,
-                    createSeparator: () => _MockSeparator(false,
-                        reason: SeparationFailureReason.notSupportedOnPlatform)))
-            .handleError((e) {
-              if (e is PipelineException) error = e;
-            }).toList();
+            runtime: _runtime(models,
+                runToolOverride: runToolMock,
+                createSeparator: () => _MockSeparator(false,
+                    reason: SeparationFailureReason
+                        .notSupportedOnPlatform))).handleError((e) {
+          if (e is PipelineException) error = e;
+        }).toList();
 
         expect(error, isNull,
             reason: 'prepare must not demand a model the platform never uses');
@@ -221,14 +234,19 @@ void main() {
       }
     });
 
-    test('a runtime without a downloader refuses a remote URL instead of crashing', () async {
+    test(
+        'a runtime without a downloader refuses a remote URL instead of crashing',
+        () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_nodl_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         final config = DubbingJobConfig(
@@ -248,8 +266,8 @@ void main() {
         await runDubbingJob(config, CancellationToken(),
                 runtime: _runtime(models, withDownloader: false))
             .handleError((e) {
-              if (e is PipelineException) error = e;
-            }).toList();
+          if (e is PipelineException) error = e;
+        }).toList();
 
         expect(error, isNotNull);
         expect(error!.stage, PipelineStage.download);
@@ -259,12 +277,15 @@ void main() {
       }
     });
 
-    test('throws when separation model is missing even if others are ready', () async {
+    test('throws when separation model is missing even if others are ready',
+        () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_test_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
         // spleeter-2stems-fp16 propositalmente não preparado.
 
@@ -282,8 +303,8 @@ void main() {
         await runDubbingJob(config, CancellationToken(),
                 runtime: _runtime(models))
             .handleError((e) {
-              if (e is PipelineException) error = e;
-            }).toList();
+          if (e is PipelineException) error = e;
+        }).toList();
 
         expect(error, isNotNull);
         expect(error!.message, contains('spleeter-2stems-fp16'));
@@ -311,8 +332,8 @@ void main() {
                 runtime: _runtime(models,
                     diskSpace: const FixedDiskSpaceProbe(100 * 1024 * 1024)))
             .handleError((e) {
-              if (e is PipelineException) error = e;
-            }).toList();
+          if (e is PipelineException) error = e;
+        }).toList();
 
         expect(error, isNotNull);
         expect(error!.stage, PipelineStage.prepare);
@@ -327,10 +348,13 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_ok_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         final config = DubbingJobConfig(
@@ -344,7 +368,7 @@ void main() {
         );
         File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
 
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -353,13 +377,16 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('5.0\n');
           return _okResult();
-        };
+        }
 
         // Pre-create files that pipeline checks
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
         PipelineException? error;
@@ -386,12 +413,14 @@ void main() {
         expect(result, isNotNull);
         expect(result!.voiceOverMode, isTrue);
 
-        final separateEvent = events.firstWhere((e) => e.stage == PipelineStage.separate && e.progress >= 1.0);
+        final separateEvent = events.firstWhere(
+            (e) => e.stage == PipelineStage.separate && e.progress >= 1.0);
         expect(separateEvent.isWarning, isTrue);
         expect(separateEvent.message, contains('mock: OOM no chunk 2'));
 
         // Sem os modelos de diarização instalados: aviso + voz única.
-        final diarizeEvent = events.firstWhere((e) => e.stage == PipelineStage.diarize);
+        final diarizeEvent =
+            events.firstWhere((e) => e.stage == PipelineStage.diarize);
         expect(diarizeEvent.isWarning, isTrue);
         expect(diarizeEvent.message, contains('voz única'));
 
@@ -404,14 +433,20 @@ void main() {
       }
     });
 
-    test('unsupported-on-platform separation yields an informative event, not a warning', () async {
-      final tempDir = Directory.systemTemp.createTempSync('pipeline_vo_expected_');
+    test(
+        'unsupported-on-platform separation yields an informative event, not a warning',
+        () async {
+      final tempDir =
+          Directory.systemTemp.createTempSync('pipeline_vo_expected_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         final config = DubbingJobConfig(
@@ -425,11 +460,13 @@ void main() {
         );
         File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -438,7 +475,7 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('5.0\n');
           return _okResult();
-        };
+        }
 
         final events = await runDubbingJob(
           config,
@@ -455,7 +492,8 @@ void main() {
         final separateEvent = events.firstWhere(
             (e) => e.stage == PipelineStage.separate && e.progress >= 1.0);
         expect(separateEvent.isWarning, isFalse,
-            reason: 'voice-over is the expected Android M1 mode, not a warning');
+            reason:
+                'voice-over is the expected Android M1 mode, not a warning');
         expect(separateEvent.message, contains('voice-over'));
         // The diagnostic detail must never leak into the user-facing message.
         expect(separateEvent.message, isNot(contains('unused diagnostic')));
@@ -468,10 +506,12 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_sep_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
         _prepareReadyModel(tempDir.path, 'piper-en', 'en_US-lessac-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         final config = DubbingJobConfig(
@@ -488,12 +528,15 @@ void main() {
 
         // Pre-create files that pipeline checks
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -502,7 +545,7 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('3.0\n');
           return _okResult();
-        };
+        }
 
         DubbingResult? result;
 
@@ -525,17 +568,23 @@ void main() {
       }
     });
 
-    test('assigns different voices per speaker when diarization is ready', () async {
+    test('assigns different voices per speaker when diarization is ready',
+        () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_diar_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
-        _prepareReadyModel(tempDir.path, 'diarization-segmentation', 'model.onnx');
-        _prepareReadyModel(tempDir.path, 'diarization-embedding', 'nemo_en_titanet_small.onnx');
+        _prepareReadyModel(
+            tempDir.path, 'diarization-segmentation', 'model.onnx');
+        _prepareReadyModel(tempDir.path, 'diarization-embedding',
+            'nemo_en_titanet_small.onnx');
 
         final config = DubbingJobConfig(
           inputVideo: p.join(tempDir.path, 'input.mp4'),
@@ -549,13 +598,16 @@ void main() {
         File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
 
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
         String? diarizationInput;
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -567,7 +619,7 @@ void main() {
             diarizationInput = args[args.indexOf('-i') + 1];
           }
           return _okResult();
-        };
+        }
 
         final synth = _MockSynthesizer();
         // Ids brutos fora de ordem (7 e 3) para exercitar a renumeração:
@@ -589,7 +641,8 @@ void main() {
                 3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
               },
             ),
-            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) => synth,
+            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) =>
+                synth,
           ),
         ).toList();
 
@@ -625,13 +678,18 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_child_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
-        _prepareReadyModel(tempDir.path, 'diarization-segmentation', 'model.onnx');
-        _prepareReadyModel(tempDir.path, 'diarization-embedding', 'nemo_en_titanet_small.onnx');
+        _prepareReadyModel(
+            tempDir.path, 'diarization-segmentation', 'model.onnx');
+        _prepareReadyModel(tempDir.path, 'diarization-embedding',
+            'nemo_en_titanet_small.onnx');
 
         final config = DubbingJobConfig(
           inputVideo: p.join(tempDir.path, 'input.mp4'),
@@ -645,13 +703,16 @@ void main() {
         File(config.inputVideo).writeAsBytesSync(List.filled(100, 0));
 
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
         final capturedFilters = <String>[];
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -666,7 +727,7 @@ void main() {
             writeWavPcm16(args.last, WavData(Float32List(100), 44100, 1));
           }
           return _okResult();
-        };
+        }
 
         final synth = _MockSynthesizer();
         // Falante 7 (mais tempo de fala → índice 0) é criança.
@@ -687,7 +748,8 @@ void main() {
                 3: SpeakerProfile(VoiceGender.male, AgeBand.adult),
               },
             ),
-            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) => synth,
+            createSynthesizer: (_, {String? voiceModelId, int voiceSid = 0}) =>
+                synth,
           ),
         ).toList();
 
@@ -698,7 +760,8 @@ void main() {
         // Só o segmento da criança (falante 0) passa pelo pitch-shift,
         // com o fator e a restauração de duração corretos.
         expect(capturedFilters, hasLength(1));
-        expect(capturedFilters.single, contains('asetrate=${(22050 * 1.15).round()}'));
+        expect(capturedFilters.single,
+            contains('asetrate=${(22050 * 1.15).round()}'));
         expect(capturedFilters.single, contains('aresample=44100'));
         expect(capturedFilters.single, contains('atempo=0.8696'));
       } finally {
@@ -706,14 +769,18 @@ void main() {
       }
     });
 
-    test('YouTube download keeps the original video in the output folder', () async {
+    test('YouTube download keeps the original video in the output folder',
+        () async {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_yt_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         // Tools com yt-dlp "existente" para ativar o caminho de download.
@@ -742,12 +809,15 @@ void main() {
         );
 
         Directory(config.workDir).createSync(recursive: true);
-        File(p.join(config.workDir, 'audio_full.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dub_voice.wav')).writeAsBytesSync(List.filled(100, 0));
-        File(p.join(config.workDir, 'dubbed.wav')).writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'audio_full.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dub_voice.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
+        File(p.join(config.workDir, 'dubbed.wav'))
+            .writeAsBytesSync(List.filled(100, 0));
         File(config.outputPath).writeAsBytesSync(List.filled(100, 0));
 
-        final RunToolFn runToolMock = (
+        runToolMock(
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -761,7 +831,7 @@ void main() {
                 .writeAsBytesSync(List.filled(300, 7));
           }
           return _okResult();
-        };
+        }
 
         DubbingResult? result;
         await runDubbingJob(
@@ -791,10 +861,13 @@ void main() {
       final tempDir = Directory.systemTemp.createTempSync('pipeline_cancel_');
       try {
         final models = ModelManager(tempDir.path, _dummyTools);
-        _prepareReadyModel(tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
-        _prepareReadyModel(tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'whisper-small-q5_1', 'ggml-small-q5_1.bin');
+        _prepareReadyModel(
+            tempDir.path, 'piper-pt-br', 'pt_BR-faber-medium.onnx',
             extraFiles: ['tokens.txt'], extraDirs: ['espeak-ng-data']);
-        _prepareReadyModel(tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
+        _prepareReadyModel(
+            tempDir.path, 'spleeter-2stems-fp16', 'vocals.fp16.onnx',
             extraFiles: ['accompaniment.fp16.onnx']);
 
         final config = DubbingJobConfig(
@@ -812,9 +885,8 @@ void main() {
 
         await expectLater(
           () => runDubbingJob(config, token,
-                  runtime: _runtime(models,
-                      createSeparator: () => _MockSeparator(false)))
-              .toList(),
+              runtime: _runtime(models,
+                  createSeparator: () => _MockSeparator(false))).toList(),
           throwsA(isA<PipelineException>()),
         );
       } finally {

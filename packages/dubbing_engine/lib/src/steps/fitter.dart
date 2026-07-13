@@ -3,8 +3,7 @@ import 'dart:typed_data';
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/wav.dart';
 import 'package:path/path.dart' as p;
 
@@ -153,14 +152,12 @@ Future<double> applyPlanToSegment(
   DubbingSegment seg,
   double speed,
   Synthesizer synth,
-  Tools tools,
+  MediaToolRunner media,
   String workDir,
   CancellationToken token, {
-  RunToolFn? runToolOverride,
   Set<int> childSpeakers = const {},
   double cursorSec = 0,
 }) async {
-  final exec = runToolOverride ?? runTool;
   final naturalPath = seg.naturalAudioPath;
   if (naturalPath == null) {
     throw PipelineException(PipelineStage.fit,
@@ -184,7 +181,7 @@ Future<double> applyPlanToSegment(
       final ttsWav = p.join(workDir, 'seg_${seg.id}_tts.wav');
       writeWavPcm16(ttsWav, WavData(audio.samples, audio.sampleRate, 1));
       final atempoWav = p.join(workDir, 'seg_${seg.id}_atempo.wav');
-      final r = await exec(tools.ffmpeg, [
+      final r = await media.run(MediaTool.ffmpeg, [
         '-y', '-i', ttsWav,
         '-filter:a', 'atempo=${factor.toStringAsFixed(4)}',
         atempoWav,
@@ -214,7 +211,7 @@ Future<double> applyPlanToSegment(
     writeWavPcm16(tmpWav, WavData(audio.samples, audio.sampleRate, 1));
     final rate = (audio.sampleRate * childVoicePitchFactor).round();
     final tempo = (1 / childVoicePitchFactor).toStringAsFixed(4);
-    final r = await exec(tools.ffmpeg, [
+    final r = await media.run(MediaTool.ffmpeg, [
       '-y', '-i', tmpWav,
       '-filter:a', 'asetrate=$rate,aresample=44100,atempo=$tempo',
       fitWav,
@@ -235,7 +232,7 @@ Future<double> applyPlanToSegment(
   } else {
     final tmpWav = p.join(workDir, 'seg_${seg.id}_resample.wav');
     writeWavPcm16(tmpWav, WavData(audio.samples, audio.sampleRate, 1));
-    final r = await exec(tools.ffmpeg, [
+    final r = await media.run(MediaTool.ffmpeg, [
       '-y', '-i', tmpWav,
       '-ar', '44100', fitWav,
     ], workingDirectory: workDir, token: token);

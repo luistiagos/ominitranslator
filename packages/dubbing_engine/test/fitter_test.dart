@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/steps/fitter.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
@@ -39,6 +40,9 @@ final _tools = Tools(
   translateLocally: 'translateLocally',
   sherpaSourceSeparation: 'sherpa-separation',
 );
+
+MediaToolRunner _media([RunToolFn? fn]) =>
+    DesktopMediaToolRunner(_tools, runToolOverride: fn);
 
 DubbingSegment _seg(int id, double startSec, double endSec) {
   final s = DubbingSegment(
@@ -166,7 +170,7 @@ void main() {
       final seg = _seg(0, 0, 2.0);
       _giveNatural(seg, 1.5, tempDir.path);
       final cursor = await applyPlanToSegment(
-          seg, 1.0, synth, _tools, tempDir.path, CancellationToken());
+          seg, 1.0, synth, _media(), tempDir.path, CancellationToken());
       expect(synth.speeds, isEmpty);
       expect(seg.placedStart, Duration.zero);
       expect(seg.speedUsed, 1.0);
@@ -180,7 +184,7 @@ void main() {
       final naturalPath = seg.naturalAudioPath!;
 
       await applyPlanToSegment(
-          seg, 1.0, synth, _tools, tempDir.path, CancellationToken());
+          seg, 1.0, synth, _media(), tempDir.path, CancellationToken());
 
       expect(seg.fittedAudioPath, isNotNull);
       expect(File(seg.fittedAudioPath!).existsSync(), isTrue);
@@ -203,7 +207,7 @@ void main() {
       final seg = _seg(0, 0, 2.0);
       _giveNatural(seg, 3.0, tempDir.path);
       await applyPlanToSegment(
-          seg, 1.2, synth, _tools, tempDir.path, CancellationToken());
+          seg, 1.2, synth, _media(), tempDir.path, CancellationToken());
       expect(synth.speeds, [1.2]);
       expect(seg.speedUsed, 1.2);
       expect(seg.atempoUsed, 1.0);
@@ -226,8 +230,7 @@ void main() {
 
       _giveNatural(seg, 3.0, tempDir.path);
       await applyPlanToSegment(
-          seg, 1.5, synth, _tools, tempDir.path, CancellationToken(),
-          runToolOverride: ffmpegMock);
+          seg, 1.5, synth, _media(ffmpegMock), tempDir.path, CancellationToken());
       expect(seg.speedUsed, 1.35);
       expect(seg.atempoUsed, closeTo(1.5 / 1.35, 0.01));
     });
@@ -237,7 +240,7 @@ void main() {
       final seg = _seg(0, 0, 3.0);
       _giveNatural(seg, 2.0, tempDir.path);
       final cursor = await applyPlanToSegment(
-          seg, 0.85, synth, _tools, tempDir.path, CancellationToken());
+          seg, 0.85, synth, _media(), tempDir.path, CancellationToken());
       expect(synth.speeds, [0.85]);
       expect(seg.speedUsed, 0.85);
       expect(seg.atempoUsed, 1.0);
@@ -253,7 +256,7 @@ void main() {
       final seg = _seg(1, 2.2, 3.2);
       _giveNatural(seg, 1.0, tempDir.path);
       await applyPlanToSegment(
-          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
+          seg, 1.0, synth, _media(), tempDir.path, CancellationToken(),
           cursorSec: 2.0);
       expect(seg.placedStart.inMilliseconds, 2000);
     });
@@ -263,7 +266,7 @@ void main() {
       final seg = _seg(1, 4.0, 5.0);
       _giveNatural(seg, 1.0, tempDir.path);
       await applyPlanToSegment(
-          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
+          seg, 1.0, synth, _media(), tempDir.path, CancellationToken(),
           cursorSec: 2.0);
       expect(seg.placedStart.inMilliseconds, 4000);
     });
@@ -273,7 +276,7 @@ void main() {
       final seg = _seg(1, 2.0, 3.0);
       _giveNatural(seg, 1.0, tempDir.path);
       final cursor = await applyPlanToSegment(
-          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
+          seg, 1.0, synth, _media(), tempDir.path, CancellationToken(),
           cursorSec: 3.5);
       expect(seg.placedStart.inMilliseconds, 3500);
       expect(cursor, closeTo(4.5, 0.01));

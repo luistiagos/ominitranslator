@@ -75,7 +75,7 @@ Future<void> main(List<String> argv) async {
     print('\n seg | original      | dub           | vel   | Δini  | Δfim  | obs');
     for (int i = 0; i < segments.length; i++) {
       cursor = await applyPlanToSegment(segments[i],
-          plan[i].speed, synth, tools, workDir, token,
+          plan[i].speed, synth, DesktopMediaToolRunner(tools), workDir, token,
           cursorSec: cursor);
       final seg = segments[i];
       final oS = seg.start.inMilliseconds / 1000;

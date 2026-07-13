@@ -1,18 +1,15 @@
 import 'dart:io';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 
 Future<String> buildFinalVideo(
   DubbingJobConfig config,
   String dubbedWav,
-  Tools tools,
+  MediaToolRunner media,
   CancellationToken token, {
-  RunToolFn? runToolOverride,
   String? inputVideoOverride,
 }) async {
-  final exec = runToolOverride ?? runTool;
   final video = inputVideoOverride ?? config.inputVideo;
   final outputPath = config.outputPath;
   final args = <String>['-y', '-i', video, '-i', dubbedWav];
@@ -26,7 +23,7 @@ Future<String> buildFinalVideo(
     args.addAll(['-metadata:s:a:1', 'language=${config.sourceLang.iso639_2}']);
   }
   args.addAll(['-disposition:a:0', 'default', outputPath]);
-  var r = await exec(tools.ffmpeg, args, workingDirectory: config.workDir, token: token);
+  var r = await media.run(MediaTool.ffmpeg, args, workingDirectory: config.workDir, token: token);
   // Fallback com re-encode para qualquer container de entrada: "-c:v copy"
   // falha quando o codec do vídeo (ex.: VP9 de um WebM) não é aceito no MP4
   // de saída.
@@ -50,7 +47,7 @@ Future<String> buildFinalVideo(
       retryArgs.addAll(['-metadata:s:a:1', 'language=${config.sourceLang.iso639_2}']);
     }
     retryArgs.addAll(['-disposition:a:0', 'default', outputPath]);
-    r = await exec(tools.ffmpeg, retryArgs, workingDirectory: config.workDir, token: token);
+    r = await media.run(MediaTool.ffmpeg, retryArgs, workingDirectory: config.workDir, token: token);
     if (r.exitCode != 0) {
       throw PipelineException(PipelineStage.mux,
           'Falha ao gerar vídeo final: ${r.stderrTail}');

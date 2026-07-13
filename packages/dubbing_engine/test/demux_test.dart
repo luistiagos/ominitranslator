@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/steps/demux.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
@@ -14,6 +15,12 @@ void main() {
   late DubbingJobConfig config;
   late Tools tools;
   late CancellationToken token;
+
+  // Adapta um mock de RunToolFn num MediaToolRunner. O DesktopMediaToolRunner
+  // mapeia MediaTool.ffmpeg -> tools.ffmpeg ('ffmpeg'), então os testes que
+  // checam `exePath == 'ffmpeg'`/'ffprobe' seguem valendo.
+  MediaToolRunner media(RunToolFn fn) =>
+      DesktopMediaToolRunner(tools, runToolOverride: fn);
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('demux_test_');
@@ -45,7 +52,7 @@ void main() {
       final audioOut = p.join(tempDir.path, 'audio_full.wav');
       File(audioOut).writeAsBytesSync(List.filled(100, 0));
 
-      final result = await runDemux(config, tools, token, runToolOverride: (
+      final result = await runDemux(config, media((
         String exePath,
         List<String> args, {
         String? workingDirectory,
@@ -56,14 +63,14 @@ void main() {
           return _okResult('123.456\n');
         }
         return _okResult('');
-      });
+      }), token);
 
       expect(result, closeTo(123.456, 0.001));
     });
 
     test('throws when ffprobe fails', () async {
       await expectLater(
-        runDemux(config, tools, token, runToolOverride: (
+        runDemux(config, media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -71,7 +78,7 @@ void main() {
           CancellationToken? token,
         }) async {
           return _failResult(1);
-        }),
+        }), token),
         throwsA(isA<PipelineException>().having(
           (e) => e.stage,
           'stage',
@@ -82,7 +89,7 @@ void main() {
 
     test('throws when ffmpeg fails', () async {
       await expectLater(
-        runDemux(config, tools, token, runToolOverride: (
+        runDemux(config, media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -91,7 +98,7 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('10.0\n');
           return _failResult(1);
-        }),
+        }), token),
         throwsA(isA<PipelineException>().having(
           (e) => e.stage,
           'stage',
@@ -105,7 +112,7 @@ void main() {
       File(audioOut).writeAsBytesSync(List.filled(44, 0));
 
       await expectLater(
-        runDemux(config, tools, token, runToolOverride: (
+        runDemux(config, media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -114,7 +121,7 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('10.0\n');
           return _okResult('');
-        }),
+        }), token),
         throwsA(isA<PipelineException>().having(
           (e) => e.stage,
           'stage',
@@ -125,7 +132,7 @@ void main() {
 
     test('throws when audio output does not exist', () async {
       await expectLater(
-        runDemux(config, tools, token, runToolOverride: (
+        runDemux(config, media((
           String exePath,
           List<String> args, {
           String? workingDirectory,
@@ -134,7 +141,7 @@ void main() {
         }) async {
           if (exePath == 'ffprobe') return _okResult('10.0\n');
           return _okResult('');
-        }),
+        }), token),
         throwsA(isA<PipelineException>()),
       );
     });

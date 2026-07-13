@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
-import 'package:dubbing_engine/src/tools/process_runner.dart';
-import 'package:dubbing_engine/src/tools/tool_locator.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 import 'package:dubbing_engine/src/wav.dart';
 import 'package:path/path.dart' as p;
 
@@ -97,14 +96,12 @@ Future<({String path, Duration truncatedTail})> buildDubTrack(
 Future<String> buildFinalMix(
   bool voiceOverMode,
   String workDir,
-  Tools tools,
-  CancellationToken token, {
-  RunToolFn? runToolOverride,
-}) async {
-  final exec = runToolOverride ?? runTool;
+  MediaToolRunner media,
+  CancellationToken token,
+) async {
   final dubbedPath = p.join(workDir, 'dubbed.wav');
   if (voiceOverMode) {
-    final r = await exec(tools.ffmpeg, [
+    final r = await media.run(MediaTool.ffmpeg, [
       '-y',
       '-i', p.join(workDir, 'audio_full.wav'),
       '-i', p.join(workDir, 'dub_voice.wav'),
@@ -122,7 +119,7 @@ Future<String> buildFinalMix(
       throw PipelineException(PipelineStage.mix, 'Mixagem com ducking falhou');
     }
   } else {
-    final r = await exec(tools.ffmpeg, [
+    final r = await media.run(MediaTool.ffmpeg, [
       '-y',
       '-i', p.join(workDir, 'accompaniment.wav'),
       '-i', p.join(workDir, 'dub_voice.wav'),
