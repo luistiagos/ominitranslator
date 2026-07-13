@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/wav.dart';
 
 /// Apara janelas de segmentos à fala REAL, por energia.
 ///
@@ -65,19 +66,33 @@ List<DubbingSegment> trimDubbingSegmentsToSpeech(
 /// fala detectável).
 (Duration, Duration)? speechBounds(
     Float32List samples, int sampleRate, Duration start, Duration end) {
-  final frameLen = sampleRate * _frameMs ~/ 1000;
-  final hopLen = sampleRate * _hopMs ~/ 1000;
   final segStart = start.inMicroseconds * sampleRate ~/ 1000000;
   final segEnd =
       math.min(end.inMicroseconds * sampleRate ~/ 1000000, samples.length);
-  if (segEnd - segStart < frameLen) return null;
+  final range = _speechRange(samples, sampleRate, segStart, segEnd);
+  if (range == null) return null;
+  return (
+    Duration(microseconds: range.$1 * 1000000 ~/ sampleRate),
+    Duration(microseconds: range.$2 * 1000000 ~/ sampleRate),
+  );
+}
+
+/// Núcleo: analisa `buf[from..to)` e devolve os índices ABSOLUTOS (no mesmo
+/// buffer) da fala sustentada, já com as margens aplicadas.
+(int, int)? _speechRange(
+    Float32List buf, int sampleRate, int from, int to) {
+  final frameLen = sampleRate * _frameMs ~/ 1000;
+  final hopLen = sampleRate * _hopMs ~/ 1000;
+  if (from < 0) from = 0;
+  if (to > buf.length) to = buf.length;
+  if (to - from < frameLen) return null;
 
   // RMS por frame dentro da janela.
   final rms = <double>[];
-  for (int pos = segStart; pos + frameLen <= segEnd; pos += hopLen) {
+  for (int pos = from; pos + frameLen <= to; pos += hopLen) {
     double energy = 0;
     for (int i = pos; i < pos + frameLen; i++) {
-      energy += samples[i] * samples[i];
+      energy += buf[i] * buf[i];
     }
     rms.add(math.sqrt(energy / frameLen));
   }
@@ -100,14 +115,77 @@ List<DubbingSegment> trimDubbingSegmentsToSpeech(
   }
   if (first < 0) return null;
 
-  var newStart = segStart + first * hopLen - sampleRate * _startMarginMs ~/ 1000;
-  var newEnd = segStart + last * hopLen + frameLen + sampleRate * _endMarginMs ~/ 1000;
-  if (newStart < segStart) newStart = segStart;
-  if (newEnd > segEnd) newEnd = segEnd;
+  var newStart = from + first * hopLen - sampleRate * _startMarginMs ~/ 1000;
+  var newEnd = from + last * hopLen + frameLen + sampleRate * _endMarginMs ~/ 1000;
+  if (newStart < from) newStart = from;
+  if (newEnd > to) newEnd = to;
   if (newEnd - newStart < sampleRate * _minSpeechMs ~/ 1000) return null;
 
+  return (newStart, newEnd);
+}
+
+/// Como [speechBounds], mas lendo do WAV só a janela do segmento.
+///
+/// O `asr_in.wav` de um vídeo de uma hora vira ~230 MB de `Float32List` se lido
+/// inteiro — e ele era lido inteiro DUAS vezes por job (aqui e no transcriber).
+/// Cada segmento só precisa da sua própria janela.
+(Duration, Duration)? speechBoundsFromReader(
+    WavReader reader, Duration start, Duration end) {
+  final sr = reader.sampleRate;
+  final segStart = start.inMicroseconds * sr ~/ 1000000;
+  final segEnd = math.min(end.inMicroseconds * sr ~/ 1000000, reader.frameCount);
+  if (segEnd <= segStart) return null;
+
+  final window = reader.readFrames(segStart, segEnd - segStart);
+  final range = _speechRange(window, sr, 0, window.length);
+  if (range == null) return null;
+  // Índices vêm relativos à janela: reancora no tempo absoluto do arquivo.
   return (
-    Duration(microseconds: newStart * 1000000 ~/ sampleRate),
-    Duration(microseconds: newEnd * 1000000 ~/ sampleRate),
+    Duration(microseconds: (segStart + range.$1) * 1000000 ~/ sr),
+    Duration(microseconds: (segStart + range.$2) * 1000000 ~/ sr),
   );
+}
+
+/// [trimSegmentsToSpeech] lendo o WAV por janela, sem carregá-lo inteiro.
+List<TranscriptSegment> trimSegmentsToSpeechFromFile(
+    List<TranscriptSegment> segments, String wavPath) {
+  final reader = WavReader.open(wavPath);
+  try {
+    return segments.map((seg) {
+      final bounds = speechBoundsFromReader(reader, seg.start, seg.end);
+      if (bounds == null) {
+        final windowUs = seg.end.inMicroseconds - seg.start.inMicroseconds;
+        final keepUs = windowUs < 300000 ? windowUs : 300000;
+        return TranscriptSegment(
+          seg.start,
+          Duration(microseconds: seg.start.inMicroseconds + keepUs),
+          seg.text,
+          speaker: seg.speaker,
+        );
+      }
+      return TranscriptSegment(bounds.$1, bounds.$2, seg.text,
+          speaker: seg.speaker);
+    }).toList();
+  } finally {
+    reader.close();
+  }
+}
+
+/// [trimDubbingSegmentsToSpeech] lendo o WAV por janela.
+List<DubbingSegment> trimDubbingSegmentsToSpeechFromFile(
+    List<DubbingSegment> segments, String wavPath) {
+  final reader = WavReader.open(wavPath);
+  try {
+    return segments.map((seg) {
+      final bounds = speechBoundsFromReader(reader, seg.start, seg.end);
+      if (bounds == null) return seg;
+      final trimmed = DubbingSegment(
+          seg.id, bounds.$1, bounds.$2, seg.sourceText,
+          speaker: seg.speaker);
+      trimmed.translatedText = seg.translatedText;
+      return trimmed;
+    }).toList();
+  } finally {
+    reader.close();
+  }
 }

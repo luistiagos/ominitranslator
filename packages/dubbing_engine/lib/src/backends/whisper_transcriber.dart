@@ -6,7 +6,6 @@ import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/steps/speech_trim.dart';
-import 'package:dubbing_engine/src/wav.dart';
 import 'package:path/path.dart' as p;
 
 int _threadCount() => (2 > (Platform.numberOfProcessors - 2)) ? 2 : (Platform.numberOfProcessors - 2);
@@ -58,7 +57,8 @@ class WhisperTranscriber implements Transcriber {
     }).toList();
     // O whisper estica o fim dos segmentos através dos silêncios; apara as
     // janelas à fala real — todo o agendamento da dublagem depende disso.
-    final asrWav = readWav(p.join(workDir, 'asr_in.wav'));
-    return trimSegmentsToSpeech(segments, asrWav.samples, asrWav.sampleRate);
+    // Por janela: o WAV inteiro seriam ~230 MB numa hora de vídeo.
+    return trimSegmentsToSpeechFromFile(
+        segments, p.join(workDir, 'asr_in.wav'));
   }
 }

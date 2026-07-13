@@ -15,7 +15,6 @@ import 'package:dubbing_engine/src/steps/speaker_assign.dart';
 import 'package:dubbing_engine/src/steps/speech_trim.dart';
 import 'package:dubbing_engine/src/steps/subtitles.dart';
 import 'package:dubbing_engine/src/steps/sync_report.dart';
-import 'package:dubbing_engine/src/wav.dart';
 
 /// Espaço mínimo livre recomendado no disco do diretório de trabalho.
 /// Vídeo, áudio extraído e arquivos intermediários (WAVs) exigem bastante
@@ -206,8 +205,7 @@ Stream<PipelineEvent> runDubbingJob(
     // ancorar por energia (usa o asr_in.wav gerado pela transcrição).
     final asrWavPath = p.join(workDir, 'asr_in.wav');
     if (File(asrWavPath).existsSync()) {
-      final asr = readWav(asrWavPath);
-      segments = trimDubbingSegmentsToSpeech(segments, asr.samples, asr.sampleRate);
+      segments = trimDubbingSegmentsToSpeechFromFile(segments, asrWavPath);
     }
 
     yield PipelineEvent(PipelineStage.segment, 1.0,
