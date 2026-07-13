@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/constants.dart';
@@ -122,13 +123,34 @@ List<DubPlanItem> planDubSchedule(
   return items;
 }
 
-/// Materializa o áudio final de um segmento conforme a velocidade planejada
-/// e o agenda a partir de [cursorSec] (nunca sobrepondo a fala anterior).
-/// [naturalAudio] é a síntese a 1x já feita na fase anterior — reusada
-/// quando o plano não pede aceleração. Retorna o novo cursor.
+/// Sintetiza a fala a 1x e a guarda EM DISCO (`seg_<id>_natural.wav`),
+/// registrando só a duração no segmento.
+///
+/// Antes o pipeline acumulava o áudio de TODAS as falas num `List<Float32List>`
+/// antes de planejar — a memória crescia com a duração do vídeo. O
+/// `planDubSchedule` só precisa das durações, então o áudio pode ir para o
+/// disco assim que sai do TTS.
+void synthesizeNatural(
+  DubbingSegment seg,
+  Synthesizer synth,
+  String workDir,
+) {
+  final audio = synth.synthesize(seg.translatedText, speaker: seg.speaker);
+  final path = p.join(workDir, 'seg_${seg.id}_natural.wav');
+  writeWavPcm16(path, WavData(audio.samples, audio.sampleRate, 1));
+  seg.naturalAudioPath = path;
+  seg.naturalSampleRate = audio.sampleRate;
+  seg.naturalSampleCount = audio.samples.length;
+}
+
+/// Materializa o áudio final de um segmento conforme a velocidade planejada e o
+/// agenda a partir de [cursorSec] (nunca sobrepondo a fala anterior).
+///
+/// Lê a síntese a 1x de `seg.naturalAudioPath` (quando o plano não pede
+/// aceleração) e termina sempre gravando `seg_<id>_fit.wav` — PCM16 mono
+/// 44,1 kHz. Nenhum áudio fica retido no segmento. Retorna o novo cursor.
 Future<double> applyPlanToSegment(
   DubbingSegment seg,
-  ({Float32List samples, int sampleRate}) naturalAudio,
   double speed,
   Synthesizer synth,
   Tools tools,
@@ -139,74 +161,112 @@ Future<double> applyPlanToSegment(
   double cursorSec = 0,
 }) async {
   final exec = runToolOverride ?? runTool;
-  var audio = naturalAudio;
-  // Resintetiza quando o plano pede desvio perceptível — para mais
-  // (acelerar) ou para menos (esticar tradução curta até o fim da janela).
+  final naturalPath = seg.naturalAudioPath;
+  if (naturalPath == null) {
+    throw PipelineException(PipelineStage.fit,
+        'Segmento ${seg.id} não tem áudio natural sintetizado');
+  }
+
+  ({Float32List samples, int sampleRate}) audio;
+  // Resintetiza quando o plano pede desvio perceptível — para mais (acelerar)
+  // ou para menos (esticar tradução curta até o fim da janela).
   if (speed >= minResynthSpeed || speed <= 1 / minResynthSpeed) {
-    final naturalDur = naturalAudio.samples.length / naturalAudio.sampleRate;
+    final naturalDur = seg.naturalDurationSec!;
     final targetDur = naturalDur / speed;
     final sv = clampSpeed(speed);
     audio = synth.synthesize(seg.translatedText, speed: sv, speaker: seg.speaker);
     seg.speedUsed = sv;
-    // O VITS não escala a duração exatamente por 1/speed; o resíduo (e o
-    // que passar de vitsSpeedMax) é corrigido por atempo.
-    var durSec = audio.samples.length / audio.sampleRate;
+    // O VITS não escala a duração exatamente por 1/speed; o resíduo (e o que
+    // passar de vitsSpeedMax) é corrigido por atempo.
+    final durSec = audio.samples.length / audio.sampleRate;
     final factor = clampAtempo(durSec / targetDur);
     if (factor >= 1.02) {
       final ttsWav = p.join(workDir, 'seg_${seg.id}_tts.wav');
       writeWavPcm16(ttsWav, WavData(audio.samples, audio.sampleRate, 1));
-      final fitWav = p.join(workDir, 'seg_${seg.id}_fit.wav');
+      final atempoWav = p.join(workDir, 'seg_${seg.id}_atempo.wav');
       final r = await exec(tools.ffmpeg, [
         '-y', '-i', ttsWav,
         '-filter:a', 'atempo=${factor.toStringAsFixed(4)}',
-        fitWav,
+        atempoWav,
       ], workingDirectory: workDir, token: token);
       if (r.exitCode != 0) {
         throw PipelineException(PipelineStage.fit,
             'ffmpeg atempo falhou no segmento ${seg.id}: ${r.stderrTail}');
       }
-      final fitData = readWav(fitWav);
+      final fitData = readWav(atempoWav);
       audio = (samples: fitData.samples, sampleRate: fitData.sampleRate);
       seg.atempoUsed = factor;
+      _deleteQuietly(ttsWav);
+      _deleteQuietly(atempoWav);
     }
+  } else {
+    // Plano manda tocar ao natural: reusa o que já está no disco.
+    final natural = readWav(naturalPath);
+    audio = (samples: natural.samples, sampleRate: natural.sampleRate);
   }
 
+  final fitWav = p.join(workDir, 'seg_${seg.id}_fit.wav');
   if (childSpeakers.contains(seg.speaker)) {
     // Voz infantil simulada: sobe o pitch e restaura a duração com atempo
     // inverso (não perturba o agendamento), já saindo a 44,1 kHz num único
     // passe de ffmpeg.
     final tmpWav = p.join(workDir, 'seg_${seg.id}_child.wav');
     writeWavPcm16(tmpWav, WavData(audio.samples, audio.sampleRate, 1));
-    final shifted = p.join(workDir, 'seg_${seg.id}_childshift.wav');
     final rate = (audio.sampleRate * childVoicePitchFactor).round();
     final tempo = (1 / childVoicePitchFactor).toStringAsFixed(4);
     final r = await exec(tools.ffmpeg, [
       '-y', '-i', tmpWav,
       '-filter:a', 'asetrate=$rate,aresample=44100,atempo=$tempo',
-      shifted,
+      fitWav,
     ], workingDirectory: workDir, token: token);
     if (r.exitCode != 0) {
       throw PipelineException(PipelineStage.fit,
           'ffmpeg pitch-shift falhou no segmento ${seg.id}: ${r.stderrTail}');
     }
-    seg.fittedAudio = readWav(shifted).samples;
+    _deleteQuietly(tmpWav);
   } else if (audio.sampleRate == ttsSampleRate) {
-    seg.fittedAudio = upsample2x(audio.samples);
+    // 22050 -> 44100 é exatamente 2x: interpola em Dart, sem chamar ffmpeg.
+    final writer = WavPcm16Writer.create(fitWav, sampleRate: mixSampleRate);
+    try {
+      writer.writeFrames(upsample2x(audio.samples));
+    } finally {
+      writer.finish();
+    }
   } else {
     final tmpWav = p.join(workDir, 'seg_${seg.id}_resample.wav');
     writeWavPcm16(tmpWav, WavData(audio.samples, audio.sampleRate, 1));
-    final resampled = p.join(workDir, 'seg_${seg.id}_resampled.wav');
     final r = await exec(tools.ffmpeg, [
       '-y', '-i', tmpWav,
-      '-ar', '44100', resampled,
+      '-ar', '44100', fitWav,
     ], workingDirectory: workDir, token: token);
     if (r.exitCode != 0) {
       throw PipelineException(PipelineStage.fit,
           'ffmpeg resample falhou no segmento ${seg.id}: ${r.stderrTail}');
     }
-    final rd = readWav(resampled);
-    seg.fittedAudio = rd.samples;
+    _deleteQuietly(tmpWav);
   }
+
+  // Valida a saída antes de confiar nela (regra #9) e registra os metadados.
+  final fitReader = WavReader.open(fitWav);
+  final int fittedFrames;
+  try {
+    if (fitReader.sampleRate != mixSampleRate || fitReader.channels != 1) {
+      throw PipelineException(
+          PipelineStage.fit,
+          'Segmento ${seg.id}: fitted deveria ser mono ${mixSampleRate}Hz, '
+          'veio ${fitReader.channels}ch ${fitReader.sampleRate}Hz');
+    }
+    fittedFrames = fitReader.frameCount;
+  } finally {
+    fitReader.close();
+  }
+  seg.fittedAudioPath = fitWav;
+  seg.fittedSampleRate = mixSampleRate;
+  seg.fittedSampleCount = fittedFrames;
+
+  // O natural já cumpriu seu papel (planejamento + eventual reuso).
+  _deleteQuietly(naturalPath);
+  seg.naturalAudioPath = null;
 
   final segStartSec = seg.start.inMicroseconds / 1e6;
   var placementSec = segStartSec > cursorSec ? segStartSec : cursorSec;
@@ -216,7 +276,7 @@ Future<double> applyPlanToSegment(
     placementSec = cursorSec;
   }
   seg.placedStart = Duration(microseconds: (placementSec * 1e6).round());
-  final finalDurSec = seg.fittedAudio!.length / mixSampleRate;
+  final finalDurSec = fittedFrames / mixSampleRate;
   final dubEndSec = placementSec + finalDurSec;
   // Quanto a fala dublada passou do fim da janela original. Alimenta o
   // relatório de sincronia e a contagem de estouros no resultado.
@@ -225,4 +285,11 @@ Future<double> applyPlanToSegment(
       ? Duration(microseconds: ((dubEndSec - segEndSec) * 1e6).round())
       : Duration.zero;
   return dubEndSec;
+}
+
+void _deleteQuietly(String path) {
+  try {
+    final f = File(path);
+    if (f.existsSync()) f.deleteSync();
+  } catch (_) {}
 }

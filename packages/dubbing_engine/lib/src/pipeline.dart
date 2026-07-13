@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/constants.dart';
@@ -241,13 +240,13 @@ Stream<PipelineEvent> runDubbingJob(
         for (final e in speakerProfiles.entries)
           if (e.value.age == AgeBand.child) e.key,
       };
-      // Fase 1: sintetiza tudo a 1x para conhecer as durações naturais.
+      // Fase 1: sintetiza tudo a 1x para conhecer as durações naturais. O áudio
+      // vai direto para o disco — só a duração fica no segmento, porque é só
+      // dela que o planejamento precisa.
       final totalSegs = segments.length;
-      final naturalAudios = <({Float32List samples, int sampleRate})>[];
       for (int i = 0; i < totalSegs; i++) {
-        if (token.isCancelled) throw PipelineException(PipelineStage.synthesize, 'Cancelado pelo usuário');
-        naturalAudios.add(synthesizer.synthesize(segments[i].translatedText,
-            speaker: segments[i].speaker));
+        token.throwIfCancelled(PipelineStage.synthesize);
+        synthesizeNatural(segments[i], synthesizer, workDir);
         yield PipelineEvent(PipelineStage.synthesize, (i + 1) / totalSegs,
             'Sintetizando fala ${i + 1}/$totalSegs');
       }
@@ -258,16 +257,16 @@ Stream<PipelineEvent> runDubbingJob(
       final plan = planDubSchedule(
         [for (final s in segments) s.start.inMicroseconds / 1e6],
         [for (final s in segments) s.end.inMicroseconds / 1e6],
-        [for (final a in naturalAudios) a.samples.length / a.sampleRate],
+        [for (final s in segments) s.naturalDurationSec!],
         videoDuration,
       );
       segmentsWithOverflow = plan.where((item) => item.clamped).length;
 
       double cursor = 0;
       for (int i = 0; i < totalSegs; i++) {
-        if (token.isCancelled) throw PipelineException(PipelineStage.fit, 'Cancelado pelo usuário');
+        token.throwIfCancelled(PipelineStage.fit);
         cursor = await applyPlanToSegment(
-            segments[i], naturalAudios[i], plan[i].speed, synthesizer, tools, workDir, token,
+            segments[i], plan[i].speed, synthesizer, tools, workDir, token,
             runToolOverride: exec, childSpeakers: childSpeakers, cursorSec: cursor);
         yield PipelineEvent(PipelineStage.fit, (i + 1) / totalSegs,
             'Ajustando fala ${i + 1}/$totalSegs');

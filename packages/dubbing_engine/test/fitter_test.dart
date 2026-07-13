@@ -7,6 +7,7 @@ import 'package:dubbing_engine/src/steps/fitter.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 import 'package:dubbing_engine/src/wav.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// Sintetizador fake com duração natural fixa; acelerar reduz a duração
@@ -50,8 +51,16 @@ DubbingSegment _seg(int id, double startSec, double endSec) {
   return s;
 }
 
-({Float32List samples, int sampleRate}) _naturalAudio(double durSec) =>
-    (samples: Float32List((durSec * 22050).round()), sampleRate: 22050);
+/// Grava a síntese a 1x em disco e aponta o segmento nela — é o que a fase 1
+/// do pipeline faz agora (o áudio não fica mais em RAM).
+void _giveNatural(DubbingSegment seg, double durSec, String dir) {
+  final n = (durSec * 22050).round();
+  final path = p.join(dir, 'seg_${seg.id}_natural.wav');
+  writeWavPcm16(path, WavData(Float32List(n), 22050, 1));
+  seg.naturalAudioPath = path;
+  seg.naturalSampleRate = 22050;
+  seg.naturalSampleCount = n;
+}
 
 void main() {
   group('clampSpeed/clampAtempo', () {
@@ -89,7 +98,9 @@ void main() {
       expect(plan[0].clamped, isFalse);
     });
 
-    test('pausa real é preservada: transbordo limitado e próximo run no horário', () {
+    test(
+        'pausa real é preservada: transbordo limitado e próximo run no horário',
+        () {
       // Fala longa (5s de dublagem numa janela de 2s) seguida de pausa de
       // 2s: comprime no teto e o run seguinte começa no tempo original.
       final plan = planDubSchedule([0, 4], [2, 6], [5, 2], 30);
@@ -118,7 +129,8 @@ void main() {
       expect(plan.map((p) => p.speed), everyElement(maxTotalSpeed));
     });
 
-    test('última fala acelera acima do teto normal para caber no fim do vídeo', () {
+    test('última fala acelera acima do teto normal para caber no fim do vídeo',
+        () {
       // 12s de dublagem numa janela que termina junto com o vídeo (10s). O
       // transbordo levaria a fala a 10.8s — 800ms além do fim, que o ffmpeg
       // cortaria. O fim do vídeo é prazo duro: acelera para 1.2x e cabe.
@@ -149,22 +161,49 @@ void main() {
     setUp(() => tempDir = Directory.systemTemp.createTempSync('fitter_test_'));
     tearDown(() => tempDir.deleteSync(recursive: true));
 
-    test('velocidade 1.0 reusa o áudio natural (sem nova síntese)', () async {
+    test('velocidade 1.0 reusa o áudio natural do disco (sem nova síntese)', () async {
       final synth = _FixedSynth(1.5);
       final seg = _seg(0, 0, 2.0);
-      final cursor = await applyPlanToSegment(seg, _naturalAudio(1.5), 1.0,
-          synth, _tools, tempDir.path, CancellationToken());
+      _giveNatural(seg, 1.5, tempDir.path);
+      final cursor = await applyPlanToSegment(
+          seg, 1.0, synth, _tools, tempDir.path, CancellationToken());
       expect(synth.speeds, isEmpty);
       expect(seg.placedStart, Duration.zero);
       expect(seg.speedUsed, 1.0);
       expect(cursor, closeTo(1.5, 0.01));
     });
 
+    test('o fitted vai para o disco a 44,1 kHz mono, e o natural é apagado', () async {
+      final synth = _FixedSynth(1.5);
+      final seg = _seg(0, 0, 2.0);
+      _giveNatural(seg, 1.5, tempDir.path);
+      final naturalPath = seg.naturalAudioPath!;
+
+      await applyPlanToSegment(
+          seg, 1.0, synth, _tools, tempDir.path, CancellationToken());
+
+      expect(seg.fittedAudioPath, isNotNull);
+      expect(File(seg.fittedAudioPath!).existsSync(), isTrue);
+      expect(seg.fittedSampleRate, 44100);
+      expect(seg.fittedSampleCount, closeTo(1.5 * 44100, 2));
+      final r = WavReader.open(seg.fittedAudioPath!);
+      try {
+        expect(r.sampleRate, 44100);
+        expect(r.channels, 1);
+      } finally {
+        r.close();
+      }
+      // Já cumpriu seu papel: não fica ocupando disco no celular.
+      expect(File(naturalPath).existsSync(), isFalse);
+      expect(seg.naturalAudioPath, isNull);
+    });
+
     test('velocidade dentro do range do VITS não usa ffmpeg', () async {
       final synth = _FixedSynth(3.0);
       final seg = _seg(0, 0, 2.0);
-      await applyPlanToSegment(seg, _naturalAudio(3.0), 1.2, synth, _tools,
-          tempDir.path, CancellationToken());
+      _giveNatural(seg, 3.0, tempDir.path);
+      await applyPlanToSegment(
+          seg, 1.2, synth, _tools, tempDir.path, CancellationToken());
       expect(synth.speeds, [1.2]);
       expect(seg.speedUsed, 1.2);
       expect(seg.atempoUsed, 1.0);
@@ -173,17 +212,21 @@ void main() {
     test('acima do VITS o resíduo vai para o atempo', () async {
       final synth = _FixedSynth(3.0);
       final seg = _seg(0, 0, 2.0);
-      final RunToolFn ffmpegMock = (exePath, args,
-          {workingDirectory, timeout = const Duration(minutes: 30), token}) async {
+      ffmpegMock(exePath, args,
+          {workingDirectory,
+          timeout = const Duration(minutes: 30),
+          token}) async {
         final fIdx = args.indexOf('-filter:a');
         expect(args[fIdx + 1], contains('atempo'));
         // Grava o WAV com a duração alvo (3.0/1.5 = 2.0s).
         writeWavPcm16(
             args.last, WavData(Float32List((2.0 * 22050).round()), 22050, 1));
         return ToolResult(0, '', '');
-      };
-      await applyPlanToSegment(seg, _naturalAudio(3.0), 1.5, synth, _tools,
-          tempDir.path, CancellationToken(),
+      }
+
+      _giveNatural(seg, 3.0, tempDir.path);
+      await applyPlanToSegment(
+          seg, 1.5, synth, _tools, tempDir.path, CancellationToken(),
           runToolOverride: ffmpegMock);
       expect(seg.speedUsed, 1.35);
       expect(seg.atempoUsed, closeTo(1.5 / 1.35, 0.01));
@@ -192,8 +235,9 @@ void main() {
     test('velocidade < 1 resintetiza mais lento (estica sem ffmpeg)', () async {
       final synth = _FixedSynth(2.0);
       final seg = _seg(0, 0, 3.0);
-      final cursor = await applyPlanToSegment(seg, _naturalAudio(2.0), 0.85,
-          synth, _tools, tempDir.path, CancellationToken());
+      _giveNatural(seg, 2.0, tempDir.path);
+      final cursor = await applyPlanToSegment(
+          seg, 0.85, synth, _tools, tempDir.path, CancellationToken());
       expect(synth.speeds, [0.85]);
       expect(seg.speedUsed, 0.85);
       expect(seg.atempoUsed, 1.0);
@@ -201,13 +245,15 @@ void main() {
       expect(cursor, closeTo(2.0 / 0.85, 0.02));
     });
 
-    test('lacuna minúscula em fala contínua é colada (sem interrupção)', () async {
+    test('lacuna minúscula em fala contínua é colada (sem interrupção)',
+        () async {
       final synth = _FixedSynth(1.0);
       // Original: fala anterior terminou (cursor 2.0), próxima começa em
       // 2.2 — 0.2s de lacuna viraria um buraco artificial: cola em 2.0.
       final seg = _seg(1, 2.2, 3.2);
-      await applyPlanToSegment(seg, _naturalAudio(1.0), 1.0, synth, _tools,
-          tempDir.path, CancellationToken(),
+      _giveNatural(seg, 1.0, tempDir.path);
+      await applyPlanToSegment(
+          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
           cursorSec: 2.0);
       expect(seg.placedStart.inMilliseconds, 2000);
     });
@@ -215,8 +261,9 @@ void main() {
     test('pausa real entre falas é mantida (não cola)', () async {
       final synth = _FixedSynth(1.0);
       final seg = _seg(1, 4.0, 5.0);
-      await applyPlanToSegment(seg, _naturalAudio(1.0), 1.0, synth, _tools,
-          tempDir.path, CancellationToken(),
+      _giveNatural(seg, 1.0, tempDir.path);
+      await applyPlanToSegment(
+          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
           cursorSec: 2.0);
       expect(seg.placedStart.inMilliseconds, 4000);
     });
@@ -224,8 +271,9 @@ void main() {
     test('cursor empurra a fala sem sobreposição', () async {
       final synth = _FixedSynth(1.0);
       final seg = _seg(1, 2.0, 3.0);
-      final cursor = await applyPlanToSegment(seg, _naturalAudio(1.0), 1.0,
-          synth, _tools, tempDir.path, CancellationToken(),
+      _giveNatural(seg, 1.0, tempDir.path);
+      final cursor = await applyPlanToSegment(
+          seg, 1.0, synth, _tools, tempDir.path, CancellationToken(),
           cursorSec: 3.5);
       expect(seg.placedStart.inMilliseconds, 3500);
       expect(cursor, closeTo(4.5, 0.01));

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 enum Lang {
   en(code: 'en', label: 'Inglês', iso639_2: 'eng', isDubTarget: true),
   pt(code: 'pt', label: 'Português', iso639_2: 'por', isDubTarget: true),
@@ -87,7 +85,33 @@ class DubbingSegment {
   final Duration end;
   final String sourceText;
   String translatedText = '';
-  Float32List? fittedAudio;
+
+  /// Síntese a 1x, em disco (`seg_<id>_natural.wav`). Guardar o áudio de TODAS
+  /// as falas em RAM fazia a memória crescer com a duração do vídeo; aqui fica
+  /// só o path. Pode ser apagado assim que o fitted for validado.
+  String? naturalAudioPath;
+  int? naturalSampleRate;
+  int? naturalSampleCount;
+
+  /// Áudio final da fala, em disco (`seg_<id>_fit.wav`), PCM16 mono 44,1 kHz.
+  /// Só é apagado depois de `dub_voice.wav` estar pronto.
+  String? fittedAudioPath;
+  int? fittedSampleRate;
+  int? fittedSampleCount;
+
+  /// Duração da síntese a 1x — é só disto que o `planDubSchedule` precisa,
+  /// não do áudio.
+  double? get naturalDurationSec =>
+      (naturalSampleCount == null || naturalSampleRate == null)
+          ? null
+          : naturalSampleCount! / naturalSampleRate!;
+
+  /// Duração da fala já ajustada.
+  double? get fittedDurationSec =>
+      (fittedSampleCount == null || fittedSampleRate == null)
+          ? null
+          : fittedSampleCount! / fittedSampleRate!;
+
   double speedUsed = 1.0;
   double atempoUsed = 1.0;
   Duration overflow = Duration.zero;

@@ -4,7 +4,6 @@
 // Run (CWD = raiz do repo): diag_dub.exe <video> <workDir>
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:dubbing_engine/dubbing_engine.dart';
 import 'package:dubbing_engine/src/backends/sherpa_separator.dart';
 import 'package:dubbing_engine/src/backends/translatelocally_translator.dart';
@@ -63,27 +62,26 @@ Future<void> main(List<String> argv) async {
   final synth =
       PiperSynthesizer(Lang.pt, models, voiceOverride: ('piper-pt-br', 0));
   try {
-    final naturals = <({Float32List samples, int sampleRate})>[];
     for (final seg in segments) {
-      naturals.add(synth.synthesize(seg.translatedText));
+      synthesizeNatural(seg, synth, workDir);
     }
     final plan = planDubSchedule(
       [for (final s in segments) s.start.inMicroseconds / 1e6],
       [for (final s in segments) s.end.inMicroseconds / 1e6],
-      [for (final a in naturals) a.samples.length / a.sampleRate],
+      [for (final s in segments) s.naturalDurationSec!],
       videoDuration,
     );
     double cursor = 0;
     print('\n seg | original      | dub           | vel   | Δini  | Δfim  | obs');
     for (int i = 0; i < segments.length; i++) {
-      cursor = await applyPlanToSegment(segments[i], naturals[i],
+      cursor = await applyPlanToSegment(segments[i],
           plan[i].speed, synth, tools, workDir, token,
           cursorSec: cursor);
       final seg = segments[i];
       final oS = seg.start.inMilliseconds / 1000;
       final oE = seg.end.inMilliseconds / 1000;
       final dS = seg.placedStart.inMilliseconds / 1000;
-      final dE = dS + seg.fittedAudio!.length / mixSampleRate;
+      final dE = dS + seg.fittedDurationSec!;
       final flags = <String>[];
       if (plan[i].clamped) flags.add('CLAMP');
       if (dE > oE + pauseSpillSeconds + 0.15) flags.add('INVADE-PAUSA');
@@ -103,7 +101,7 @@ Future<void> main(List<String> argv) async {
       final gapEnd = segments[i + 1].start.inMilliseconds / 1000;
       if (gapEnd - gapStart < pausePreserveSeconds) continue;
       final dubEnd = segments[i].placedStart.inMilliseconds / 1000 +
-          segments[i].fittedAudio!.length / mixSampleRate;
+          segments[i].fittedDurationSec!;
       final invasion = (dubEnd - gapStart).clamp(0.0, gapEnd - gapStart);
       print('  ${gapStart.toStringAsFixed(1)}-${gapEnd.toStringAsFixed(1)}s '
           '(${(gapEnd - gapStart).toStringAsFixed(1)}s): '

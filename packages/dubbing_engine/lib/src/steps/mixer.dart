@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
@@ -15,37 +14,83 @@ import 'package:path/path.dart' as p;
 /// que a cauda foi preservada. O agendamento (`planDubSchedule`) já acelera o
 /// último run para caber; o resíduo que ainda assim sobrar é devolvido em
 /// [truncatedTail] para ser medido e reportado, nunca cortado em silêncio.
+/// Escrita SEQUENCIAL: a faixa é gravada quadro a quadro, na ordem, sem nunca
+/// materializar o vídeo inteiro em memória.
+///
+/// Antes isto alocava um `Float32List` do tamanho do vídeo (~635 MB por hora, só
+/// em mono float32) e somava cada fala dentro dele. O scheduler garante que as
+/// falas não se sobrepõem (`fitter.dart`: `placementSec = max(segStart, cursor)`),
+/// então basta escrever silêncio até o início de cada fala e copiar os quadros
+/// PCM16 do `seg_<id>_fit.wav` — sem soma, sem conversão para float, com memória
+/// constante.
 Future<({String path, Duration truncatedTail})> buildDubTrack(
   List<DubbingSegment> segments,
   double videoDurationSec,
   String workDir,
   CancellationToken token,
 ) async {
-  final totalSamples = (videoDurationSec * mixSampleRate).round();
-  var overrunSamples = 0;
-  final buffer = Float32List(totalSamples);
-  for (final seg in segments) {
-    if (seg.fittedAudio == null) continue;
-    final offset = (seg.placedStart.inMicroseconds / 1000000.0 * mixSampleRate).round();
-    final end = offset + seg.fittedAudio!.length;
-    if (end - totalSamples > overrunSamples) overrunSamples = end - totalSamples;
-    for (int j = 0; j < seg.fittedAudio!.length; j++) {
-      final idx = offset + j;
-      if (idx < buffer.length) {
-        buffer[idx] += seg.fittedAudio![j];
+  final totalFrames = (videoDurationSec * mixSampleRate).round();
+  final dubVoicePath = p.join(workDir, 'dub_voice.wav');
+
+  final placed = segments
+      .where((s) => s.fittedAudioPath != null && s.fittedSampleCount != null)
+      .toList()
+    ..sort((a, b) => a.placedStart.compareTo(b.placedStart));
+
+  final writer = WavPcm16Writer.create(dubVoicePath, sampleRate: mixSampleRate);
+  var overrunFrames = 0;
+  try {
+    var cursor = 0;
+    for (final seg in placed) {
+      token.throwIfCancelled(PipelineStage.mix);
+      final startFrame =
+          (seg.placedStart.inMicroseconds / 1000000.0 * mixSampleRate).round();
+      if (startFrame < cursor) {
+        // O writer é mais estrito que o buffer antigo, que somava sobreposições
+        // em silêncio. Se isto disparar, o scheduler quebrou uma invariável.
+        throw PipelineException(
+            PipelineStage.mix,
+            'Fala ${seg.id} começa em $startFrame, antes do fim da anterior '
+            '($cursor) — o agendamento não pode sobrepor falas.');
+      }
+      writer.writeSilence(startFrame - cursor);
+      cursor = startFrame;
+
+      final end = startFrame + seg.fittedSampleCount!;
+      if (end - totalFrames > overrunFrames) overrunFrames = end - totalFrames;
+
+      // Cauda além do fim do vídeo seria descartada pelo ffmpeg de qualquer
+      // forma (amix duration=first): não é escrita, é MEDIDA.
+      final room = totalFrames - startFrame;
+      if (room <= 0) continue;
+
+      final reader = WavReader.open(seg.fittedAudioPath!);
+      try {
+        var written = 0;
+        final limit =
+            reader.frameCount < room ? reader.frameCount : room;
+        const chunk = 1 << 16;
+        while (written < limit) {
+          final take = (limit - written) < chunk ? (limit - written) : chunk;
+          writer.writeRawFrames(reader.readRawFrames(written, take));
+          written += take;
+        }
+        cursor = startFrame + written;
+      } finally {
+        reader.close();
       }
     }
+    writer.writeSilence(totalFrames - cursor);
+  } catch (_) {
+    writer.abort();
+    rethrow;
   }
-  for (int i = 0; i < buffer.length; i++) {
-    if (buffer[i] > 1.0) buffer[i] = 1.0;
-    if (buffer[i] < -1.0) buffer[i] = -1.0;
-  }
-  final dubVoicePath = p.join(workDir, 'dub_voice.wav');
-  writeWavPcm16(dubVoicePath, WavData(buffer, mixSampleRate, 1));
+  writer.finish();
+
   return (
     path: dubVoicePath,
     truncatedTail: Duration(
-        microseconds: (overrunSamples / mixSampleRate * 1e6).round()),
+        microseconds: (overrunFrames / mixSampleRate * 1e6).round()),
   );
 }
 
