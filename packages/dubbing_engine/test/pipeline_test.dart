@@ -6,6 +6,7 @@ import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
 import 'package:dubbing_engine/src/backends/youtube_downloader.dart';
 import 'package:dubbing_engine/src/pipeline.dart';
+import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
 import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
@@ -14,7 +15,7 @@ import 'package:test/test.dart';
 
 ToolResult _okResult([String stdout = '']) => ToolResult(0, stdout, '');
 // Evita que os testes dependam do espaço livre real do disco da máquina.
-int? _ampleFreeBytes(String _) => 999 * 1024 * 1024 * 1024;
+const _ampleFreeBytes = 999 * 1024 * 1024 * 1024;
 
 class _MockSeparator implements Separator {
   final bool available;
@@ -100,7 +101,7 @@ DubbingRuntime _runtime(
   ModelManager models, {
   Tools? tools,
   RunToolFn? runToolOverride,
-  int? Function(String)? freeBytes,
+  DiskSpaceProbe? diskSpace,
   SeparatorFactory? createSeparator,
   DiarizerFactory? createDiarizer,
   TranscriberFactory? createTranscriber,
@@ -113,7 +114,7 @@ DubbingRuntime _runtime(
     models: models,
     tools: t,
     runTool: runToolOverride ?? runTool,
-    freeBytes: freeBytes ?? _ampleFreeBytes,
+    diskSpace: diskSpace ?? const FixedDiskSpaceProbe(_ampleFreeBytes),
     createSeparator: createSeparator ?? () => _MockSeparator(true),
     // Nulo por padrão: sem diarizer, a dublagem é de voz única (é também como
     // o Android M1 expressa a ausência de diarização).
@@ -245,7 +246,8 @@ void main() {
 
         PipelineException? error;
         await runDubbingJob(config, CancellationToken(),
-                runtime: _runtime(models, freeBytes: (_) => 100 * 1024 * 1024))
+                runtime: _runtime(models,
+                    diskSpace: const FixedDiskSpaceProbe(100 * 1024 * 1024)))
             .handleError((e) {
               if (e is PipelineException) error = e;
             }).toList();

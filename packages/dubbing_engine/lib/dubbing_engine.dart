@@ -5,6 +5,7 @@ export 'src/translation_catalog.dart';
 export 'src/pipeline.dart';
 export 'src/runtime/dubbing_runtime.dart';
 export 'src/runtime/desktop_runtime.dart';
+export 'src/runtime/disk_space_probe.dart';
 export 'src/steps/sync_report.dart';
 export 'src/model_manager.dart';
 export 'src/wav.dart';

@@ -44,6 +44,36 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// Espaço livre por diretório, medido fora do `build()`.
+  ///
+  /// Antes a UI chamava `freeBytesForPath` (FFI síncrono) direto no `build()`,
+  /// a cada frame. No Android o `StatFs` vem por MethodChannel e é assíncrono,
+  /// então isso é impossível — e mesmo no Windows era I/O de disco no caminho
+  /// de renderização. Agora o valor é medido sob demanda e cacheado; um path
+  /// ainda não medido simplesmente não mostra o rodapé de espaço.
+  final Map<String, int?> _freeBytes = {};
+  final Set<String> _probing = {};
+
+  int? _freeBytesFor(AppState state, String? dirPath) {
+    if (dirPath == null) return null;
+    if (_freeBytes.containsKey(dirPath)) return _freeBytes[dirPath];
+    if (_probing.add(dirPath)) {
+      // Fora do build: medir e só então reconstruir.
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final bytes = await state.diskSpace.freeBytes(dirPath);
+        if (!mounted) return;
+        setState(() => _freeBytes[dirPath] = bytes);
+      });
+    }
+    return null;
+  }
+
+  /// Descarta as medições: o usuário mudou de diretório ou liberou espaço.
+  void _invalidateFreeBytes() {
+    _freeBytes.clear();
+    _probing.clear();
+  }
+
   /// Número de falantes informado pelo usuário (1–20), ou null para
   /// detecção automática.
   int? _speakerCount() {
@@ -197,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickWorkDir(AppState state) async {
     final result = await FilePicker.platform.getDirectoryPath();
     if (result != null) {
+      _invalidateFreeBytes();
       state.setWorkDirBase(result);
     }
   }
@@ -292,6 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result != null) {
       setState(() {
+        _invalidateFreeBytes();
         _outputPath = result.toLowerCase().endsWith('.mp4') ? result : '$result.mp4';
       });
     }
@@ -334,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildWorkDirTile(AppState state) {
     final dir = state.settings.workDirBase;
-    final freeBytes = freeBytesForPath(dir);
+    final freeBytes = _freeBytesFor(state, dir);
     final freeMb = freeBytes != null ? (freeBytes / (1024 * 1024)).round() : null;
     final low = freeBytes != null && freeBytes < minFreeDiskBytes;
     return ListTile(
@@ -355,14 +387,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String? _lowDiskSpaceWarning(AppState state) {
-    final freeBytes = freeBytesForPath(state.settings.workDirBase);
+    final freeBytes = _freeBytesFor(state, state.settings.workDirBase);
     if (freeBytes == null || freeBytes >= minFreeDiskBytes) return null;
     final freeMb = (freeBytes / (1024 * 1024)).round();
     return 'Espaço em disco insuficiente em ${p.rootPrefix(state.settings.workDirBase)} '
         '(apenas $freeMb MB livres). Escolha outro diretório de trabalho acima.';
   }
 
-  Widget _buildOutputTile() {
+  Widget _buildOutputTile(AppState state) {
     final path = _outputPath ?? _computeDefaultOutputPath();
     if (path == null) {
       return const ListTile(
@@ -371,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text('Escolha um vídeo ou link para definir onde salvar'),
       );
     }
-    final freeBytes = freeBytesForPath(p.dirname(path));
+    final freeBytes = _freeBytesFor(state, p.dirname(path));
     final freeMb = freeBytes != null ? (freeBytes / (1024 * 1024)).round() : null;
     final low = freeBytes != null && freeBytes < minFreeDiskBytes;
     return ListTile(
@@ -391,10 +423,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String? _lowOutputDiskSpaceWarning() {
+  String? _lowOutputDiskSpaceWarning(AppState state) {
     final path = _outputPath ?? _computeDefaultOutputPath();
     if (path == null) return null;
-    final freeBytes = freeBytesForPath(p.dirname(path));
+    final freeBytes = _freeBytesFor(state, p.dirname(path));
     if (freeBytes == null || freeBytes >= minFreeDiskBytes) return null;
     final freeMb = (freeBytes / (1024 * 1024)).round();
     return 'Espaço em disco insuficiente em ${p.rootPrefix(path)} '
@@ -504,7 +536,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             _buildWorkDirTile(state),
-            _buildOutputTile(),
+            _buildOutputTile(state),
             const SizedBox(height: 16),
             if (_missingModels(state) case final warning?)
               Text(warning, style: const TextStyle(color: Colors.orange)),
@@ -512,12 +544,12 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(hint, style: Theme.of(context).textTheme.bodySmall),
             if (_lowDiskSpaceWarning(state) case final warning?)
               Text(warning, style: const TextStyle(color: Colors.red)),
-            if (_lowOutputDiskSpaceWarning() case final warning?)
+            if (_lowOutputDiskSpaceWarning(state) case final warning?)
               Text(warning, style: const TextStyle(color: Colors.red)),
             ElevatedButton(
               onPressed: _canDub(state) &&
                       _lowDiskSpaceWarning(state) == null &&
-                      _lowOutputDiskSpaceWarning() == null
+                      _lowOutputDiskSpaceWarning(state) == null
                   ? () => _startDub(state)
                   : null,
               child: const Text('Dublar'),

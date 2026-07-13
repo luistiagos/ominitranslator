@@ -1,6 +1,7 @@
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 
@@ -57,10 +58,11 @@ class DubbingRuntime {
   // da §5.2 entrar; no Android nenhum dos dois faz sentido.
   final Tools tools;
   final RunToolFn runTool;
+  // -------------------------------------------------------------------------
 
-  /// Vira o `DiskSpaceProbe` assíncrono da §5.4 (o `StatFs` do Android é
-  /// MethodChannel, logo async).
-  final int? Function(String path) freeBytes;
+  /// Espaço livre em disco (§5.4). Assíncrono porque o `StatFs` do Android vem
+  /// por MethodChannel.
+  final DiskSpaceProbe diskSpace;
 
   const DubbingRuntime({
     required this.createSeparator,
@@ -72,6 +74,6 @@ class DubbingRuntime {
     required this.models,
     required this.tools,
     required this.runTool,
-    required this.freeBytes,
+    required this.diskSpace,
   });
 }

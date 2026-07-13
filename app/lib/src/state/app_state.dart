@@ -49,9 +49,15 @@ Future<void> _jobEntry(_JobArgs args) async {
 class AppState extends ChangeNotifier {
   final Tools tools;
   final ModelManager modelManager;
+
+  /// Probe de espaço livre. A UI é compartilhada com o Android, onde o
+  /// `StatFs` vem por MethodChannel — por isso é injetável e assíncrono.
+  final DiskSpaceProbe diskSpace;
+
   AppSettings settings = AppSettings.load();
 
-  AppState(this.tools, this.modelManager) {
+  AppState(this.tools, this.modelManager,
+      {this.diskSpace = const WindowsDiskSpaceProbe()}) {
     refreshModelStates();
     _cleanupOldWorkDirs();
   }

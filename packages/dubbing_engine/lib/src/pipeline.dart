@@ -16,8 +16,6 @@ import 'package:dubbing_engine/src/steps/speaker_assign.dart';
 import 'package:dubbing_engine/src/steps/speech_trim.dart';
 import 'package:dubbing_engine/src/steps/subtitles.dart';
 import 'package:dubbing_engine/src/steps/sync_report.dart';
-// Só pelo `driveOf` da mensagem de erro; sai junto com o DiskSpaceProbe (G-7).
-import 'package:dubbing_engine/src/tools/disk_space.dart' show driveOf;
 import 'package:dubbing_engine/src/wav.dart';
 
 /// Espaço mínimo livre recomendado no disco do diretório de trabalho.
@@ -48,10 +46,10 @@ Stream<PipelineEvent> runDubbingJob(
     _ensureDirectories(workDir);
 
     yield PipelineEvent(PipelineStage.prepare, 0.0, 'Verificando espaço em disco...');
-    final freeBytes = runtime.freeBytes(workDir);
+    final freeBytes = await runtime.diskSpace.freeBytes(workDir);
     if (freeBytes != null && freeBytes < minFreeDiskBytes) {
       final freeMb = (freeBytes / (1024 * 1024)).round();
-      final drive = driveOf(workDir);
+      final drive = p.rootPrefix(p.absolute(workDir));
       throw PipelineException(PipelineStage.prepare,
           'Espaço em disco insuficiente na unidade $drive (apenas $freeMb MB livres). '
           'Libere espaço ou escolha um diretório de trabalho em outra unidade com mais espaço livre.');

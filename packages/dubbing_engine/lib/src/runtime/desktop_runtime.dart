@@ -5,8 +5,8 @@ import 'package:dubbing_engine/src/backends/translatelocally_translator.dart';
 import 'package:dubbing_engine/src/backends/whisper_transcriber.dart';
 import 'package:dubbing_engine/src/backends/youtube_downloader.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
+import 'package:dubbing_engine/src/runtime/disk_space_probe.dart';
 import 'package:dubbing_engine/src/runtime/dubbing_runtime.dart';
-import 'package:dubbing_engine/src/tools/disk_space.dart';
 import 'package:dubbing_engine/src/tools/process_runner.dart';
 import 'package:dubbing_engine/src/tools/tool_locator.dart';
 
@@ -19,14 +19,14 @@ DubbingRuntime desktopRuntime({
   required Tools tools,
   required ModelManager models,
   RunToolFn? runToolOverride,
-  int? Function(String path)? freeBytesOverride,
+  DiskSpaceProbe? diskSpace,
 }) {
   final exec = runToolOverride ?? runTool;
   return DubbingRuntime(
     models: models,
     tools: tools,
     runTool: exec,
-    freeBytes: freeBytesOverride ?? freeBytesForPath,
+    diskSpace: diskSpace ?? const WindowsDiskSpaceProbe(),
     createSeparator: () => SherpaSeparator(tools, models),
     createDiarizer: ({int? speakerCount}) =>
         SherpaDiarizer(models, numClusters: speakerCount),
