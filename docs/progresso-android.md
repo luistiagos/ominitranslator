@@ -1,7 +1,7 @@
 # Progresso do port Android — registro de andamento
 
-**Última atualização:** 2026-07-12
-**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui)
+**Última atualização:** 2026-07-13
+**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui; 17 commits à frente de `main`)
 **Branch estável:** `main` em `b15c821` — desktop exatamente como antes, 199 testes; é a âncora para voltar se algo der errado.
 
 > Este documento é o índice de andamento. Os detalhes de cada item estão nos documentos referenciados (spec, `decisoes.md`, relatórios de spike). Ordem normativa de trabalho: §17 de [especificacao-android.md](especificacao-android.md).
@@ -18,11 +18,14 @@
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
 | D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
 | D1 | **Refatoração de memória** (áudio em disco, writer sequencial, `WavReader`) | ✅ **concluída** (ver §3.6) |
-| D1 | `JobCheckpointStore` e retomada | ⬜ pendente |
-| D1 | `MediaToolRunner` (§5.2) | ⬜ pendente |
-| D1 | `tool/verify.ps1` + `check_native_libs.dart` | ⬜ pendente |
+| D1 | **`MediaToolRunner`** (§5.2) | ✅ **concluído** (ver §3.7) |
+| D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
+| D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
+| **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
 | D2 | AT-2 / AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
+
+**A fase D1 está concluída.** O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **284 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. O próximo passo real são os spikes no aparelho (D2), bloqueados só pela falta do device e do `libslimt.so` versionado.
 
 ---
 
@@ -117,12 +120,22 @@ Era **o** bloqueio do celular: a memória crescia com a duração do vídeo.
 
 O writer também passou a **rejeitar sobreposição** de falas em vez de somá-las em silêncio: o scheduler garante que não há sobreposição, então uma violação é um bug que merece aparecer (§19.1: "writer rejeita overlap").
 
+### 3.7 D1 — o que fechou a fase
+
+| Item | O que é | Por que importa no Android |
+|---|---|---|
+| **`MediaToolRunner`** (§5.2) | As etapas de mídia (`demux`, `fitter`, `mixer`, `muxer`) pediam um `.exe` + uma `RunToolFn` que chama `Process.start`. Agora pedem um `MediaToolRunner` e a **ferramenta** (`MediaTool.ffmpeg`), não um path. | No Android o ffmpeg é biblioteca in-process — não há `Process` nem path. **O `pipeline.dart` não referencia mais `Tools`, `RunToolFn` nem nenhum `.exe`**: o último resquício de "executável" saiu do core. Um `FFmpegKitNextRunner` entra sem tocar nas etapas. |
+| **`JobCheckpointStore`** (§5.7/§9.4) | O último contrato que a §5 declarava e não definia. `FileJobCheckpointStore` grava `job.json` atomicamente (`.part`→flush→revalida→rename); `computeConfigFingerprint` decide se um job reaberto pode ser reaproveitado; `resolveResumeState` implementa o §9.4 (recua até o último estágio cujos artefatos validam). | É o que permite retomar um job depois de o processo morrer — requisito do foreground service (§14). A re-entrada mid-pipeline em si é da D3 (é lá que o serviço reinicia o job); aqui está o **store testado** que ele vai dirigir. |
+| **`tool/verify.ps1`** + **`tool/check_native_libs.dart`** (D-d) | Sem CI, os gates são scripts locais. O `verify.ps1` roda analyze+testes do engine e do app com piso de contagem; o `check_native_libs.dart` inventaria as `.so` do APK/AAB por ABI/tamanho/hash e falha em ABI não autorizada. | Torna "os testes passam" e "não há ABI proibida" verificáveis, não afirmações de documento. |
+
+Nada disso mudou comportamento do desktop — são portabilidade e ferramentas. `verify.ps1` foi rodado ponta a ponta (**VERIFY OK**), e o `check_native_libs.dart` foi exercitado em APKs falsos (falha no x86, passa só com arm64).
+
 ---
 
 ## 4. Verificação executada
 
 - **`main`:** `dart test` → **199 passam** (baseline original preservado).
-- **`android-port`:** `dart test` → **262 passam** (199 + 63 novos).
+- **`android-port`:** `dart test` → **284 passam** (199 + 85 novos).
 - **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real com whisper-cli, translateLocally, Piper e ffmpeg): **9/9 asserções**, saída com a duração exata do vídeo e **100 % das falas dentro de ±300 ms**.
 - `dart analyze` e `flutter analyze` sem erros nem warnings novos; teste de widget do app passa.
 
@@ -140,11 +153,9 @@ Mesmo assim, com fixture de SHA-256 idêntico, a segmentação ainda oscila 5↔
 
 ## 5. Pendente
 
-### 5.1 D1 restante (desbloqueado — não precisa de device)
+### 5.1 D1 — concluída
 
-- **`JobCheckpointStore`** (§5.7): a interface está especificada, falta implementar o store e a política de retomada.
-- **`MediaToolRunner`** (§5.2): `tools` e `runTool` ainda estão no `DubbingRuntime` como transitórios — saem quando o runner tipado entrar, tirando os paths de executável do core.
-- **`tool/verify.ps1`** (analyze + testes, falha se regredir) e **`tool/check_native_libs.dart`** (inventário de `.so`).
+Nada pendente na D1. O que era "desbloqueado, sem device" — contratos, memória, `MediaToolRunner`, `JobCheckpointStore`, scripts de gate — está feito e testado. O que resta do programa Android depende do aparelho (§5.2 abaixo).
 
 ### 5.2 Bloqueado em pré-requisitos
 
