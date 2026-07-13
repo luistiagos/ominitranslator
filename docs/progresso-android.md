@@ -16,9 +16,9 @@
 | D0.5 | **AT-0** — gate de 16 KB | ✅ **PASSOU** (parte estática; runtime na D3) |
 | D2 | **AT-1** — tradução pt | 🟡 fonte/licença/qualidade resolvidas; execução no device pendente |
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
-| D1 | Contratos G-1…G-7 | ⬜ pendente (próximo) |
-| D1 | Refatoração de memória (áudio em disco, writer sequencial, `WavReader`) | ⬜ pendente |
-| D1 | `tool/verify.ps1` | ⬜ pendente |
+| D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
+| D1 | Refatoração de memória (áudio em disco, writer sequencial, `WavReader`) | ⬜ pendente (próximo) |
+| D1 | `tool/verify.ps1` + `check_native_libs.dart` | ⬜ pendente |
 | D2 | AT-2 / AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
@@ -78,14 +78,38 @@ Estas quatro correções **afetam o desktop hoje** — são bugs reais no produt
 
 > **Mudança de comportamento audível no desktop (item b):** em vídeos onde a dublagem passaria do fim, a última fala pode soar um pouco mais rápida (até 1.65×) em troca de não ser truncada. É a única mudança perceptível para o usuário final do desktop; as outras três são correções invisíveis ou melhorias.
 
+### 3.5 D1 — os sete contratos (G-1…G-7) ✅
+
+O que a auditoria chamava de "lacunas de contrato": a §5 se dizia normativa mas não definia essas interfaces, e o implementador teria de inventá-las.
+
+| Contrato | O que mudou | Por que importa no Android |
+|---|---|---|
+| **G-2** `CancellationToken` | Largou a lista de `Process` do `dart:io` por um `addCancellable(onCancel)` genérico + `CancellationRegistration` e `throwIfCancelled`. O core **não importa mais `dart:io`**. | A regra #10 (FFmpeg, sherpa e loops Dart observando o mesmo token) era **impossível** com o contrato antigo, que só sabia matar subprocesso. |
+| **G-3** `SeparationOutcome` | String livre → enum `SeparationFailureReason` + `detail` só-diagnóstico. O pipeline emite evento **informativo** (não warning) para `notSupportedOnPlatform`. | Voice-over é o modo **esperado** do M1, não uma falha técnica — a §8/P2 proíbe tratá-lo como warning. |
+| **G-1/G-5/G-6** `DubbingRuntime` | `runDubbingJob` deixou de receber `tools`, `models` e cinco factories soltas; recebe **um** runtime. `pipeline.dart` **não importa nenhum backend concreto**. YouTube virou `MediaDownloader`; `createDownloader`/`createDiarizer` nulos = a plataforma não faz aquilo. | É o que permite um `androidRuntime()` sem tocar no pipeline. E a ausência de YouTube/diarização vira **recusa explícita**, não crash. |
+| **G-7** `DiskSpaceProbe` | `freeBytesForPath` (FFI síncrono, Windows-only, chamado **de dentro do `build()`** 4× por frame) → interface async, medida fora do frame e cacheada por diretório. | No Android o `StatFs` vem por MethodChannel: um probe síncrono é impossível. Tirou o último import Windows-only do core. |
+| **G-4** `ModelCatalog` | O `prepare` decidia os modelos com IDs hardcoded, e 3 backends + 3 telas liam o `manifest` estático. Agora o catálogo é por plataforma (`entries`, `asrModelIds`, `defaultVoiceIds`, `separatorModelId` **nulável**). | O mesmo ID não pode ser `.bin` no Windows e ONNX no Android. E o M1 **não tem separação** — o `prepare` exigia um modelo que a plataforma nunca usaria. |
+
+`ModelCatalog.android()` foi deliberadamente **deixado de fora**: a spec (§6.1) proíbe inferir os nomes dos assets do sherpa, que o AT-2 vai fixar.
+
+**Revisão dos contratos** (feita antes de seguir): G-3 saiu limpo; em G-2 achei e corrigi dois bugs reais — `cancel()` abortava os cancelamentos restantes se um deles lançasse (o que deixaria FFmpeg/sherpa órfãos, exatamente o que a §19.4 proíbe), e havia uma corrida de `stdin` com token pré-cancelado.
+
 ---
 
 ## 4. Verificação executada
 
 - **`main`:** `dart test` → **199 passam** (baseline original preservado).
-- **`android-port`:** `dart test` → **213 passam** (199 + 14 novos).
-- **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real): **9/9 asserções**. Saída com a duração exata do vídeo (13,675 s = fixture); `sync.json` com **100 % das falas dentro de ±300 ms** (pior delta: 1 ms; cauda cortada: 0 ms).
-- `dart analyze` e `flutter analyze` sem erros nem warnings novos nos dois pacotes.
+- **`android-port`:** `dart test` → **241 passam** (199 + 42 novos).
+- **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real com whisper-cli, translateLocally, Piper e ffmpeg): **9/9 asserções**, saída com a duração exata do vídeo e **100 % das falas dentro de ±300 ms**.
+- `dart analyze` e `flutter analyze` sem erros nem warnings novos; teste de widget do app passa.
+
+### 4.1 ⚠ A sincronia não é perfeitamente reprodutível
+
+O `tool/integration_test.dart` **regerava a fixture a cada execução** com o Piper — que é um VITS com `noise_scale_w=0.8`, ou seja, **síntese estocástica**. Entrada diferente a cada run → segmentação e sincronia diferentes (medido: 4–6 unidades para o mesmo texto, 83 %–100 % de sincronia). A fixture agora é **congelada** (gerada uma vez e reusada).
+
+Mesmo assim, com fixture de SHA-256 idêntico, a segmentação ainda oscila 5↔6 unidades. Investigado: **whisper-cli e spleeter são individualmente determinísticos** (transcript e vocals com hash idêntico em 3 execuções cada); o que sobra é jitter sub-ms da inferência nativa multi-thread, que ocasionalmente cruza o `mergeMaxPause` de 600 ms.
+
+**Consequência para o gate:** o baseline de ±300 ms tem de ser a **mediana de N ≥ 5 execuções**, não um número único — senão o AT-2 compara ruído contra ruído. Registrado na spec (§11.3) e em `decisoes.md`.
 
 > Nota de execução: rodar o pipeline via `dart run` falha ao carregar a DLL do sherpa (o Windows resolve o `onnxruntime.dll` 1.17.1 do System32 em vez do 1.27.0 do pacote). Compilar com `dart compile exe` e copiar os `.dll` de `sherpa_onnx_windows-1.13.4/windows/` para o lado do `.exe` resolve.
 
@@ -95,9 +119,10 @@ Estas quatro correções **afetam o desktop hoje** — são bugs reais no produt
 
 ### 5.1 D1 restante (desbloqueado — não precisa de device)
 
-- **Contratos G-1…G-7** (§5 da spec): `DubbingRuntime` como injeção única, `CancellationToken` generalizado (`addCancellable`), `SeparationOutcome` com reason code, `JobCheckpointStore`, `ModelCatalog`↔`ModelManager`, `MediaDownloader` nullable, `DiskSpaceProbe` async. **É onde a refatoração de portabilidade de fato começa.**
-- **Memória:** áudio por segmento em disco, writer WAV sequencial, `WavReader` por janela, correção do spread boxed em `writeWavPcm16`.
-- **`tool/verify.ps1`** (analyze + testes, falha se regredir dos 199) e **`tool/check_native_libs.dart`** (inventário de `.so`).
+- **Memória:** áudio por segmento em disco, writer WAV sequencial, `WavReader` por janela, correção do spread boxed em `writeWavPcm16`. É o maior item restante da D1 e o que de fato viabiliza o celular.
+- **`JobCheckpointStore`** (§5.7): a interface está especificada, falta implementar o store e a política de retomada.
+- **`MediaToolRunner`** (§5.2): `tools` e `runTool` ainda estão no `DubbingRuntime` como transitórios — saem quando o runner tipado entrar, tirando os paths de executável do core.
+- **`tool/verify.ps1`** (analyze + testes, falha se regredir) e **`tool/check_native_libs.dart`** (inventário de `.so`).
 
 ### 5.2 Bloqueado em pré-requisitos
 
