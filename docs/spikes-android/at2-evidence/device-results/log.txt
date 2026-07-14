@@ -1,0 +1,26 @@
+2026-07-14T10:16:51.222672 vmhwm at start: 288172 KB
+2026-07-14T10:16:51.223669 === en_fast (whisper-tiny) ===
+2026-07-14T10:16:51.281285 audio: 16000 Hz, 298.1 s
+2026-07-14T10:16:54.099849 VAD: 100 segmentos de fala
+2026-07-14T10:17:33.387779 en_fast: rtf=0.138 vmhwm=570364KB segs=100 out=100 empty=0 regress=0 nativeTs=0
+2026-07-14T10:17:33.389713 === en_best (whisper-base) ===
+2026-07-14T10:17:33.452189 audio: 16000 Hz, 298.1 s
+2026-07-14T10:17:36.733700 VAD: 100 segmentos de fala
+2026-07-14T10:18:49.284901 en_best: rtf=0.250 vmhwm=685552KB segs=100 out=100 empty=0 regress=0 nativeTs=0
+2026-07-14T10:18:49.287045 === pt_fast (whisper-tiny) ===
+2026-07-14T10:18:49.378267 audio: 16000 Hz, 299.7 s
+2026-07-14T10:18:52.284045 VAD: 100 segmentos de fala
+2026-07-14T10:19:34.212702 pt_fast: rtf=0.147 vmhwm=685552KB segs=100 out=100 empty=0 regress=0 nativeTs=0
+2026-07-14T10:19:34.214578 === pt_best (whisper-base) ===
+2026-07-14T10:19:34.270064 audio: 16000 Hz, 299.7 s
+2026-07-14T10:19:37.629645 VAD: 100 segmentos de fala
+2026-07-14T10:20:55.540065 pt_best: rtf=0.267 vmhwm=727880KB segs=100 out=100 empty=0 regress=0 nativeTs=0
+2026-07-14T10:20:55.541267 === es_fast (whisper-tiny) ===
+2026-07-14T10:20:55.645965 audio: 16000 Hz, 326.9 s
+2026-07-14T10:20:58.827875 VAD: 99 segmentos de fala
+2026-07-14T10:21:45.102877 es_fast: rtf=0.148 vmhwm=727880KB segs=99 out=99 empty=0 regress=0 nativeTs=0
+2026-07-14T10:21:45.105037 === es_best (whisper-base) ===
+2026-07-14T10:21:45.168193 audio: 16000 Hz, 326.9 s
+2026-07-14T10:21:48.883930 VAD: 99 segmentos de fala
+2026-07-14T10:23:12.562558 es_best: rtf=0.263 vmhwm=727880KB segs=99 out=99 empty=0 regress=0 nativeTs=0
+2026-07-14T10:23:12.591071 === DONE === finalVmHwm=727880KB

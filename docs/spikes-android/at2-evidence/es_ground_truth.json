@@ -1,0 +1,503 @@
+{
+  "lang": "es",
+  "sampleRate": 16000,
+  "totalDurationSec": 326.87233560090704,
+  "gapSec": 0.9,
+  "sentences": [
+    {
+      "text": "El clima está hermoso hoy.",
+      "startMs": 0,
+      "endMs": 1521
+    },
+    {
+      "text": "Me gustaría una taza de café.",
+      "startMs": 2421,
+      "endMs": 4128
+    },
+    {
+      "text": "El tren sale a las siete de la mañana.",
+      "startMs": 5028,
+      "endMs": 6990
+    },
+    {
+      "text": "Ella compró tres libros ayer.",
+      "startMs": 7890,
+      "endMs": 9654
+    },
+    {
+      "text": "Vamos a la playa este fin de semana.",
+      "startMs": 10554,
+      "endMs": 12424
+    },
+    {
+      "text": "Mi hermano trabaja en un hospital del centro.",
+      "startMs": 13324,
+      "endMs": 15843
+    },
+    {
+      "text": "¿Podría decirme dónde está la estación?",
+      "startMs": 16743,
+      "endMs": 19053
+    },
+    {
+      "text": "Los niños están jugando en el jardín.",
+      "startMs": 19953,
+      "endMs": 22229
+    },
+    {
+      "text": "Nunca he estado en Portugal antes.",
+      "startMs": 23129,
+      "endMs": 25114
+    },
+    {
+      "text": "Él olvidó su paraguas en la oficina.",
+      "startMs": 26014,
+      "endMs": 28104
+    },
+    {
+      "text": "Este restaurante sirve la mejor pizza de la ciudad.",
+      "startMs": 29004,
+      "endMs": 31721
+    },
+    {
+      "text": "Por favor, apaga las luces antes de salir.",
+      "startMs": 32621,
+      "endMs": 35268
+    },
+    {
+      "text": "La reunión se pospuso hasta el próximo jueves.",
+      "startMs": 36168,
+      "endMs": 39094
+    },
+    {
+      "text": "Su casa nueva tiene una cocina grande.",
+      "startMs": 39994,
+      "endMs": 42304
+    },
+    {
+      "text": "Necesito comprar leche y pan.",
+      "startMs": 43204,
+      "endMs": 45178
+    },
+    {
+      "text": "La película comienza en veinte minutos.",
+      "startMs": 46078,
+      "endMs": 48411
+    },
+    {
+      "text": "Ella habla cuatro idiomas con fluidez.",
+      "startMs": 49311,
+      "endMs": 51773
+    },
+    {
+      "text": "Vimos la puesta de sol desde la colina.",
+      "startMs": 52673,
+      "endMs": 54820
+    },
+    {
+      "text": "El perro ladró toda la noche.",
+      "startMs": 55720,
+      "endMs": 57613
+    },
+    {
+      "text": "Mi abuela me enseñó a cocinar.",
+      "startMs": 58513,
+      "endMs": 60196
+    },
+    {
+      "text": "El vuelo se retrasó por la tormenta.",
+      "startMs": 61096,
+      "endMs": 63383
+    },
+    {
+      "text": "Él está estudiando medicina en la universidad.",
+      "startMs": 64283,
+      "endMs": 67012
+    },
+    {
+      "text": "¿Puedes ayudarme a llevar estas cajas?",
+      "startMs": 67912,
+      "endMs": 70048
+    },
+    {
+      "text": "El museo está cerrado los lunes.",
+      "startMs": 70948,
+      "endMs": 72898
+    },
+    {
+      "text": "Perdí mis llaves en algún lugar del parque.",
+      "startMs": 73798,
+      "endMs": 76155
+    },
+    {
+      "text": "Celebraron su aniversario en París.",
+      "startMs": 77055,
+      "endMs": 79122
+    },
+    {
+      "text": "La sopa necesita un poco más de sal.",
+      "startMs": 80022,
+      "endMs": 82205
+    },
+    {
+      "text": "Nuestro equipo ganó el campeonato el año pasado.",
+      "startMs": 83105,
+      "endMs": 85647
+    },
+    {
+      "text": "Ella le escribió una carta a su vieja amiga.",
+      "startMs": 86547,
+      "endMs": 89020
+    },
+    {
+      "text": "El puente se construyó hace más de cien años.",
+      "startMs": 89920,
+      "endMs": 92683
+    },
+    {
+      "text": "Suelo despertarme a las seis en punto.",
+      "startMs": 93583,
+      "endMs": 95836
+    },
+    {
+      "text": "La maestra explicó la lección con mucha claridad.",
+      "startMs": 96736,
+      "endMs": 99801
+    },
+    {
+      "text": "Deberíamos salir ahora para evitar el tráfico.",
+      "startMs": 100701,
+      "endMs": 103301
+    },
+    {
+      "text": "Su auto se averió en la carretera.",
+      "startMs": 104201,
+      "endMs": 106047
+    },
+    {
+      "text": "El bebé durmió tranquilo toda la noche.",
+      "startMs": 106947,
+      "endMs": 109200
+    },
+    {
+      "text": "Tengo miedo de las arañas y las serpientes.",
+      "startMs": 110100,
+      "endMs": 112747
+    },
+    {
+      "text": "El jardín está lleno de flores coloridas.",
+      "startMs": 113647,
+      "endMs": 116317
+    },
+    {
+      "text": "Ella trabaja desde casa tres días a la semana.",
+      "startMs": 117217,
+      "endMs": 119748
+    },
+    {
+      "text": "El café está demasiado caliente para beber.",
+      "startMs": 120648,
+      "endMs": 123341
+    },
+    {
+      "text": "Plantamos un árbol en el patio trasero.",
+      "startMs": 124241,
+      "endMs": 126378
+    },
+    {
+      "text": "La biblioteca tiene miles de libros antiguos.",
+      "startMs": 127278,
+      "endMs": 130006
+    },
+    {
+      "text": "Él toca la guitarra en una banda local.",
+      "startMs": 130906,
+      "endMs": 133042
+    },
+    {
+      "text": "Olvidé enviar el correo esta mañana.",
+      "startMs": 133942,
+      "endMs": 136009
+    },
+    {
+      "text": "Las montañas están cubiertas de nieve.",
+      "startMs": 136909,
+      "endMs": 139393
+    },
+    {
+      "text": "Están construyendo una escuela nueva cerca del río.",
+      "startMs": 140293,
+      "endMs": 143428
+    },
+    {
+      "text": "La batería de mi teléfono se agotó durante la llamada.",
+      "startMs": 144328,
+      "endMs": 147393
+    },
+    {
+      "text": "El camarero trajo el pedido equivocado.",
+      "startMs": 148293,
+      "endMs": 150476
+    },
+    {
+      "text": "Ella pintó las paredes de un azul suave.",
+      "startMs": 151376,
+      "endMs": 153616
+    },
+    {
+      "text": "Tomamos el camino equivocado y nos perdimos.",
+      "startMs": 154516,
+      "endMs": 157105
+    },
+    {
+      "text": "La panadería huele a pan fresco cada mañana.",
+      "startMs": 158005,
+      "endMs": 160699
+    },
+    {
+      "text": "Prefiero quedarme en casa y leer esta noche.",
+      "startMs": 161599,
+      "endMs": 164072
+    },
+    {
+      "text": "El científico descubrió una nueva especie de pez.",
+      "startMs": 164972,
+      "endMs": 167816
+    },
+    {
+      "text": "Él se disculpó por llegar tan tarde.",
+      "startMs": 168716,
+      "endMs": 170748
+    },
+    {
+      "text": "El mercado está lleno los sábados por la mañana.",
+      "startMs": 171648,
+      "endMs": 174226
+    },
+    {
+      "text": "Ella guarda un pequeño cuaderno en su bolso.",
+      "startMs": 175126,
+      "endMs": 177436
+    },
+    {
+      "text": "El reloj viejo de la pared dejó de funcionar.",
+      "startMs": 178336,
+      "endMs": 180913
+    },
+    {
+      "text": "Necesitamos reservar los boletos con anticipación.",
+      "startMs": 181813,
+      "endMs": 185180
+    },
+    {
+      "text": "El río se desbordó después de la fuerte lluvia.",
+      "startMs": 186080,
+      "endMs": 188901
+    },
+    {
+      "text": "Mis vecinos son muy amables y serviciales.",
+      "startMs": 189801,
+      "endMs": 192541
+    },
+    {
+      "text": "No puedo encontrar mis lentes en ningún lado.",
+      "startMs": 193441,
+      "endMs": 196263
+    },
+    {
+      "text": "El concierto fue cancelado a último momento.",
+      "startMs": 197163,
+      "endMs": 199903
+    },
+    {
+      "text": "Adoptaron un cachorro del refugio.",
+      "startMs": 200803,
+      "endMs": 202649
+    },
+    {
+      "text": "La receta pide dos tazas de harina.",
+      "startMs": 203549,
+      "endMs": 205650
+    },
+    {
+      "text": "Él corre cinco kilómetros todas las mañanas.",
+      "startMs": 206550,
+      "endMs": 209302
+    },
+    {
+      "text": "El cielo se oscureció antes de la tormenta.",
+      "startMs": 210202,
+      "endMs": 212883
+    },
+    {
+      "text": "Ella sonrió y saludó desde la ventana.",
+      "startMs": 213783,
+      "endMs": 215885
+    },
+    {
+      "text": "Pasamos toda la tarde en el museo.",
+      "startMs": 216785,
+      "endMs": 218689
+    },
+    {
+      "text": "El ascensor está descompuesto otra vez.",
+      "startMs": 219589,
+      "endMs": 221899
+    },
+    {
+      "text": "Prometo llamarte cuando llegue.",
+      "startMs": 222799,
+      "endMs": 224367
+    },
+    {
+      "text": "El agricultor se despierta antes del amanecer.",
+      "startMs": 225267,
+      "endMs": 227925
+    },
+    {
+      "text": "Su vuelo aterriza a principios de la noche.",
+      "startMs": 228825,
+      "endMs": 231171
+    },
+    {
+      "text": "La sala estaba decorada con globos y luces.",
+      "startMs": 232071,
+      "endMs": 234718
+    },
+    {
+      "text": "No entiendo este problema de matemáticas.",
+      "startMs": 235618,
+      "endMs": 238172
+    },
+    {
+      "text": "El gato saltó sobre la mesa de la cocina.",
+      "startMs": 239072,
+      "endMs": 241661
+    },
+    {
+      "text": "Estamos planeando un viaje al campo.",
+      "startMs": 242561,
+      "endMs": 244627
+    },
+    {
+      "text": "Él cumplió su promesa a pesar de las dificultades.",
+      "startMs": 245527,
+      "endMs": 248325
+    },
+    {
+      "text": "La tienda cierra temprano los domingos.",
+      "startMs": 249225,
+      "endMs": 251501
+    },
+    {
+      "text": "Ella tarareaba suavemente mientras cocinaba.",
+      "startMs": 252401,
+      "endMs": 255002
+    },
+    {
+      "text": "El ingeniero reparó la máquina en una hora.",
+      "startMs": 255902,
+      "endMs": 258212
+    },
+    {
+      "text": "Mi padre lee el periódico todos los días.",
+      "startMs": 259112,
+      "endMs": 261573
+    },
+    {
+      "text": "El viento esparció las hojas por la carretera.",
+      "startMs": 262473,
+      "endMs": 265016
+    },
+    {
+      "text": "Bailaron juntos hasta la medianoche.",
+      "startMs": 265916,
+      "endMs": 267866
+    },
+    {
+      "text": "Dejé mi abrigo en el autobús esta mañana.",
+      "startMs": 268766,
+      "endMs": 271100
+    },
+    {
+      "text": "El lago se congela por completo durante el invierno.",
+      "startMs": 272000,
+      "endMs": 275169
+    },
+    {
+      "text": "Ella siempre lleva un par extra de calcetines.",
+      "startMs": 276069,
+      "endMs": 278635
+    },
+    {
+      "text": "Podíamos escuchar el mar desde nuestra habitación.",
+      "startMs": 279535,
+      "endMs": 282345
+    },
+    {
+      "text": "El médico recomendó mucho descanso.",
+      "startMs": 283245,
+      "endMs": 285404
+    },
+    {
+      "text": "Él susurró la respuesta para que nadie oyera.",
+      "startMs": 286304,
+      "endMs": 288673
+    },
+    {
+      "text": "El autobús estaba tan lleno que tuve que ir de pie.",
+      "startMs": 289573,
+      "endMs": 292499
+    },
+    {
+      "text": "Riego las plantas día por medio.",
+      "startMs": 293399,
+      "endMs": 295198
+    },
+    {
+      "text": "Los niños se rieron del payaso gracioso.",
+      "startMs": 296098,
+      "endMs": 298385
+    },
+    {
+      "text": "Ella ahorró suficiente dinero para comprar una bicicleta.",
+      "startMs": 299285,
+      "endMs": 302339
+    },
+    {
+      "text": "El sendero lleva directamente a la cascada.",
+      "startMs": 303239,
+      "endMs": 305758
+    },
+    {
+      "text": "Celebramos la buena noticia con una cena.",
+      "startMs": 306658,
+      "endMs": 309084
+    },
+    {
+      "text": "La impresora se quedó sin tinta otra vez.",
+      "startMs": 309984,
+      "endMs": 312318
+    },
+    {
+      "text": "Aprendió a nadar cuando tenía cinco años.",
+      "startMs": 313218,
+      "endMs": 315784
+    },
+    {
+      "text": "Las calles estaban vacías a altas horas de la noche.",
+      "startMs": 316684,
+      "endMs": 319621
+    },
+    {
+      "text": "Siempre tomo té antes de dormir.",
+      "startMs": 320521,
+      "endMs": 322681
+    },
+    {
+      "text": "El jardinero podó los setos esta mañana.",
+      "startMs": 323581,
+      "endMs": 325972
+    }
+  ]
+}

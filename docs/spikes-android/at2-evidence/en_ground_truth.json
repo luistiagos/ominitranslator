@@ -1,0 +1,508 @@
+{
+  "lang": "en",
+  "sampleRate": 16000,
+  "totalDurationSec": 298.1126530612245,
+  "gapSec": 0.9,
+  "sentences": [
+    {
+      "text": "The weather is beautiful today.",
+      "startMs": 0,
+      "endMs": 1448
+    },
+    {
+      "text": "I would like a cup of coffee.",
+      "startMs": 2348,
+      "endMs": 3846
+    },
+    {
+      "text": "The train leaves at seven in the morning.",
+      "startMs": 4746,
+      "endMs": 6824
+    },
+    {
+      "text": "She bought three books yesterday.",
+      "startMs": 7724,
+      "endMs": 9338
+    },
+    {
+      "text": "We are going to the beach this weekend.",
+      "startMs": 10238,
+      "endMs": 12107
+    },
+    {
+      "text": "My brother works at a hospital downtown.",
+      "startMs": 13007,
+      "endMs": 15317
+    },
+    {
+      "text": "Could you tell me where the station is?",
+      "startMs": 16217,
+      "endMs": 17959
+    },
+    {
+      "text": "The children are playing in the garden.",
+      "startMs": 18859,
+      "endMs": 20589
+    },
+    {
+      "text": "I have never been to Portugal before.",
+      "startMs": 21489,
+      "endMs": 23486
+    },
+    {
+      "text": "He forgot his umbrella at the office.",
+      "startMs": 24386,
+      "endMs": 26336
+    },
+    {
+      "text": "This restaurant serves the best pizza in town.",
+      "startMs": 27236,
+      "endMs": 29883
+    },
+    {
+      "text": "Please turn off the lights before you leave.",
+      "startMs": 30783,
+      "endMs": 32977
+    },
+    {
+      "text": "The meeting was postponed until next Thursday.",
+      "startMs": 33877,
+      "endMs": 36559
+    },
+    {
+      "text": "Their new house has a large kitchen.",
+      "startMs": 37459,
+      "endMs": 39212
+    },
+    {
+      "text": "I need to buy some milk and bread.",
+      "startMs": 40112,
+      "endMs": 42109
+    },
+    {
+      "text": "The movie starts in twenty minutes.",
+      "startMs": 43009,
+      "endMs": 44762
+    },
+    {
+      "text": "She speaks four languages fluently.",
+      "startMs": 45662,
+      "endMs": 47717
+    },
+    {
+      "text": "We watched the sunset from the hilltop.",
+      "startMs": 48617,
+      "endMs": 50661
+    },
+    {
+      "text": "The dog barked all night long.",
+      "startMs": 51561,
+      "endMs": 53523
+    },
+    {
+      "text": "My grandmother taught me how to cook.",
+      "startMs": 54423,
+      "endMs": 56339
+    },
+    {
+      "text": "The flight was delayed because of the storm.",
+      "startMs": 57239,
+      "endMs": 59328
+    },
+    {
+      "text": "He is studying medicine at the university.",
+      "startMs": 60228,
+      "endMs": 62341
+    },
+    {
+      "text": "Can you help me carry these boxes?",
+      "startMs": 63241,
+      "endMs": 65203
+    },
+    {
+      "text": "The museum is closed on Mondays.",
+      "startMs": 66103,
+      "endMs": 68158
+    },
+    {
+      "text": "I lost my keys somewhere in the park.",
+      "startMs": 69058,
+      "endMs": 71044
+    },
+    {
+      "text": "They celebrated their anniversary in Paris.",
+      "startMs": 71944,
+      "endMs": 74219
+    },
+    {
+      "text": "The soup needs a little more salt.",
+      "startMs": 75119,
+      "endMs": 77035
+    },
+    {
+      "text": "Our team won the championship last year.",
+      "startMs": 77935,
+      "endMs": 80028
+    },
+    {
+      "text": "She wrote a letter to her old friend.",
+      "startMs": 80928,
+      "endMs": 82867
+    },
+    {
+      "text": "The bridge was built over a hundred years ago.",
+      "startMs": 83767,
+      "endMs": 85996
+    },
+    {
+      "text": "I usually wake up at six o'clock.",
+      "startMs": 86896,
+      "endMs": 88846
+    },
+    {
+      "text": "The teacher explained the lesson very clearly.",
+      "startMs": 89746,
+      "endMs": 92335
+    },
+    {
+      "text": "We should leave now to avoid the traffic.",
+      "startMs": 93235,
+      "endMs": 95325
+    },
+    {
+      "text": "His car broke down on the highway.",
+      "startMs": 96225,
+      "endMs": 98257
+    },
+    {
+      "text": "The baby slept peacefully through the night.",
+      "startMs": 99157,
+      "endMs": 101316
+    },
+    {
+      "text": "I am afraid of spiders and snakes.",
+      "startMs": 102216,
+      "endMs": 104295
+    },
+    {
+      "text": "The garden is full of colorful flowers.",
+      "startMs": 105195,
+      "endMs": 107505
+    },
+    {
+      "text": "She works from home three days a week.",
+      "startMs": 108405,
+      "endMs": 110367
+    },
+    {
+      "text": "The coffee is too hot to drink.",
+      "startMs": 111267,
+      "endMs": 112858
+    },
+    {
+      "text": "We planted a tree in the backyard.",
+      "startMs": 113758,
+      "endMs": 115406
+    },
+    {
+      "text": "The library has thousands of old books.",
+      "startMs": 116306,
+      "endMs": 118500
+    },
+    {
+      "text": "He plays the guitar in a local band.",
+      "startMs": 119400,
+      "endMs": 121525
+    },
+    {
+      "text": "I forgot to send the email this morning.",
+      "startMs": 122425,
+      "endMs": 124434
+    },
+    {
+      "text": "The mountains are covered with snow.",
+      "startMs": 125334,
+      "endMs": 127168
+    },
+    {
+      "text": "They are building a new school near the river.",
+      "startMs": 128068,
+      "endMs": 130078
+    },
+    {
+      "text": "My phone battery died during the call.",
+      "startMs": 130978,
+      "endMs": 133091
+    },
+    {
+      "text": "The waiter brought us the wrong order.",
+      "startMs": 133991,
+      "endMs": 135756
+    },
+    {
+      "text": "She painted the walls a soft shade of blue.",
+      "startMs": 136656,
+      "endMs": 139024
+    },
+    {
+      "text": "We took the wrong turn and got lost.",
+      "startMs": 139924,
+      "endMs": 142153
+    },
+    {
+      "text": "The bakery smells of fresh bread every morning.",
+      "startMs": 143053,
+      "endMs": 145723
+    },
+    {
+      "text": "I would rather stay home and read tonight.",
+      "startMs": 146623,
+      "endMs": 148771
+    },
+    {
+      "text": "The scientist discovered a new species of fish.",
+      "startMs": 149671,
+      "endMs": 152348
+    },
+    {
+      "text": "He apologized for arriving so late.",
+      "startMs": 153248,
+      "endMs": 155373
+    },
+    {
+      "text": "The market is crowded on Saturday mornings.",
+      "startMs": 156273,
+      "endMs": 158583
+    },
+    {
+      "text": "She keeps a small notebook in her bag.",
+      "startMs": 159483,
+      "endMs": 161585
+    },
+    {
+      "text": "The old clock on the wall stopped working.",
+      "startMs": 162485,
+      "endMs": 164621
+    },
+    {
+      "text": "We need to book the tickets in advance.",
+      "startMs": 165521,
+      "endMs": 167587
+    },
+    {
+      "text": "The river flooded after the heavy rain.",
+      "startMs": 168487,
+      "endMs": 170328
+    },
+    {
+      "text": "My neighbors are very kind and helpful.",
+      "startMs": 171228,
+      "endMs": 173387
+    },
+    {
+      "text": "I can't find my glasses anywhere.",
+      "startMs": 174287,
+      "endMs": 176279
+    },
+    {
+      "text": "The concert was cancelled at the last minute.",
+      "startMs": 177179,
+      "endMs": 179303
+    },
+    {
+      "text": "They adopted a puppy from the shelter.",
+      "startMs": 180203,
+      "endMs": 182189
+    },
+    {
+      "text": "The recipe calls for two cups of flour.",
+      "startMs": 183089,
+      "endMs": 185295
+    },
+    {
+      "text": "He runs five kilometers every morning.",
+      "startMs": 186195,
+      "endMs": 188529
+    },
+    {
+      "text": "The sky turned dark before the storm.",
+      "startMs": 189429,
+      "endMs": 191588
+    },
+    {
+      "text": "She smiled and waved from the window.",
+      "startMs": 192488,
+      "endMs": 194600
+    },
+    {
+      "text": "We spent the whole afternoon at the museum.",
+      "startMs": 195500,
+      "endMs": 197822
+    },
+    {
+      "text": "The elevator is out of order again.",
+      "startMs": 198722,
+      "endMs": 200487
+    },
+    {
+      "text": "I promise to call you when I arrive.",
+      "startMs": 201387,
+      "endMs": 203291
+    },
+    {
+      "text": "The farmer wakes up before sunrise.",
+      "startMs": 204191,
+      "endMs": 206362
+    },
+    {
+      "text": "Their flight lands in the early evening.",
+      "startMs": 207262,
+      "endMs": 209293
+    },
+    {
+      "text": "The room was decorated with balloons and lights.",
+      "startMs": 210193,
+      "endMs": 212887
+    },
+    {
+      "text": "I don't understand this math problem.",
+      "startMs": 213787,
+      "endMs": 215691
+    },
+    {
+      "text": "The cat jumped onto the kitchen table.",
+      "startMs": 216591,
+      "endMs": 218507
+    },
+    {
+      "text": "We are planning a trip to the countryside.",
+      "startMs": 219407,
+      "endMs": 221273
+    },
+    {
+      "text": "He kept his promise despite the difficulties.",
+      "startMs": 222173,
+      "endMs": 224620
+    },
+    {
+      "text": "The store closes early on Sundays.",
+      "startMs": 225520,
+      "endMs": 227483
+    },
+    {
+      "text": "She hummed a quiet tune while cooking.",
+      "startMs": 228383,
+      "endMs": 230612
+    },
+    {
+      "text": "The engineer fixed the machine in an hour.",
+      "startMs": 231512,
+      "endMs": 233810
+    },
+    {
+      "text": "My father reads the newspaper every day.",
+      "startMs": 234710,
+      "endMs": 237299
+    },
+    {
+      "text": "The wind blew the leaves across the road.",
+      "startMs": 238199,
+      "endMs": 240278
+    },
+    {
+      "text": "They danced together until midnight.",
+      "startMs": 241178,
+      "endMs": 243058
+    },
+    {
+      "text": "I left my jacket on the bus this morning.",
+      "startMs": 243958,
+      "endMs": 246102
+    },
+    {
+      "text": "The lake freezes completely during the winter.",
+      "startMs": 247002,
+      "endMs": 249225
+    },
+    {
+      "text": "She always carries an extra pair of socks.",
+      "startMs": 250125,
+      "endMs": 252424
+    },
+    {
+      "text": "We could hear the ocean from our room.",
+      "startMs": 253324,
+      "endMs": 255170
+    },
+    {
+      "text": "The doctor recommended plenty of rest.",
+      "startMs": 256070,
+      "endMs": 258218
+    },
+    {
+      "text": "He whispered the answer so no one would hear.",
+      "startMs": 259118,
+      "endMs": 261486
+    },
+    {
+      "text": "The bus was so crowded that I had to stand.",
+      "startMs": 262386,
+      "endMs": 264627
+    },
+    {
+      "text": "I water the plants every other day.",
+      "startMs": 265527,
+      "endMs": 267268
+    },
+    {
+      "text": "The children laughed at the funny clown.",
+      "startMs": 268168,
+      "endMs": 270130
+    },
+    {
+      "text": "She saved enough money to buy a bicycle.",
+      "startMs": 271030,
+      "endMs": 273387
+    },
+    {
+      "text": "The path leads directly to the waterfall.",
+      "startMs": 274287,
+      "endMs": 276586
+    },
+    {
+      "text": "We celebrated the good news with a dinner.",
+      "startMs": 277486,
+      "endMs": 279541
+    },
+    {
+      "text": "The printer ran out of ink again.",
+      "startMs": 280441,
+      "endMs": 282252
+    },
+    {
+      "text": "He learned to swim when he was five.",
+      "startMs": 283152,
+      "endMs": 285277
+    },
+    {
+      "text": "The streets were empty late at night.",
+      "startMs": 286177,
+      "endMs": 287941
+    },
+    {
+      "text": "I always drink tea before going to bed.",
+      "startMs": 288841,
+      "endMs": 291094
+    },
+    {
+      "text": "The gardener trimmed the hedges this morning.",
+      "startMs": 291994,
+      "endMs": 294014
+    },
+    {
+      "text": "They travelled across the country by train.",
+      "startMs": 294914,
+      "endMs": 297213
+    }
+  ]
+}

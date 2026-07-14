@@ -13,6 +13,12 @@
 // segmento cujo start está mais perto do início real daquela frase. Isso
 // filtra segmentos espúrios de ambos os lados automaticamente.
 //
+// LIMITAÇÃO: o casamento não impõe unicidade — se um backend perder uma
+// frase inteira e a vizinha estiver a < maxMatchMs, o mesmo segmento pode
+// casar com duas frases do ground truth. Na execução do AT-2 isso não
+// ocorreu (device 1:1 com as frases, erro mediano <= 31 ms); com material
+// menos comportado, conferir duplicatas antes de confiar no percentual.
+//
 // Uso: dart run tool/at2_sync_report.dart <fixtureDir> <deviceResultsDir> <outDir>
 //   fixtureDir: contém en.wav/pt.wav/es.wav + <lang>_ground_truth.json
 //               (saída de tool/at2_gen_fixture.dart)

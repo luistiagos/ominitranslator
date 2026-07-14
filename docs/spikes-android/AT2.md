@@ -14,6 +14,7 @@ Diferente do AT-1 (comparar dois backends ruidosos entre si), o áudio de teste 
 - Durações: en=298,1 s, pt=299,7 s, es=326,9 s (a spec pede ~5 min; es passou um pouco por ter 99 frases mais longas, aceito).
 - App de benchmark: projeto Flutter descartável (`sherpa_onnx` 1.13.4 + `path_provider`), instalado no **moto g86 5G** (Android 16, arm64-v8a). Roda os 6 combos (en/pt/es × whisper-tiny/whisper-base) em sequência: Silero VAD segmenta o áudio, cada segmento de fala vai para o `OfflineRecognizer` (Whisper ONNX), resultado + timing + `VmHWM` (`/proc/self/status`, pico de RSS do processo) gravados em JSON.
 - Baseline desktop: `WhisperTranscriber` de produção (`whisper-cli`, flags `-ml 1 -sow` reais, mesma `trimSegmentsToSpeechFromFile`) rodado sobre o **mesmo** `.wav`, depois `buildDubbingSegments` — o mesmo segmentador de produção, dos dois lados (`packages/dubbing_engine/tool/at2_sync_report.dart`).
+- **Evidência bruta versionada em [at2-evidence/](at2-evidence/)**: JSONs por combo do device + `log.txt` (`device-results/`), relatórios de sincronia (`sync/`), os 3 `*_ground_truth.json` e o `at2-bench-main.dart` (código do app de benchmark). Os ground truths são o único registro do experimento exato — o Piper é estocástico (`noise_scale_w=0.8`), então regerar a fixture produz áudio e timestamps **diferentes** (igualmente válidos, mas não os desta execução). Os `.wav` (~10 MB cada) não são versionados, coerente com a convenção do repo.
 
 ## 2. Achado de storage — bloqueou a primeira tentativa
 
@@ -25,12 +26,12 @@ Arquivos copiados para `Android/data/<pkg>/files/...` via `adb push`/`adb shell 
 
 | Combo | RTF | VmHWM após a run | Segmentos VAD | Segmentos com texto | Regressões | Timestamps nativos do Whisper |
 |---|---:|---:|---:|---:|---:|---:|
-| en / fast (tiny) | 0,138 | 570 MB | 100 | 100 | 0 | 0 |
-| en / best (base) | 0,250 | 686 MB | 100 | 100 | 0 | 0 |
-| pt / fast (tiny) | 0,147 | 686 MB | 100 | 100 | 0 | 0 |
-| pt / best (base) | 0,267 | 728 MB | 100 | 100 | 0 | 0 |
-| es / fast (tiny) | 0,148 | 728 MB | 99 | 99 | 0 | 0 |
-| es / best (base) | 0,263 | 728 MB | 99 | 99 | 0 | 0 |
+| en / fast (tiny) | 0,138 | 557 MB | 100 | 100 | 0 | 0 |
+| en / best (base) | 0,250 | 669 MB | 100 | 100 | 0 | 0 |
+| pt / fast (tiny) | 0,147 | 669 MB | 100 | 100 | 0 | 0 |
+| pt / best (base) | 0,267 | 711 MB | 100 | 100 | 0 | 0 |
+| es / fast (tiny) | 0,148 | 711 MB | 99 | 99 | 0 | 0 |
+| es / best (base) | 0,263 | 711 MB | 99 | 99 | 0 | 0 |
 
 Pico final do processo: **727.880 KB (~711 MB)** — teto da spec é 1,5 GB.
 
@@ -68,9 +69,17 @@ Separando o erro de cada lado contra a verdade absoluta (não um contra o outro)
 | es / fast | 99,0% | 21 ms | 100,0% | 13 ms |
 | **es / best** | **99,0%** | **21 ms** | **66,7%** | **138 ms (máx. 861 ms)** |
 
-O **device** acerta 99% em `es/best` — idêntico aos outros 5 combos, com erro mediano de 21 ms. É o **desktop** (`whisper-small-q5_1`, uma única run de `whisper-cli` sobre o espanhol) quem produz timestamps ruidosos nessa run específica (erro de até 861 ms). Isso bate com o que `docs/decisoes.md` já registrava sobre o próprio baseline desktop: *"O baseline desktop é uma FAIXA, não um número único (...) a fragilidade está no limiar de merge. Portanto o baseline deve ser a mediana de N ≥ 5 execuções."* Uma única run de `es/best` caiu nessa faixa ruidosa por acaso da decodificação, não por um defeito do Android.
+O **device** acerta 99% em `es/best` — idêntico aos outros 5 combos, com erro mediano de 21 ms. É o **desktop** (`whisper-small-q5_1` via `whisper-cli`, sobre o espanhol) quem produz timestamps deslocados (erro de até 861 ms contra o ground truth).
 
-**Veredito:** o gate de sincronia mede a granularidade do **device**, e essa é boa e consistente nos 6 combos (97–99% contra a verdade absoluta, mediana ≤31 ms). A reprovação pontual de `es/best` é do **baseline**, não do que está sendo avaliado. Se um número estritamente literal for necessário mais adiante, repetir a run de `es/best` no desktop (mediana de N≥5, como a spec já prescreve) resolveria a ambiguidade — não bloqueia o gate porque a métrica de interesse (precisão do device) já está estabelecida com folga pelas outras 5 comparações e pela comparação direta contra o ground truth.
+**Verificado com N=5 (a mediana da §11.3):** a hipótese inicial era "run ruidosa isolada", e ela estava **errada**. As 5 execuções do desktop sobre o mesmo `es.wav` produziram **exatamente 115 segmentos cada** e a comparação do device contra a **mediana** das 5 dá os mesmos **69,7%** (evidência: [at2-evidence/sync/es_best_median_n5_report.json](at2-evidence/sync/es_best_median_n5_report.json)). O whisper-cli é determinístico sobre entrada fixa (como `decisoes.md` já registrava) — o desvio é **viés sistemático do `whisper-small` neste material espanhol sintético**, não ruído. Repare que o próprio desktop com `whisper-base` (preset rápido) acerta 100% no mesmo áudio (erro mediano 13 ms): o problema é específico do modelo `small` × este material, e a mediana de N runs não o remedia.
+
+**Veredito:** o gate de sincronia mede a granularidade do **device**, e essa é boa e consistente nos 6 combos (97–99% contra a verdade absoluta, mediana ≤31 ms). A divergência de `es/best` é 100% atribuível ao **baseline** — reprodutível, não sorte — e portanto não é um defeito do que está sendo avaliado. O critério literal "±300 ms do baseline desktop" pressupõe um baseline que acerte; quando o baseline erra sistematicamente (66,7% contra a verdade conhecida), a comparação mede o erro dele, não o do device. A métrica de interesse (precisão do device) está estabelecida com folga pelas outras 5 comparações e pela medição direta contra o ground truth.
+
+### 4.3 Limitações declaradas da metodologia
+
+1. **Casamento sem restrição de unicidade:** o `_nearest` do `at2_sync_report.dart` casa cada frase do ground truth com o segmento mais próximo, sem impedir que o mesmo segmento sirva a duas frases (aconteceria se um backend perdesse uma frase inteira e a vizinha estivesse a <2 s). Não ocorreu nesta execução — o device produziu exatamente 100/99 segmentos, 1:1 com as frases, e os erros medianos de 17–31 ms provam casamento correto — mas quem reusar o script com material menos comportado deve verificar duplicatas.
+2. **Assimetria de trim:** o lado desktop passa por `trimSegmentsToSpeechFromFile` (apara por RMS) dentro do `transcribe()` de produção; o lado device usa as fronteiras cruas do Silero VAD. Os dois mecanismos cumprem o mesmo papel (limiar de energia) e o erro do device contra o ground truth (mediana ≤31 ms) mostra que a diferença não distorceu o resultado — mas são caminhos distintos, e a comparação os herda.
+3. **Baseline de 1 run nos 5 combos que passaram** (a §11.3 prescreve mediana de N≥5): para `es/best`, o único combo em disputa, a mediana de N=5 **foi executada** e deu resultado idêntico à run única (69,7%; 115 segmentos nas 5 runs — determinístico, ver §4.2). Para os outros 5 combos a folga (96–99% vs teto de 90%) torna improvável que a mediana mudasse o veredito; se algum deles for contestado no futuro, o `at2_sync_report.dart` reexecuta em minutos.
 
 ## 5. Resultado formal do AT-2
 
@@ -81,7 +90,7 @@ O **device** acerta 99% em `es/best` — idêntico aos outros 5 combos, com erro
 | Pico do app < 1,5 GB? | **PASSOU** (~711 MB) |
 | Timestamps não regressivos? | **PASSOU** (0 regressões, 6/6 combos) |
 | Nenhuma janela perdida na fronteira? | **PASSOU** (0 segmentos vazios, 6/6 combos) |
-| Sincronia ≥90% dentro de ±300 ms do baseline desktop? | **PASSOU em 5/6** — `es/best` fica em 69,7% pela literalidade da comparação a uma única run ruidosa do desktop; contra o ground truth o device acerta 99% igual aos demais (§4.2) |
+| Sincronia ≥90% dentro de ±300 ms do baseline desktop? | **PASSOU em 5/6** — `es/best` fica em 69,7% (idêntico com mediana de N=5) por viés sistemático do próprio baseline `whisper-small` neste material; contra o ground truth o device acerta 99% igual aos demais (§4.2) |
 | **AT-2 — Whisper ONNX + Silero VAD aprovado para o Android M1?** | **PASSOU** |
 
 ## 6. Modelos usados (proveniência a fechar antes da D3)
@@ -100,6 +109,6 @@ Os arquivos vieram empacotados como `sherpa-onnx-whisper-tiny.tar.bz2` / `sherpa
 
 ## 7. Pendências que não bloqueiam o gate
 
-- Repetir `es/best` no desktop com N≥5 runs se um número literal de sincronia for exigido formalmente mais adiante (§4.2).
+- ~~Repetir `es/best` no desktop com N≥5 runs~~ — **feito** (2026-07-14): mediana de N=5 idêntica à run única (69,7%; determinístico). Fecha a questão — o desvio é do baseline, sistematicamente (§4.2).
 - Fixar URL/tag exatos dos assets do sherpa-onnx no catálogo Android (§6).
 - AT-2b (TTS Piper on-device) — próximo gate, ainda não iniciado.

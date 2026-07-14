@@ -1,0 +1,51 @@
+{
+  "en_fast": {
+    "rtf": 0.13845100101618454,
+    "vmHwmKbAfterRun": 570364,
+    "outputSegmentCount": 100,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "en_best": {
+    "rtf": 0.25011011985191006,
+    "vmHwmKbAfterRun": 685552,
+    "outputSegmentCount": 100,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "pt_fast": {
+    "rtf": 0.1466572557229346,
+    "vmHwmKbAfterRun": 685552,
+    "outputSegmentCount": 100,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "pt_best": {
+    "rtf": 0.26666805676175265,
+    "vmHwmKbAfterRun": 727880,
+    "outputSegmentCount": 100,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "es_fast": {
+    "rtf": 0.1484401977989116,
+    "vmHwmKbAfterRun": 727880,
+    "outputSegmentCount": 99,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "es_best": {
+    "rtf": 0.26269579985154756,
+    "vmHwmKbAfterRun": 727880,
+    "outputSegmentCount": 99,
+    "emptyTextCount": 0,
+    "timestampRegressions": 0,
+    "nativeTimestampsNonEmptyCount": 0
+  },
+  "finalVmHwmKb": 727880
+}

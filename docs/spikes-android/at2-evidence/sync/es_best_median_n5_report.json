@@ -1,0 +1,708 @@
+{
+  "nRuns": 5,
+  "matchedCount": 99,
+  "within300msCount": 69,
+  "within300msPct": 69.6969696969697,
+  "perRunSegmentCounts": [
+    115,
+    115,
+    115,
+    115,
+    115
+  ],
+  "rows": [
+    {
+      "gtStartMs": 0,
+      "medianDesktopMs": 10,
+      "runsMatched": 5,
+      "deviceMs": 198,
+      "deltaVsMedianMs": 188
+    },
+    {
+      "gtStartMs": 2421,
+      "medianDesktopMs": 2430,
+      "runsMatched": 5,
+      "deviceMs": 2406,
+      "deltaVsMedianMs": -24
+    },
+    {
+      "gtStartMs": 5028,
+      "medianDesktopMs": 5030,
+      "runsMatched": 5,
+      "deviceMs": 4998,
+      "deltaVsMedianMs": -32
+    },
+    {
+      "gtStartMs": 7890,
+      "medianDesktopMs": 8260,
+      "runsMatched": 5,
+      "deviceMs": 7878,
+      "deltaVsMedianMs": -382
+    },
+    {
+      "gtStartMs": 10554,
+      "medianDesktopMs": 10600,
+      "runsMatched": 5,
+      "deviceMs": 10534,
+      "deltaVsMedianMs": -66
+    },
+    {
+      "gtStartMs": 13324,
+      "medianDesktopMs": 13430,
+      "runsMatched": 5,
+      "deviceMs": 13318,
+      "deltaVsMedianMs": -112
+    },
+    {
+      "gtStartMs": 16743,
+      "medianDesktopMs": 16270,
+      "runsMatched": 5,
+      "deviceMs": 16742,
+      "deltaVsMedianMs": 472
+    },
+    {
+      "gtStartMs": 19953,
+      "medianDesktopMs": 20120,
+      "runsMatched": 5,
+      "deviceMs": 19942,
+      "deltaVsMedianMs": -178
+    },
+    {
+      "gtStartMs": 23129,
+      "medianDesktopMs": 23090,
+      "runsMatched": 5,
+      "deviceMs": 23110,
+      "deltaVsMedianMs": 20
+    },
+    {
+      "gtStartMs": 26014,
+      "medianDesktopMs": 25680,
+      "runsMatched": 5,
+      "deviceMs": 25990,
+      "deltaVsMedianMs": 310
+    },
+    {
+      "gtStartMs": 29004,
+      "medianDesktopMs": 28280,
+      "runsMatched": 5,
+      "deviceMs": 28998,
+      "deltaVsMedianMs": 718
+    },
+    {
+      "gtStartMs": 32621,
+      "medianDesktopMs": 31760,
+      "runsMatched": 5,
+      "deviceMs": 32614,
+      "deltaVsMedianMs": 854
+    },
+    {
+      "gtStartMs": 36168,
+      "medianDesktopMs": 36240,
+      "runsMatched": 5,
+      "deviceMs": 36166,
+      "deltaVsMedianMs": -74
+    },
+    {
+      "gtStartMs": 39994,
+      "medianDesktopMs": 40040,
+      "runsMatched": 5,
+      "deviceMs": 40198,
+      "deltaVsMedianMs": 158
+    },
+    {
+      "gtStartMs": 43204,
+      "medianDesktopMs": 43180,
+      "runsMatched": 5,
+      "deviceMs": 43174,
+      "deltaVsMedianMs": -6
+    },
+    {
+      "gtStartMs": 46078,
+      "medianDesktopMs": 46050,
+      "runsMatched": 5,
+      "deviceMs": 46342,
+      "deltaVsMedianMs": 292
+    },
+    {
+      "gtStartMs": 49311,
+      "medianDesktopMs": 49270,
+      "runsMatched": 5,
+      "deviceMs": 49286,
+      "deltaVsMedianMs": 16
+    },
+    {
+      "gtStartMs": 52673,
+      "medianDesktopMs": 52650,
+      "runsMatched": 5,
+      "deviceMs": 52742,
+      "deltaVsMedianMs": 92
+    },
+    {
+      "gtStartMs": 55720,
+      "medianDesktopMs": 55800,
+      "runsMatched": 5,
+      "deviceMs": 55942,
+      "deltaVsMedianMs": 142
+    },
+    {
+      "gtStartMs": 58513,
+      "medianDesktopMs": 57940,
+      "runsMatched": 5,
+      "deviceMs": 58502,
+      "deltaVsMedianMs": 562
+    },
+    {
+      "gtStartMs": 61096,
+      "medianDesktopMs": 60390,
+      "runsMatched": 5,
+      "deviceMs": 61062,
+      "deltaVsMedianMs": 672
+    },
+    {
+      "gtStartMs": 64283,
+      "medianDesktopMs": 64440,
+      "runsMatched": 5,
+      "deviceMs": 64262,
+      "deltaVsMedianMs": -178
+    },
+    {
+      "gtStartMs": 67912,
+      "medianDesktopMs": 67900,
+      "runsMatched": 5,
+      "deviceMs": 67910,
+      "deltaVsMedianMs": 10
+    },
+    {
+      "gtStartMs": 70948,
+      "medianDesktopMs": 70880,
+      "runsMatched": 5,
+      "deviceMs": 70918,
+      "deltaVsMedianMs": 38
+    },
+    {
+      "gtStartMs": 73798,
+      "medianDesktopMs": 73370,
+      "runsMatched": 5,
+      "deviceMs": 73798,
+      "deltaVsMedianMs": 428
+    },
+    {
+      "gtStartMs": 77055,
+      "medianDesktopMs": 77140,
+      "runsMatched": 5,
+      "deviceMs": 77158,
+      "deltaVsMedianMs": 18
+    },
+    {
+      "gtStartMs": 80022,
+      "medianDesktopMs": 79730,
+      "runsMatched": 5,
+      "deviceMs": 80006,
+      "deltaVsMedianMs": 276
+    },
+    {
+      "gtStartMs": 83105,
+      "medianDesktopMs": 82440,
+      "runsMatched": 5,
+      "deviceMs": 83366,
+      "deltaVsMedianMs": 926
+    },
+    {
+      "gtStartMs": 86547,
+      "medianDesktopMs": 86630,
+      "runsMatched": 5,
+      "deviceMs": 86534,
+      "deltaVsMedianMs": -96
+    },
+    {
+      "gtStartMs": 89920,
+      "medianDesktopMs": 90000,
+      "runsMatched": 5,
+      "deviceMs": 90086,
+      "deltaVsMedianMs": 86
+    },
+    {
+      "gtStartMs": 93583,
+      "medianDesktopMs": 93200,
+      "runsMatched": 5,
+      "deviceMs": 93606,
+      "deltaVsMedianMs": 406
+    },
+    {
+      "gtStartMs": 96736,
+      "medianDesktopMs": 96310,
+      "runsMatched": 5,
+      "deviceMs": 96710,
+      "deltaVsMedianMs": 400
+    },
+    {
+      "gtStartMs": 100701,
+      "medianDesktopMs": 100680,
+      "runsMatched": 5,
+      "deviceMs": 100678,
+      "deltaVsMedianMs": -2
+    },
+    {
+      "gtStartMs": 104201,
+      "medianDesktopMs": 104020,
+      "runsMatched": 5,
+      "deviceMs": 104230,
+      "deltaVsMedianMs": 210
+    },
+    {
+      "gtStartMs": 106947,
+      "medianDesktopMs": 106670,
+      "runsMatched": 5,
+      "deviceMs": 106918,
+      "deltaVsMedianMs": 248
+    },
+    {
+      "gtStartMs": 110100,
+      "medianDesktopMs": 109740,
+      "runsMatched": 5,
+      "deviceMs": 110086,
+      "deltaVsMedianMs": 346
+    },
+    {
+      "gtStartMs": 113647,
+      "medianDesktopMs": 113490,
+      "runsMatched": 5,
+      "deviceMs": 113638,
+      "deltaVsMedianMs": 148
+    },
+    {
+      "gtStartMs": 117217,
+      "medianDesktopMs": 117320,
+      "runsMatched": 5,
+      "deviceMs": 117446,
+      "deltaVsMedianMs": 126
+    },
+    {
+      "gtStartMs": 120648,
+      "medianDesktopMs": 120180,
+      "runsMatched": 5,
+      "deviceMs": 120646,
+      "deltaVsMedianMs": 466
+    },
+    {
+      "gtStartMs": 124241,
+      "medianDesktopMs": 124210,
+      "runsMatched": 5,
+      "deviceMs": 124230,
+      "deltaVsMedianMs": 20
+    },
+    {
+      "gtStartMs": 127278,
+      "medianDesktopMs": 126800,
+      "runsMatched": 5,
+      "deviceMs": 127270,
+      "deltaVsMedianMs": 470
+    },
+    {
+      "gtStartMs": 130906,
+      "medianDesktopMs": 130400,
+      "runsMatched": 5,
+      "deviceMs": 131110,
+      "deltaVsMedianMs": 710
+    },
+    {
+      "gtStartMs": 133942,
+      "medianDesktopMs": 133420,
+      "runsMatched": 5,
+      "deviceMs": 133926,
+      "deltaVsMedianMs": 506
+    },
+    {
+      "gtStartMs": 136909,
+      "medianDesktopMs": 137050,
+      "runsMatched": 5,
+      "deviceMs": 136902,
+      "deltaVsMedianMs": -148
+    },
+    {
+      "gtStartMs": 140293,
+      "medianDesktopMs": 139710,
+      "runsMatched": 5,
+      "deviceMs": 140262,
+      "deltaVsMedianMs": 552
+    },
+    {
+      "gtStartMs": 144328,
+      "medianDesktopMs": 143890,
+      "runsMatched": 5,
+      "deviceMs": 144294,
+      "deltaVsMedianMs": 404
+    },
+    {
+      "gtStartMs": 148293,
+      "medianDesktopMs": 148180,
+      "runsMatched": 5,
+      "deviceMs": 148454,
+      "deltaVsMedianMs": 274
+    },
+    {
+      "gtStartMs": 151376,
+      "medianDesktopMs": 151040,
+      "runsMatched": 5,
+      "deviceMs": 151366,
+      "deltaVsMedianMs": 326
+    },
+    {
+      "gtStartMs": 154516,
+      "medianDesktopMs": 154510,
+      "runsMatched": 5,
+      "deviceMs": 154534,
+      "deltaVsMedianMs": 24
+    },
+    {
+      "gtStartMs": 158005,
+      "medianDesktopMs": 158080,
+      "runsMatched": 5,
+      "deviceMs": 157990,
+      "deltaVsMedianMs": -90
+    },
+    {
+      "gtStartMs": 161599,
+      "medianDesktopMs": 161590,
+      "runsMatched": 5,
+      "deviceMs": 161606,
+      "deltaVsMedianMs": 16
+    },
+    {
+      "gtStartMs": 164972,
+      "medianDesktopMs": 165040,
+      "runsMatched": 5,
+      "deviceMs": 164966,
+      "deltaVsMedianMs": -74
+    },
+    {
+      "gtStartMs": 168716,
+      "medianDesktopMs": 168500,
+      "runsMatched": 5,
+      "deviceMs": 168710,
+      "deltaVsMedianMs": 210
+    },
+    {
+      "gtStartMs": 171648,
+      "medianDesktopMs": 171330,
+      "runsMatched": 5,
+      "deviceMs": 171622,
+      "deltaVsMedianMs": 292
+    },
+    {
+      "gtStartMs": 175126,
+      "medianDesktopMs": 175100,
+      "runsMatched": 5,
+      "deviceMs": 175110,
+      "deltaVsMedianMs": 10
+    },
+    {
+      "gtStartMs": 178336,
+      "medianDesktopMs": 178450,
+      "runsMatched": 5,
+      "deviceMs": 178310,
+      "deltaVsMedianMs": -140
+    },
+    {
+      "gtStartMs": 181813,
+      "medianDesktopMs": 181820,
+      "runsMatched": 5,
+      "deviceMs": 181830,
+      "deltaVsMedianMs": 10
+    },
+    {
+      "gtStartMs": 186080,
+      "medianDesktopMs": 186160,
+      "runsMatched": 5,
+      "deviceMs": 186054,
+      "deltaVsMedianMs": -106
+    },
+    {
+      "gtStartMs": 189801,
+      "medianDesktopMs": 189960,
+      "runsMatched": 5,
+      "deviceMs": 189798,
+      "deltaVsMedianMs": -162
+    },
+    {
+      "gtStartMs": 193441,
+      "medianDesktopMs": 193610,
+      "runsMatched": 5,
+      "deviceMs": 193702,
+      "deltaVsMedianMs": 92
+    },
+    {
+      "gtStartMs": 197163,
+      "medianDesktopMs": 196770,
+      "runsMatched": 5,
+      "deviceMs": 197158,
+      "deltaVsMedianMs": 388
+    },
+    {
+      "gtStartMs": 200803,
+      "medianDesktopMs": 201120,
+      "runsMatched": 5,
+      "deviceMs": 201126,
+      "deltaVsMedianMs": 6
+    },
+    {
+      "gtStartMs": 203549,
+      "medianDesktopMs": 203520,
+      "runsMatched": 5,
+      "deviceMs": 203526,
+      "deltaVsMedianMs": 6
+    },
+    {
+      "gtStartMs": 206550,
+      "medianDesktopMs": 206430,
+      "runsMatched": 5,
+      "deviceMs": 206726,
+      "deltaVsMedianMs": 296
+    },
+    {
+      "gtStartMs": 210202,
+      "medianDesktopMs": 210120,
+      "runsMatched": 5,
+      "deviceMs": 210182,
+      "deltaVsMedianMs": 62
+    },
+    {
+      "gtStartMs": 213783,
+      "medianDesktopMs": 213350,
+      "runsMatched": 5,
+      "deviceMs": 213766,
+      "deltaVsMedianMs": 416
+    },
+    {
+      "gtStartMs": 216785,
+      "medianDesktopMs": 216750,
+      "runsMatched": 5,
+      "deviceMs": 216774,
+      "deltaVsMedianMs": 24
+    },
+    {
+      "gtStartMs": 219589,
+      "medianDesktopMs": 219030,
+      "runsMatched": 5,
+      "deviceMs": 219558,
+      "deltaVsMedianMs": 528
+    },
+    {
+      "gtStartMs": 222799,
+      "medianDesktopMs": 222210,
+      "runsMatched": 5,
+      "deviceMs": 222822,
+      "deltaVsMedianMs": 612
+    },
+    {
+      "gtStartMs": 225267,
+      "medianDesktopMs": 224930,
+      "runsMatched": 5,
+      "deviceMs": 225254,
+      "deltaVsMedianMs": 324
+    },
+    {
+      "gtStartMs": 228825,
+      "medianDesktopMs": 228960,
+      "runsMatched": 5,
+      "deviceMs": 228838,
+      "deltaVsMedianMs": -122
+    },
+    {
+      "gtStartMs": 232071,
+      "medianDesktopMs": 232400,
+      "runsMatched": 5,
+      "deviceMs": 232070,
+      "deltaVsMedianMs": -330
+    },
+    {
+      "gtStartMs": 235618,
+      "medianDesktopMs": 235840,
+      "runsMatched": 5,
+      "deviceMs": 235622,
+      "deltaVsMedianMs": -218
+    },
+    {
+      "gtStartMs": 239072,
+      "medianDesktopMs": 239040,
+      "runsMatched": 5,
+      "deviceMs": 239046,
+      "deltaVsMedianMs": 6
+    },
+    {
+      "gtStartMs": 242561,
+      "medianDesktopMs": 243060,
+      "runsMatched": 5,
+      "deviceMs": 242534,
+      "deltaVsMedianMs": -526
+    },
+    {
+      "gtStartMs": 245527,
+      "medianDesktopMs": 245640,
+      "runsMatched": 5,
+      "deviceMs": 245510,
+      "deltaVsMedianMs": -130
+    },
+    {
+      "gtStartMs": 249225,
+      "medianDesktopMs": 249360,
+      "runsMatched": 5,
+      "deviceMs": 249446,
+      "deltaVsMedianMs": 86
+    },
+    {
+      "gtStartMs": 252401,
+      "medianDesktopMs": 252360,
+      "runsMatched": 5,
+      "deviceMs": 252390,
+      "deltaVsMedianMs": 30
+    },
+    {
+      "gtStartMs": 255902,
+      "medianDesktopMs": 255960,
+      "runsMatched": 5,
+      "deviceMs": 255878,
+      "deltaVsMedianMs": -82
+    },
+    {
+      "gtStartMs": 259112,
+      "medianDesktopMs": 259250,
+      "runsMatched": 5,
+      "deviceMs": 259110,
+      "deltaVsMedianMs": -140
+    },
+    {
+      "gtStartMs": 262473,
+      "medianDesktopMs": 262560,
+      "runsMatched": 5,
+      "deviceMs": 262470,
+      "deltaVsMedianMs": -90
+    },
+    {
+      "gtStartMs": 265916,
+      "medianDesktopMs": 265920,
+      "runsMatched": 5,
+      "deviceMs": 265894,
+      "deltaVsMedianMs": -26
+    },
+    {
+      "gtStartMs": 268766,
+      "medianDesktopMs": 268740,
+      "runsMatched": 5,
+      "deviceMs": 268742,
+      "deltaVsMedianMs": 2
+    },
+    {
+      "gtStartMs": 272000,
+      "medianDesktopMs": 271680,
+      "runsMatched": 5,
+      "deviceMs": 271974,
+      "deltaVsMedianMs": 294
+    },
+    {
+      "gtStartMs": 276069,
+      "medianDesktopMs": 276250,
+      "runsMatched": 5,
+      "deviceMs": 276038,
+      "deltaVsMedianMs": -212
+    },
+    {
+      "gtStartMs": 279535,
+      "medianDesktopMs": 279510,
+      "runsMatched": 5,
+      "deviceMs": 279526,
+      "deltaVsMedianMs": 16
+    },
+    {
+      "gtStartMs": 283245,
+      "medianDesktopMs": 283360,
+      "runsMatched": 5,
+      "deviceMs": 283238,
+      "deltaVsMedianMs": -122
+    },
+    {
+      "gtStartMs": 286304,
+      "medianDesktopMs": 286260,
+      "runsMatched": 5,
+      "deviceMs": 286278,
+      "deltaVsMedianMs": 18
+    },
+    {
+      "gtStartMs": 289573,
+      "medianDesktopMs": 289700,
+      "runsMatched": 5,
+      "deviceMs": 289542,
+      "deltaVsMedianMs": -158
+    },
+    {
+      "gtStartMs": 293399,
+      "medianDesktopMs": 293680,
+      "runsMatched": 5,
+      "deviceMs": 293382,
+      "deltaVsMedianMs": -298
+    },
+    {
+      "gtStartMs": 296098,
+      "medianDesktopMs": 296280,
+      "runsMatched": 5,
+      "deviceMs": 296070,
+      "deltaVsMedianMs": -210
+    },
+    {
+      "gtStartMs": 299285,
+      "medianDesktopMs": 298820,
+      "runsMatched": 5,
+      "deviceMs": 299270,
+      "deltaVsMedianMs": 450
+    },
+    {
+      "gtStartMs": 303239,
+      "medianDesktopMs": 302810,
+      "runsMatched": 5,
+      "deviceMs": 303206,
+      "deltaVsMedianMs": 396
+    },
+    {
+      "gtStartMs": 306658,
+      "medianDesktopMs": 306880,
+      "runsMatched": 5,
+      "deviceMs": 306758,
+      "deltaVsMedianMs": -122
+    },
+    {
+      "gtStartMs": 309984,
+      "medianDesktopMs": 309960,
+      "runsMatched": 5,
+      "deviceMs": 309958,
+      "deltaVsMedianMs": -2
+    },
+    {
+      "gtStartMs": 313218,
+      "medianDesktopMs": 313360,
+      "runsMatched": 5,
+      "deviceMs": 313190,
+      "deltaVsMedianMs": -170
+    },
+    {
+      "gtStartMs": 316684,
+      "medianDesktopMs": 316100,
+      "runsMatched": 5,
+      "deviceMs": 316678,
+      "deltaVsMedianMs": 578
+    },
+    {
+      "gtStartMs": 320521,
+      "medianDesktopMs": 320540,
+      "runsMatched": 5,
+      "deviceMs": 320518,
+      "deltaVsMedianMs": -22
+    },
+    {
+      "gtStartMs": 323581,
+      "medianDesktopMs": 322920,
+      "runsMatched": 5,
+      "deviceMs": 323558,
+      "deltaVsMedianMs": 638
+    }
+  ]
+}

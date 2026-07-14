@@ -1,0 +1,44 @@
+{
+  "en_fast": {
+    "desktopSegmentCount": 123,
+    "deviceSegmentCount": 100,
+    "groundTruthSentenceCount": 100,
+    "matchedCount": 100,
+    "within300msPct": 98.0
+  },
+  "en_best": {
+    "desktopSegmentCount": 120,
+    "deviceSegmentCount": 100,
+    "groundTruthSentenceCount": 100,
+    "matchedCount": 100,
+    "within300msPct": 96.0
+  },
+  "pt_fast": {
+    "desktopSegmentCount": 109,
+    "deviceSegmentCount": 100,
+    "groundTruthSentenceCount": 100,
+    "matchedCount": 100,
+    "within300msPct": 99.0
+  },
+  "pt_best": {
+    "desktopSegmentCount": 110,
+    "deviceSegmentCount": 100,
+    "groundTruthSentenceCount": 100,
+    "matchedCount": 100,
+    "within300msPct": 97.0
+  },
+  "es_fast": {
+    "desktopSegmentCount": 112,
+    "deviceSegmentCount": 99,
+    "groundTruthSentenceCount": 99,
+    "matchedCount": 99,
+    "within300msPct": 98.98989898989899
+  },
+  "es_best": {
+    "desktopSegmentCount": 115,
+    "deviceSegmentCount": 99,
+    "groundTruthSentenceCount": 99,
+    "matchedCount": 99,
+    "within300msPct": 69.6969696969697
+  }
+}

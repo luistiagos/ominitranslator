@@ -1,0 +1,912 @@
+{
+  "lang": "en",
+  "preset": "fast",
+  "desktopSegmentCount": 123,
+  "deviceSegmentCount": 100,
+  "groundTruthSentenceCount": 100,
+  "matchedCount": 100,
+  "within300msCount": 98,
+  "within300msPct": 98.0,
+  "deltas": [
+    {
+      "gtStartMs": 0,
+      "desktopStartMs": 70,
+      "deviceStartMs": 70,
+      "desktopErrorMs": 70,
+      "deviceErrorMs": 70,
+      "deltaVsDesktopMs": 0,
+      "matched": true
+    },
+    {
+      "gtStartMs": 2348,
+      "desktopStartMs": 2320,
+      "deviceStartMs": 2374,
+      "desktopErrorMs": -28,
+      "deviceErrorMs": 26,
+      "deltaVsDesktopMs": 54,
+      "matched": true
+    },
+    {
+      "gtStartMs": 4746,
+      "desktopStartMs": 4720,
+      "deviceStartMs": 4870,
+      "desktopErrorMs": -26,
+      "deviceErrorMs": 124,
+      "deltaVsDesktopMs": 150,
+      "matched": true
+    },
+    {
+      "gtStartMs": 7724,
+      "desktopStartMs": 7640,
+      "deviceStartMs": 7750,
+      "desktopErrorMs": -84,
+      "deviceErrorMs": 26,
+      "deltaVsDesktopMs": 110,
+      "matched": true
+    },
+    {
+      "gtStartMs": 10238,
+      "desktopStartMs": 10240,
+      "deviceStartMs": 10278,
+      "desktopErrorMs": 2,
+      "deviceErrorMs": 40,
+      "deltaVsDesktopMs": 38,
+      "matched": true
+    },
+    {
+      "gtStartMs": 13007,
+      "desktopStartMs": 13000,
+      "deviceStartMs": 13190,
+      "desktopErrorMs": -7,
+      "deviceErrorMs": 183,
+      "deltaVsDesktopMs": 190,
+      "matched": true
+    },
+    {
+      "gtStartMs": 16217,
+      "desktopStartMs": 16240,
+      "deviceStartMs": 16262,
+      "desktopErrorMs": 23,
+      "deviceErrorMs": 45,
+      "deltaVsDesktopMs": 22,
+      "matched": true
+    },
+    {
+      "gtStartMs": 18859,
+      "desktopStartMs": 18840,
+      "deviceStartMs": 18950,
+      "desktopErrorMs": -19,
+      "deviceErrorMs": 91,
+      "deltaVsDesktopMs": 110,
+      "matched": true
+    },
+    {
+      "gtStartMs": 21489,
+      "desktopStartMs": 21480,
+      "deviceStartMs": 21542,
+      "desktopErrorMs": -9,
+      "deviceErrorMs": 53,
+      "deltaVsDesktopMs": 62,
+      "matched": true
+    },
+    {
+      "gtStartMs": 24386,
+      "desktopStartMs": 24360,
+      "deviceStartMs": 24454,
+      "desktopErrorMs": -26,
+      "deviceErrorMs": 68,
+      "deltaVsDesktopMs": 94,
+      "matched": true
+    },
+    {
+      "gtStartMs": 27236,
+      "desktopStartMs": 27270,
+      "deviceStartMs": 27270,
+      "desktopErrorMs": 34,
+      "deviceErrorMs": 34,
+      "deltaVsDesktopMs": 0,
+      "matched": true
+    },
+    {
+      "gtStartMs": 30783,
+      "desktopStartMs": 30770,
+      "deviceStartMs": 30790,
+      "desktopErrorMs": -13,
+      "deviceErrorMs": 7,
+      "deltaVsDesktopMs": 20,
+      "matched": true
+    },
+    {
+      "gtStartMs": 33877,
+      "desktopStartMs": 33840,
+      "deviceStartMs": 33894,
+      "desktopErrorMs": -37,
+      "deviceErrorMs": 17,
+      "deltaVsDesktopMs": 54,
+      "matched": true
+    },
+    {
+      "gtStartMs": 37459,
+      "desktopStartMs": 37470,
+      "deviceStartMs": 37478,
+      "desktopErrorMs": 11,
+      "deviceErrorMs": 19,
+      "deltaVsDesktopMs": 8,
+      "matched": true
+    },
+    {
+      "gtStartMs": 40112,
+      "desktopStartMs": 40080,
+      "deviceStartMs": 40134,
+      "desktopErrorMs": -32,
+      "deviceErrorMs": 22,
+      "deltaVsDesktopMs": 54,
+      "matched": true
+    },
+    {
+      "gtStartMs": 43009,
+      "desktopStartMs": 42960,
+      "deviceStartMs": 43014,
+      "desktopErrorMs": -49,
+      "deviceErrorMs": 5,
+      "deltaVsDesktopMs": 54,
+      "matched": true
+    },
+    {
+      "gtStartMs": 45662,
+      "desktopStartMs": 45560,
+      "deviceStartMs": 45894,
+      "desktopErrorMs": -102,
+      "deviceErrorMs": 232,
+      "deltaVsDesktopMs": 334,
+      "matched": true
+    },
+    {
+      "gtStartMs": 48617,
+      "desktopStartMs": 48560,
+      "deviceStartMs": 48646,
+      "desktopErrorMs": -57,
+      "deviceErrorMs": 29,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 51561,
+      "desktopStartMs": 51580,
+      "deviceStartMs": 51590,
+      "desktopErrorMs": 19,
+      "deviceErrorMs": 29,
+      "deltaVsDesktopMs": 10,
+      "matched": true
+    },
+    {
+      "gtStartMs": 54423,
+      "desktopStartMs": 54430,
+      "deviceStartMs": 54438,
+      "desktopErrorMs": 7,
+      "deviceErrorMs": 15,
+      "deltaVsDesktopMs": 8,
+      "matched": true
+    },
+    {
+      "gtStartMs": 57239,
+      "desktopStartMs": 57200,
+      "deviceStartMs": 57254,
+      "desktopErrorMs": -39,
+      "deviceErrorMs": 15,
+      "deltaVsDesktopMs": 54,
+      "matched": true
+    },
+    {
+      "gtStartMs": 60228,
+      "desktopStartMs": 60200,
+      "deviceStartMs": 60294,
+      "desktopErrorMs": -28,
+      "deviceErrorMs": 66,
+      "deltaVsDesktopMs": 94,
+      "matched": true
+    },
+    {
+      "gtStartMs": 63241,
+      "desktopStartMs": 63160,
+      "deviceStartMs": 63270,
+      "desktopErrorMs": -81,
+      "deviceErrorMs": 29,
+      "deltaVsDesktopMs": 110,
+      "matched": true
+    },
+    {
+      "gtStartMs": 66103,
+      "desktopStartMs": 66120,
+      "deviceStartMs": 66150,
+      "desktopErrorMs": 17,
+      "deviceErrorMs": 47,
+      "deltaVsDesktopMs": 30,
+      "matched": true
+    },
+    {
+      "gtStartMs": 69058,
+      "desktopStartMs": 69000,
+      "deviceStartMs": 69094,
+      "desktopErrorMs": -58,
+      "deviceErrorMs": 36,
+      "deltaVsDesktopMs": 94,
+      "matched": true
+    },
+    {
+      "gtStartMs": 71944,
+      "desktopStartMs": 71940,
+      "deviceStartMs": 71974,
+      "desktopErrorMs": -4,
+      "deviceErrorMs": 30,
+      "deltaVsDesktopMs": 34,
+      "matched": true
+    },
+    {
+      "gtStartMs": 75119,
+      "desktopStartMs": 75140,
+      "deviceStartMs": 75142,
+      "desktopErrorMs": 21,
+      "deviceErrorMs": 23,
+      "deltaVsDesktopMs": 2,
+      "matched": true
+    },
+    {
+      "gtStartMs": 77935,
+      "desktopStartMs": 77880,
+      "deviceStartMs": 77958,
+      "desktopErrorMs": -55,
+      "deviceErrorMs": 23,
+      "deltaVsDesktopMs": 78,
+      "matched": true
+    },
+    {
+      "gtStartMs": 80928,
+      "desktopStartMs": 80840,
+      "deviceStartMs": 80966,
+      "desktopErrorMs": -88,
+      "deviceErrorMs": 38,
+      "deltaVsDesktopMs": 126,
+      "matched": true
+    },
+    {
+      "gtStartMs": 83767,
+      "desktopStartMs": 83790,
+      "deviceStartMs": 83782,
+      "desktopErrorMs": 23,
+      "deviceErrorMs": 15,
+      "deltaVsDesktopMs": -8,
+      "matched": true
+    },
+    {
+      "gtStartMs": 86896,
+      "desktopStartMs": 86800,
+      "deviceStartMs": 86886,
+      "desktopErrorMs": -96,
+      "deviceErrorMs": -10,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 89746,
+      "desktopStartMs": 89720,
+      "deviceStartMs": 89926,
+      "desktopErrorMs": -26,
+      "deviceErrorMs": 180,
+      "deltaVsDesktopMs": 206,
+      "matched": true
+    },
+    {
+      "gtStartMs": 93235,
+      "desktopStartMs": 93200,
+      "deviceStartMs": 93286,
+      "desktopErrorMs": -35,
+      "deviceErrorMs": 51,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 96225,
+      "desktopStartMs": 96240,
+      "deviceStartMs": 96262,
+      "desktopErrorMs": 15,
+      "deviceErrorMs": 37,
+      "deltaVsDesktopMs": 22,
+      "matched": true
+    },
+    {
+      "gtStartMs": 99157,
+      "desktopStartMs": 99120,
+      "deviceStartMs": 99206,
+      "desktopErrorMs": -37,
+      "deviceErrorMs": 49,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 102216,
+      "desktopStartMs": 102160,
+      "deviceStartMs": 102246,
+      "desktopErrorMs": -56,
+      "deviceErrorMs": 30,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 105195,
+      "desktopStartMs": 105160,
+      "deviceStartMs": 105254,
+      "desktopErrorMs": -35,
+      "deviceErrorMs": 59,
+      "deltaVsDesktopMs": 94,
+      "matched": true
+    },
+    {
+      "gtStartMs": 108405,
+      "desktopStartMs": 108320,
+      "deviceStartMs": 108422,
+      "desktopErrorMs": -85,
+      "deviceErrorMs": 17,
+      "deltaVsDesktopMs": 102,
+      "matched": true
+    },
+    {
+      "gtStartMs": 111267,
+      "desktopStartMs": 111270,
+      "deviceStartMs": 111366,
+      "desktopErrorMs": 3,
+      "deviceErrorMs": 99,
+      "deltaVsDesktopMs": 96,
+      "matched": true
+    },
+    {
+      "gtStartMs": 113758,
+      "desktopStartMs": 113800,
+      "deviceStartMs": 113926,
+      "desktopErrorMs": 42,
+      "deviceErrorMs": 168,
+      "deltaVsDesktopMs": 126,
+      "matched": true
+    },
+    {
+      "gtStartMs": 116306,
+      "desktopStartMs": 116320,
+      "deviceStartMs": 116326,
+      "desktopErrorMs": 14,
+      "deviceErrorMs": 20,
+      "deltaVsDesktopMs": 6,
+      "matched": true
+    },
+    {
+      "gtStartMs": 119400,
+      "desktopStartMs": 119440,
+      "deviceStartMs": 119590,
+      "desktopErrorMs": 40,
+      "deviceErrorMs": 190,
+      "deltaVsDesktopMs": 150,
+      "matched": true
+    },
+    {
+      "gtStartMs": 122425,
+      "desktopStartMs": 122400,
+      "deviceStartMs": 122406,
+      "desktopErrorMs": -25,
+      "deviceErrorMs": -19,
+      "deltaVsDesktopMs": 6,
+      "matched": true
+    },
+    {
+      "gtStartMs": 125334,
+      "desktopStartMs": 125360,
+      "deviceStartMs": 125350,
+      "desktopErrorMs": 26,
+      "deviceErrorMs": 16,
+      "deltaVsDesktopMs": -10,
+      "matched": true
+    },
+    {
+      "gtStartMs": 128068,
+      "desktopStartMs": 128080,
+      "deviceStartMs": 128070,
+      "desktopErrorMs": 12,
+      "deviceErrorMs": 2,
+      "deltaVsDesktopMs": -10,
+      "matched": true
+    },
+    {
+      "gtStartMs": 130978,
+      "desktopStartMs": 131000,
+      "deviceStartMs": 131014,
+      "desktopErrorMs": 22,
+      "deviceErrorMs": 36,
+      "deltaVsDesktopMs": 14,
+      "matched": true
+    },
+    {
+      "gtStartMs": 133991,
+      "desktopStartMs": 134000,
+      "deviceStartMs": 134022,
+      "desktopErrorMs": 9,
+      "deviceErrorMs": 31,
+      "deltaVsDesktopMs": 22,
+      "matched": true
+    },
+    {
+      "gtStartMs": 136656,
+      "desktopStartMs": 136610,
+      "deviceStartMs": 136678,
+      "desktopErrorMs": -46,
+      "deviceErrorMs": 22,
+      "deltaVsDesktopMs": 68,
+      "matched": true
+    },
+    {
+      "gtStartMs": 139924,
+      "desktopStartMs": 140030,
+      "deviceStartMs": 139942,
+      "desktopErrorMs": 106,
+      "deviceErrorMs": 18,
+      "deltaVsDesktopMs": -88,
+      "matched": true
+    },
+    {
+      "gtStartMs": 143053,
+      "desktopStartMs": 143120,
+      "deviceStartMs": 143366,
+      "desktopErrorMs": 67,
+      "deviceErrorMs": 313,
+      "deltaVsDesktopMs": 246,
+      "matched": true
+    },
+    {
+      "gtStartMs": 146623,
+      "desktopStartMs": 146640,
+      "deviceStartMs": 146662,
+      "desktopErrorMs": 17,
+      "deviceErrorMs": 39,
+      "deltaVsDesktopMs": 22,
+      "matched": true
+    },
+    {
+      "gtStartMs": 149671,
+      "desktopStartMs": 149720,
+      "deviceStartMs": 149734,
+      "desktopErrorMs": 49,
+      "deviceErrorMs": 63,
+      "deltaVsDesktopMs": 14,
+      "matched": true
+    },
+    {
+      "gtStartMs": 153248,
+      "desktopStartMs": 153280,
+      "deviceStartMs": 153286,
+      "desktopErrorMs": 32,
+      "deviceErrorMs": 38,
+      "deltaVsDesktopMs": 6,
+      "matched": true
+    },
+    {
+      "gtStartMs": 156273,
+      "desktopStartMs": 156320,
+      "deviceStartMs": 156582,
+      "desktopErrorMs": 47,
+      "deviceErrorMs": 309,
+      "deltaVsDesktopMs": 262,
+      "matched": true
+    },
+    {
+      "gtStartMs": 159483,
+      "desktopStartMs": 159480,
+      "deviceStartMs": 159494,
+      "desktopErrorMs": -3,
+      "deviceErrorMs": 11,
+      "deltaVsDesktopMs": 14,
+      "matched": true
+    },
+    {
+      "gtStartMs": 162485,
+      "desktopStartMs": 162520,
+      "deviceStartMs": 162502,
+      "desktopErrorMs": 35,
+      "deviceErrorMs": 17,
+      "deltaVsDesktopMs": -18,
+      "matched": true
+    },
+    {
+      "gtStartMs": 165521,
+      "desktopStartMs": 165560,
+      "deviceStartMs": 165542,
+      "desktopErrorMs": 39,
+      "deviceErrorMs": 21,
+      "deltaVsDesktopMs": -18,
+      "matched": true
+    },
+    {
+      "gtStartMs": 168487,
+      "desktopStartMs": 168630,
+      "deviceStartMs": 168518,
+      "desktopErrorMs": 143,
+      "deviceErrorMs": 31,
+      "deltaVsDesktopMs": -112,
+      "matched": true
+    },
+    {
+      "gtStartMs": 171228,
+      "desktopStartMs": 171320,
+      "deviceStartMs": 171270,
+      "desktopErrorMs": 92,
+      "deviceErrorMs": 42,
+      "deltaVsDesktopMs": -50,
+      "matched": true
+    },
+    {
+      "gtStartMs": 174287,
+      "desktopStartMs": 174320,
+      "deviceStartMs": 174310,
+      "desktopErrorMs": 33,
+      "deviceErrorMs": 23,
+      "deltaVsDesktopMs": -10,
+      "matched": true
+    },
+    {
+      "gtStartMs": 177179,
+      "desktopStartMs": 177240,
+      "deviceStartMs": 177190,
+      "desktopErrorMs": 61,
+      "deviceErrorMs": 11,
+      "deltaVsDesktopMs": -50,
+      "matched": true
+    },
+    {
+      "gtStartMs": 180203,
+      "desktopStartMs": 180280,
+      "deviceStartMs": 180198,
+      "desktopErrorMs": 77,
+      "deviceErrorMs": -5,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    },
+    {
+      "gtStartMs": 183089,
+      "desktopStartMs": 183160,
+      "deviceStartMs": 183110,
+      "desktopErrorMs": 71,
+      "deviceErrorMs": 21,
+      "deltaVsDesktopMs": -50,
+      "matched": true
+    },
+    {
+      "gtStartMs": 186195,
+      "desktopStartMs": 186320,
+      "deviceStartMs": 186246,
+      "desktopErrorMs": 125,
+      "deviceErrorMs": 51,
+      "deltaVsDesktopMs": -74,
+      "matched": true
+    },
+    {
+      "gtStartMs": 189429,
+      "desktopStartMs": 189520,
+      "deviceStartMs": 189478,
+      "desktopErrorMs": 91,
+      "deviceErrorMs": 49,
+      "deltaVsDesktopMs": -42,
+      "matched": true
+    },
+    {
+      "gtStartMs": 192488,
+      "desktopStartMs": 192560,
+      "deviceStartMs": 192774,
+      "desktopErrorMs": 72,
+      "deviceErrorMs": 286,
+      "deltaVsDesktopMs": 214,
+      "matched": true
+    },
+    {
+      "gtStartMs": 195500,
+      "desktopStartMs": 195670,
+      "deviceStartMs": 195782,
+      "desktopErrorMs": 170,
+      "deviceErrorMs": 282,
+      "deltaVsDesktopMs": 112,
+      "matched": true
+    },
+    {
+      "gtStartMs": 198722,
+      "desktopStartMs": 198800,
+      "deviceStartMs": 198758,
+      "desktopErrorMs": 78,
+      "deviceErrorMs": 36,
+      "deltaVsDesktopMs": -42,
+      "matched": true
+    },
+    {
+      "gtStartMs": 201387,
+      "desktopStartMs": 201400,
+      "deviceStartMs": 201414,
+      "desktopErrorMs": 13,
+      "deviceErrorMs": 27,
+      "deltaVsDesktopMs": 14,
+      "matched": true
+    },
+    {
+      "gtStartMs": 204191,
+      "desktopStartMs": 204280,
+      "deviceStartMs": 204230,
+      "desktopErrorMs": 89,
+      "deviceErrorMs": 39,
+      "deltaVsDesktopMs": -50,
+      "matched": true
+    },
+    {
+      "gtStartMs": 207262,
+      "desktopStartMs": 207400,
+      "deviceStartMs": 207302,
+      "desktopErrorMs": 138,
+      "deviceErrorMs": 40,
+      "deltaVsDesktopMs": -98,
+      "matched": true
+    },
+    {
+      "gtStartMs": 210193,
+      "desktopStartMs": 210280,
+      "deviceStartMs": 210246,
+      "desktopErrorMs": 87,
+      "deviceErrorMs": 53,
+      "deltaVsDesktopMs": -34,
+      "matched": true
+    },
+    {
+      "gtStartMs": 213787,
+      "desktopStartMs": 213880,
+      "deviceStartMs": 213798,
+      "desktopErrorMs": 93,
+      "deviceErrorMs": 11,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    },
+    {
+      "gtStartMs": 216591,
+      "desktopStartMs": 216640,
+      "deviceStartMs": 216710,
+      "desktopErrorMs": 49,
+      "deviceErrorMs": 119,
+      "deltaVsDesktopMs": 70,
+      "matched": true
+    },
+    {
+      "gtStartMs": 219407,
+      "desktopStartMs": 219520,
+      "deviceStartMs": 219430,
+      "desktopErrorMs": 113,
+      "deviceErrorMs": 23,
+      "deltaVsDesktopMs": -90,
+      "matched": true
+    },
+    {
+      "gtStartMs": 222173,
+      "desktopStartMs": 222310,
+      "deviceStartMs": 222182,
+      "desktopErrorMs": 137,
+      "deviceErrorMs": 9,
+      "deltaVsDesktopMs": -128,
+      "matched": true
+    },
+    {
+      "gtStartMs": 225520,
+      "desktopStartMs": 225600,
+      "deviceStartMs": 225542,
+      "desktopErrorMs": 80,
+      "deviceErrorMs": 22,
+      "deltaVsDesktopMs": -58,
+      "matched": true
+    },
+    {
+      "gtStartMs": 228383,
+      "desktopStartMs": 228440,
+      "deviceStartMs": 228390,
+      "desktopErrorMs": 57,
+      "deviceErrorMs": 7,
+      "deltaVsDesktopMs": -50,
+      "matched": true
+    },
+    {
+      "gtStartMs": 231512,
+      "desktopStartMs": 231600,
+      "deviceStartMs": 231526,
+      "desktopErrorMs": 88,
+      "deviceErrorMs": 14,
+      "deltaVsDesktopMs": -74,
+      "matched": true
+    },
+    {
+      "gtStartMs": 234710,
+      "desktopStartMs": 234760,
+      "deviceStartMs": 234758,
+      "desktopErrorMs": 50,
+      "deviceErrorMs": 48,
+      "deltaVsDesktopMs": -2,
+      "matched": true
+    },
+    {
+      "gtStartMs": 238199,
+      "desktopStartMs": 238240,
+      "deviceStartMs": 238214,
+      "desktopErrorMs": 41,
+      "deviceErrorMs": 15,
+      "deltaVsDesktopMs": -26,
+      "matched": true
+    },
+    {
+      "gtStartMs": 241178,
+      "desktopStartMs": 241280,
+      "deviceStartMs": 241222,
+      "desktopErrorMs": 102,
+      "deviceErrorMs": 44,
+      "deltaVsDesktopMs": -58,
+      "matched": true
+    },
+    {
+      "gtStartMs": 243958,
+      "desktopStartMs": 244000,
+      "deviceStartMs": 243974,
+      "desktopErrorMs": 42,
+      "deviceErrorMs": 16,
+      "deltaVsDesktopMs": -26,
+      "matched": true
+    },
+    {
+      "gtStartMs": 247002,
+      "desktopStartMs": 247120,
+      "deviceStartMs": 247046,
+      "desktopErrorMs": 118,
+      "deviceErrorMs": 44,
+      "deltaVsDesktopMs": -74,
+      "matched": true
+    },
+    {
+      "gtStartMs": 250125,
+      "desktopStartMs": 250270,
+      "deviceStartMs": 250150,
+      "desktopErrorMs": 145,
+      "deviceErrorMs": 25,
+      "deltaVsDesktopMs": -120,
+      "matched": true
+    },
+    {
+      "gtStartMs": 253324,
+      "desktopStartMs": 253480,
+      "deviceStartMs": 253350,
+      "desktopErrorMs": 156,
+      "deviceErrorMs": 26,
+      "deltaVsDesktopMs": -130,
+      "matched": true
+    },
+    {
+      "gtStartMs": 256070,
+      "desktopStartMs": 256200,
+      "deviceStartMs": 256102,
+      "desktopErrorMs": 130,
+      "deviceErrorMs": 32,
+      "deltaVsDesktopMs": -98,
+      "matched": true
+    },
+    {
+      "gtStartMs": 259118,
+      "desktopStartMs": 259280,
+      "deviceStartMs": 259142,
+      "desktopErrorMs": 162,
+      "deviceErrorMs": 24,
+      "deltaVsDesktopMs": -138,
+      "matched": true
+    },
+    {
+      "gtStartMs": 262386,
+      "desktopStartMs": 262520,
+      "deviceStartMs": 262438,
+      "desktopErrorMs": 134,
+      "deviceErrorMs": 52,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    },
+    {
+      "gtStartMs": 265527,
+      "desktopStartMs": 265640,
+      "deviceStartMs": 265542,
+      "desktopErrorMs": 113,
+      "deviceErrorMs": 15,
+      "deltaVsDesktopMs": -98,
+      "matched": true
+    },
+    {
+      "gtStartMs": 268168,
+      "desktopStartMs": 268320,
+      "deviceStartMs": 268198,
+      "desktopErrorMs": 152,
+      "deviceErrorMs": 30,
+      "deltaVsDesktopMs": -122,
+      "matched": true
+    },
+    {
+      "gtStartMs": 271030,
+      "desktopStartMs": 271160,
+      "deviceStartMs": 271078,
+      "desktopErrorMs": 130,
+      "deviceErrorMs": 48,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    },
+    {
+      "gtStartMs": 274287,
+      "desktopStartMs": 274400,
+      "deviceStartMs": 274726,
+      "desktopErrorMs": 113,
+      "deviceErrorMs": 439,
+      "deltaVsDesktopMs": 326,
+      "matched": true
+    },
+    {
+      "gtStartMs": 277486,
+      "desktopStartMs": 277750,
+      "deviceStartMs": 277510,
+      "desktopErrorMs": 264,
+      "deviceErrorMs": 24,
+      "deltaVsDesktopMs": -240,
+      "matched": true
+    },
+    {
+      "gtStartMs": 280441,
+      "desktopStartMs": 280560,
+      "deviceStartMs": 280646,
+      "desktopErrorMs": 119,
+      "deviceErrorMs": 205,
+      "deltaVsDesktopMs": 86,
+      "matched": true
+    },
+    {
+      "gtStartMs": 283152,
+      "desktopStartMs": 283280,
+      "deviceStartMs": 283206,
+      "desktopErrorMs": 128,
+      "deviceErrorMs": 54,
+      "deltaVsDesktopMs": -74,
+      "matched": true
+    },
+    {
+      "gtStartMs": 286177,
+      "desktopStartMs": 286280,
+      "deviceStartMs": 286214,
+      "desktopErrorMs": 103,
+      "deviceErrorMs": 37,
+      "deltaVsDesktopMs": -66,
+      "matched": true
+    },
+    {
+      "gtStartMs": 288841,
+      "desktopStartMs": 288920,
+      "deviceStartMs": 288838,
+      "desktopErrorMs": 79,
+      "deviceErrorMs": -3,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    },
+    {
+      "gtStartMs": 291994,
+      "desktopStartMs": 292080,
+      "deviceStartMs": 292006,
+      "desktopErrorMs": 86,
+      "deviceErrorMs": 12,
+      "deltaVsDesktopMs": -74,
+      "matched": true
+    },
+    {
+      "gtStartMs": 294914,
+      "desktopStartMs": 295000,
+      "deviceStartMs": 294918,
+      "desktopErrorMs": 86,
+      "deviceErrorMs": 4,
+      "deltaVsDesktopMs": -82,
+      "matched": true
+    }
+  ]
+}

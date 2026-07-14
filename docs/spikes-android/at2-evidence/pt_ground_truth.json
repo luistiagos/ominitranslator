@@ -1,0 +1,508 @@
+{
+  "lang": "pt",
+  "sampleRate": 16000,
+  "totalDurationSec": 299.7396825396825,
+  "gapSec": 0.9,
+  "sentences": [
+    {
+      "text": "O tempo está lindo hoje.",
+      "startMs": 0,
+      "endMs": 1370
+    },
+    {
+      "text": "Eu gostaria de uma xícara de café.",
+      "startMs": 2270,
+      "endMs": 4007
+    },
+    {
+      "text": "O trem sai às sete da manhã.",
+      "startMs": 4907,
+      "endMs": 6509
+    },
+    {
+      "text": "Ela comprou três livros ontem.",
+      "startMs": 7409,
+      "endMs": 9000
+    },
+    {
+      "text": "Vamos à praia neste fim de semana.",
+      "startMs": 9900,
+      "endMs": 11735
+    },
+    {
+      "text": "Meu irmão trabalha num hospital no centro.",
+      "startMs": 12635,
+      "endMs": 14736
+    },
+    {
+      "text": "Você poderia me dizer onde fica a estação?",
+      "startMs": 15636,
+      "endMs": 17691
+    },
+    {
+      "text": "As crianças estão brincando no jardim.",
+      "startMs": 18591,
+      "endMs": 20646
+    },
+    {
+      "text": "Eu nunca estive em Portugal antes.",
+      "startMs": 21546,
+      "endMs": 23235
+    },
+    {
+      "text": "Ele esqueceu o guarda-chuva no escritório.",
+      "startMs": 24135,
+      "endMs": 26248
+    },
+    {
+      "text": "Este restaurante serve a melhor pizza da cidade.",
+      "startMs": 27148,
+      "endMs": 29738
+    },
+    {
+      "text": "Por favor, apague as luzes antes de sair.",
+      "startMs": 30638,
+      "endMs": 32937
+    },
+    {
+      "text": "A reunião foi adiada para a próxima quinta-feira.",
+      "startMs": 33837,
+      "endMs": 36391
+    },
+    {
+      "text": "A casa nova deles tem uma cozinha grande.",
+      "startMs": 37291,
+      "endMs": 39532
+    },
+    {
+      "text": "Preciso comprar leite e pão.",
+      "startMs": 40432,
+      "endMs": 41953
+    },
+    {
+      "text": "O filme começa em vinte minutos.",
+      "startMs": 42853,
+      "endMs": 44838
+    },
+    {
+      "text": "Ela fala quatro idiomas fluentemente.",
+      "startMs": 45738,
+      "endMs": 47747
+    },
+    {
+      "text": "Assistimos ao pôr do sol do alto do morro.",
+      "startMs": 48647,
+      "endMs": 50562
+    },
+    {
+      "text": "O cachorro latiu a noite inteira.",
+      "startMs": 51462,
+      "endMs": 53273
+    },
+    {
+      "text": "Minha avó me ensinou a cozinhar.",
+      "startMs": 54173,
+      "endMs": 55799
+    },
+    {
+      "text": "O voo atrasou por causa da tempestade.",
+      "startMs": 56699,
+      "endMs": 58716
+    },
+    {
+      "text": "Ele está estudando medicina na universidade.",
+      "startMs": 59616,
+      "endMs": 61938
+    },
+    {
+      "text": "Você pode me ajudar a carregar estas caixas?",
+      "startMs": 62838,
+      "endMs": 65067
+    },
+    {
+      "text": "O museu fecha às segundas-feiras.",
+      "startMs": 65967,
+      "endMs": 67895
+    },
+    {
+      "text": "Perdi minhas chaves em algum lugar do parque.",
+      "startMs": 68795,
+      "endMs": 71000
+    },
+    {
+      "text": "Eles comemoraram o aniversário de casamento em Paris.",
+      "startMs": 71900,
+      "endMs": 74617
+    },
+    {
+      "text": "A sopa precisa de um pouco mais de sal.",
+      "startMs": 75517,
+      "endMs": 77514
+    },
+    {
+      "text": "Nosso time ganhou o campeonato no ano passado.",
+      "startMs": 78414,
+      "endMs": 80899
+    },
+    {
+      "text": "Ela escreveu uma carta para a velha amiga.",
+      "startMs": 81799,
+      "endMs": 83935
+    },
+    {
+      "text": "A ponte foi construída há mais de cem anos.",
+      "startMs": 84835,
+      "endMs": 87250
+    },
+    {
+      "text": "Eu costumo acordar às seis horas.",
+      "startMs": 88150,
+      "endMs": 89973
+    },
+    {
+      "text": "A professora explicou a lição com muita clareza.",
+      "startMs": 90873,
+      "endMs": 93322
+    },
+    {
+      "text": "Devíamos sair agora para evitar o trânsito.",
+      "startMs": 94222,
+      "endMs": 96417
+    },
+    {
+      "text": "O carro dele quebrou na estrada.",
+      "startMs": 97317,
+      "endMs": 99012
+    },
+    {
+      "text": "O bebê dormiu tranquilo a noite toda.",
+      "startMs": 99912,
+      "endMs": 101885
+    },
+    {
+      "text": "Tenho medo de aranhas e cobras.",
+      "startMs": 102785,
+      "endMs": 104457
+    },
+    {
+      "text": "O jardim está cheio de flores coloridas.",
+      "startMs": 105357,
+      "endMs": 107540
+    },
+    {
+      "text": "Ela trabalha de casa três dias por semana.",
+      "startMs": 108440,
+      "endMs": 110901
+    },
+    {
+      "text": "O café está quente demais para beber.",
+      "startMs": 111801,
+      "endMs": 113775
+    },
+    {
+      "text": "Plantamos uma árvore no quintal.",
+      "startMs": 114675,
+      "endMs": 116300
+    },
+    {
+      "text": "A biblioteca tem milhares de livros antigos.",
+      "startMs": 117200,
+      "endMs": 119627
+    },
+    {
+      "text": "Ele toca violão numa banda local.",
+      "startMs": 120527,
+      "endMs": 122338
+    },
+    {
+      "text": "Esqueci de enviar o e-mail esta manhã.",
+      "startMs": 123238,
+      "endMs": 125142
+    },
+    {
+      "text": "As montanhas estão cobertas de neve.",
+      "startMs": 126042,
+      "endMs": 128097
+    },
+    {
+      "text": "Estão construindo uma escola nova perto do rio.",
+      "startMs": 128997,
+      "endMs": 131249
+    },
+    {
+      "text": "A bateria do meu celular acabou durante a ligação.",
+      "startMs": 132149,
+      "endMs": 134761
+    },
+    {
+      "text": "O garçom trouxe o pedido errado.",
+      "startMs": 135661,
+      "endMs": 137438
+    },
+    {
+      "text": "Ela pintou as paredes de um azul suave.",
+      "startMs": 138338,
+      "endMs": 140497
+    },
+    {
+      "text": "Pegamos o caminho errado e nos perdemos.",
+      "startMs": 141397,
+      "endMs": 143615
+    },
+    {
+      "text": "A padaria cheira a pão fresco toda manhã.",
+      "startMs": 144515,
+      "endMs": 146628
+    },
+    {
+      "text": "Prefiro ficar em casa e ler hoje à noite.",
+      "startMs": 147528,
+      "endMs": 149827
+    },
+    {
+      "text": "O cientista descobriu uma nova espécie de peixe.",
+      "startMs": 150727,
+      "endMs": 153228
+    },
+    {
+      "text": "Ele pediu desculpas por ter chegado tão tarde.",
+      "startMs": 154128,
+      "endMs": 156446
+    },
+    {
+      "text": "A feira fica cheia nas manhãs de sábado.",
+      "startMs": 157346,
+      "endMs": 159483
+    },
+    {
+      "text": "Ela guarda um caderninho na bolsa.",
+      "startMs": 160383,
+      "endMs": 162136
+    },
+    {
+      "text": "O relógio antigo da parede parou de funcionar.",
+      "startMs": 163036,
+      "endMs": 165393
+    },
+    {
+      "text": "Precisamos reservar os ingressos com antecedência.",
+      "startMs": 166293,
+      "endMs": 168986
+    },
+    {
+      "text": "O rio transbordou depois da chuva forte.",
+      "startMs": 169886,
+      "endMs": 171976
+    },
+    {
+      "text": "Meus vizinhos são muito gentis e prestativos.",
+      "startMs": 172876,
+      "endMs": 175373
+    },
+    {
+      "text": "Não consigo achar meus óculos em lugar nenhum.",
+      "startMs": 176273,
+      "endMs": 178676
+    },
+    {
+      "text": "O show foi cancelado de última hora.",
+      "startMs": 179576,
+      "endMs": 181468
+    },
+    {
+      "text": "Eles adotaram um filhote no abrigo.",
+      "startMs": 182368,
+      "endMs": 184145
+    },
+    {
+      "text": "A receita pede duas xícaras de farinha.",
+      "startMs": 185045,
+      "endMs": 187169
+    },
+    {
+      "text": "Ele corre cinco quilômetros toda manhã.",
+      "startMs": 188069,
+      "endMs": 190089
+    },
+    {
+      "text": "O céu escureceu antes da tempestade.",
+      "startMs": 190989,
+      "endMs": 193079
+    },
+    {
+      "text": "Ela sorriu e acenou da janela.",
+      "startMs": 193979,
+      "endMs": 195941
+    },
+    {
+      "text": "Passamos a tarde inteira no museu.",
+      "startMs": 196841,
+      "endMs": 198559
+    },
+    {
+      "text": "O elevador está quebrado de novo.",
+      "startMs": 199459,
+      "endMs": 201294
+    },
+    {
+      "text": "Prometo te ligar quando eu chegar.",
+      "startMs": 202194,
+      "endMs": 203866
+    },
+    {
+      "text": "O agricultor acorda antes do amanhecer.",
+      "startMs": 204766,
+      "endMs": 206706
+    },
+    {
+      "text": "O voo deles pousa no começo da noite.",
+      "startMs": 207606,
+      "endMs": 209649
+    },
+    {
+      "text": "O salão estava decorado com balões e luzes.",
+      "startMs": 210549,
+      "endMs": 212952
+    },
+    {
+      "text": "Não entendo este problema de matemática.",
+      "startMs": 213852,
+      "endMs": 215838
+    },
+    {
+      "text": "O gato pulou em cima da mesa da cozinha.",
+      "startMs": 216738,
+      "endMs": 218920
+    },
+    {
+      "text": "Estamos planejando uma viagem para o interior.",
+      "startMs": 219820,
+      "endMs": 221968
+    },
+    {
+      "text": "Ele cumpriu a promessa apesar das dificuldades.",
+      "startMs": 222868,
+      "endMs": 225445
+    },
+    {
+      "text": "A loja fecha cedo aos domingos.",
+      "startMs": 226345,
+      "endMs": 228157
+    },
+    {
+      "text": "Ela cantarolava baixinho enquanto cozinhava.",
+      "startMs": 229057,
+      "endMs": 231286
+    },
+    {
+      "text": "O engenheiro consertou a máquina em uma hora.",
+      "startMs": 232186,
+      "endMs": 234484
+    },
+    {
+      "text": "Meu pai lê o jornal todos os dias.",
+      "startMs": 235384,
+      "endMs": 237381
+    },
+    {
+      "text": "O vento espalhou as folhas pela estrada.",
+      "startMs": 238281,
+      "endMs": 240383
+    },
+    {
+      "text": "Eles dançaram juntos até a meia-noite.",
+      "startMs": 241283,
+      "endMs": 243303
+    },
+    {
+      "text": "Deixei meu casaco no ônibus esta manhã.",
+      "startMs": 244203,
+      "endMs": 246270
+    },
+    {
+      "text": "O lago congela por completo durante o inverno.",
+      "startMs": 247170,
+      "endMs": 249735
+    },
+    {
+      "text": "Ela sempre leva um par de meias extra.",
+      "startMs": 250635,
+      "endMs": 252574
+    },
+    {
+      "text": "Dava para ouvir o mar do nosso quarto.",
+      "startMs": 253474,
+      "endMs": 255297
+    },
+    {
+      "text": "O médico recomendou bastante descanso.",
+      "startMs": 256197,
+      "endMs": 258449
+    },
+    {
+      "text": "Ele sussurrou a resposta para ninguém ouvir.",
+      "startMs": 259349,
+      "endMs": 261602
+    },
+    {
+      "text": "O ônibus estava tão cheio que tive de ficar em pé.",
+      "startMs": 262502,
+      "endMs": 265172
+    },
+    {
+      "text": "Eu rego as plantas dia sim, dia não.",
+      "startMs": 266072,
+      "endMs": 268162
+    },
+    {
+      "text": "As crianças riram do palhaço engraçado.",
+      "startMs": 269062,
+      "endMs": 271372
+    },
+    {
+      "text": "Ela economizou o suficiente para comprar uma bicicleta.",
+      "startMs": 272272,
+      "endMs": 275304
+    },
+    {
+      "text": "A trilha leva direto à cachoeira.",
+      "startMs": 276204,
+      "endMs": 278016
+    },
+    {
+      "text": "Comemoramos a boa notícia com um jantar.",
+      "startMs": 278916,
+      "endMs": 280866
+    },
+    {
+      "text": "A impressora ficou sem tinta de novo.",
+      "startMs": 281766,
+      "endMs": 283751
+    },
+    {
+      "text": "Ele aprendeu a nadar quando tinha cinco anos.",
+      "startMs": 284651,
+      "endMs": 287287
+    },
+    {
+      "text": "As ruas estavam vazias tarde da noite.",
+      "startMs": 288187,
+      "endMs": 290207
+    },
+    {
+      "text": "Sempre tomo chá antes de dormir.",
+      "startMs": 291107,
+      "endMs": 292779
+    },
+    {
+      "text": "O jardineiro aparou as cercas vivas esta manhã.",
+      "startMs": 293679,
+      "endMs": 296152
+    },
+    {
+      "text": "Eles viajaram pelo país de trem.",
+      "startMs": 297052,
+      "endMs": 298840
+    }
+  ]
+}

@@ -1,0 +1,612 @@
+{
+  "tag": "es_best",
+  "lang": "es",
+  "preset": "best",
+  "model": "base",
+  "numThreads": 2,
+  "audioDurationSec": 326.872375,
+  "elapsedSec": 85.868,
+  "rtf": 0.26269579985154756,
+  "vmHwmKbAfterRun": 727880,
+  "vadSegmentCount": 99,
+  "outputSegmentCount": 99,
+  "emptyTextCount": 0,
+  "timestampRegressions": 0,
+  "nativeTimestampsNonEmptyCount": 0,
+  "segments": [
+    {
+      "startMs": 198,
+      "endMs": 1520,
+      "text": "Y clima estar moso",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 2406,
+      "endMs": 4144,
+      "text": "Me gustaría una taza de café.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 4998,
+      "endMs": 6928,
+      "text": "El tren sale a las 7 de la mañana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 7878,
+      "endMs": 9648,
+      "text": "Ella compró tres libros ayer.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 10534,
+      "endMs": 12368,
+      "text": "Vamos a la playa este fin de semana",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 13318,
+      "endMs": 15760,
+      "text": "mi hermano trabaja en un hospital de centro.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 16742,
+      "endMs": 18960,
+      "text": "Podría decirme dónde está la estación.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 19942,
+      "endMs": 22160,
+      "text": "Los niños están jugando en el jardín.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 23110,
+      "endMs": 25168,
+      "text": "nunca he estado en Portugal antes.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 25990,
+      "endMs": 28080,
+      "text": "El olvido su parágas en la ofic",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 28998,
+      "endMs": 31696,
+      "text": "Este restaurante sirve la mejor picha de la ciudad.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 32614,
+      "endMs": 35280,
+      "text": "Por favor, apaga las luces antes de salir.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 36166,
+      "endMs": 39184,
+      "text": "La reunión se pospuso hasta el próximo jueves.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 40198,
+      "endMs": 42160,
+      "text": "casa nueva tiene una cocina grande.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 43174,
+      "endMs": 45104,
+      "text": "Necesito comprar leche y pan.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 46342,
+      "endMs": 48464,
+      "text": "película comienza en 20 minutos.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 49286,
+      "endMs": 51792,
+      "text": "Ella era la 4 y diomas con fluidez.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 52742,
+      "endMs": 54736,
+      "text": "Vimos la puesta de soldes de la",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 55942,
+      "endMs": 57616,
+      "text": "Pero la droga toda la noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 58502,
+      "endMs": 60176,
+      "text": "Mi abuela me enseñó a cocinar",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 61062,
+      "endMs": 63344,
+      "text": "El vuelo se retrasó por la tormenta.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 64262,
+      "endMs": 66992,
+      "text": "él está estudiando medicina en la Universidad.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 67910,
+      "endMs": 70064,
+      "text": "puedes ayudarme a llevar estas cajas.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 70918,
+      "endMs": 72944,
+      "text": "El Museo está cerrado los lunes.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 73798,
+      "endMs": 76176,
+      "text": "que perdí mis tíaves en algún lugar del parque",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 77158,
+      "endMs": 79184,
+      "text": "celebraron su aniversario en París.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 80006,
+      "endMs": 82160,
+      "text": "La sopa necesita un poco más de sal.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 83366,
+      "endMs": 85648,
+      "text": "El equipo ganó el campeonato el año pasado.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 86534,
+      "endMs": 88944,
+      "text": "Ella le describió una carta a su vieja amiga.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 90086,
+      "endMs": 92720,
+      "text": "Se construyó bace más de 100 años.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 93606,
+      "endMs": 95792,
+      "text": "suelo despertarme a las 6 en punto.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 96710,
+      "endMs": 99760,
+      "text": "La m",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 100678,
+      "endMs": 103280,
+      "text": "Deberíamos salir ahora para evitar el tráfico.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 104230,
+      "endMs": 106000,
+      "text": "Su auto se abrieron la carretera",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 106918,
+      "endMs": 109200,
+      "text": "El bebé durmió tranquilo toda la noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 110086,
+      "endMs": 112816,
+      "text": "tengo miedo de las arañas y las sepientes",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 113638,
+      "endMs": 116368,
+      "text": "El jardín está lleno de flores coloridas.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 117446,
+      "endMs": 119696,
+      "text": "trabaja desde casa 3 días a la semana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 120646,
+      "endMs": 123344,
+      "text": "El café está demasiado caliente para beber.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 124230,
+      "endMs": 126352,
+      "text": "Plantamos un árbol en el patio trasero",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 127270,
+      "endMs": 130032,
+      "text": "La biblioteca tiene miles de libros antiguos.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 131110,
+      "endMs": 133008,
+      "text": "toca la guitarra en una banda local.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 133926,
+      "endMs": 135984,
+      "text": "Olvide enviar el correo esta mañana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 136902,
+      "endMs": 139408,
+      "text": "Las montañas están cubiertas de nieve.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 140262,
+      "endMs": 143376,
+      "text": "Están construyendo una escuela nueva cerca del río.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 144294,
+      "endMs": 147344,
+      "text": "La batería de mi teléfono se agotó durante la llamada.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 148454,
+      "endMs": 150416,
+      "text": "Camarero trajo el pedido equivocado",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 151366,
+      "endMs": 153584,
+      "text": "Ella pintó las paredes de un azul suave",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 154534,
+      "endMs": 157168,
+      "text": "tomamos el camino de equivocado y nos perdimos.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 157990,
+      "endMs": 160624,
+      "text": "La panadería huele a pan fresco cada mañana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 161606,
+      "endMs": 164048,
+      "text": "refiero que darme en casa y leer esta noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 164966,
+      "endMs": 167856,
+      "text": "El científico descubrió una nueva especie de pez.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 168710,
+      "endMs": 170736,
+      "text": "él se disculpó por llegar tan tarde.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 171622,
+      "endMs": 174192,
+      "text": "El mercado está lleno los sábados por la mañana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 175110,
+      "endMs": 177392,
+      "text": "Ella guarda un pequeño cuaderno en su bolso",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 178310,
+      "endMs": 180912,
+      "text": "El reloj viejo de la pared dejó de funcion",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 181830,
+      "endMs": 185136,
+      "text": "Necesitamos reservar los boletos con anticipación.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 186054,
+      "endMs": 188848,
+      "text": "El río se desbordó después de la fuerte lluvia",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 189798,
+      "endMs": 192592,
+      "text": "Mis vecinos son muy amables y servicios.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 193702,
+      "endMs": 196208,
+      "text": "puedo encontrar mis lentes en ningún lado.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 197158,
+      "endMs": 199856,
+      "text": "el concierto fue cancelado a último momento.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 201126,
+      "endMs": 202608,
+      "text": "le dieron un cachorro del",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 203526,
+      "endMs": 205616,
+      "text": "La receta pide 2 tazas de har",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 206726,
+      "endMs": 209328,
+      "text": "corre 5 kilómetros todas las mañana.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 210182,
+      "endMs": 212816,
+      "text": "El cielo se os creció antes de la tormenta.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 213766,
+      "endMs": 215792,
+      "text": "Ella sombrió hisavudos desde la ventana",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 216774,
+      "endMs": 218704,
+      "text": "pasamos toda la tarde en el museo.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 219558,
+      "endMs": 221936,
+      "text": "en la sensora está descompuesto otra vez.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 222822,
+      "endMs": 224368,
+      "text": "rometo y amarte cuando llé",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 225254,
+      "endMs": 227920,
+      "text": "el agricultor se despierta antes de la manecer.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 228838,
+      "endMs": 231184,
+      "text": "su vuelo atrisa a principios de la noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 232070,
+      "endMs": 234800,
+      "text": "La sala estaba decorrada con globos y luces.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 235622,
+      "endMs": 238256,
+      "text": "no entiendo de este problema de matemáticas.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 239046,
+      "endMs": 241648,
+      "text": "El gato saltó sobre la mesa de la cocina.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 242534,
+      "endMs": 244560,
+      "text": "Estamos planeando un viaje al campo.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 245510,
+      "endMs": 248368,
+      "text": "él cumplió su promesa a pesar de las dificultades.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 249446,
+      "endMs": 251536,
+      "text": "Tienda Cierra temprano los domingos",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 252390,
+      "endMs": 254928,
+      "text": "Ellas tardarávan suavemente mientras cocinaba.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 255878,
+      "endMs": 258128,
+      "text": "El ingeniero reparó la máquina en una hora.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 259110,
+      "endMs": 261616,
+      "text": "Mi padre le el periódico todos los días.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 262470,
+      "endMs": 264976,
+      "text": "El viento exparció las hojas por la carretera.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 265894,
+      "endMs": 267856,
+      "text": "Paiyeron juntos hasta la media noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 268742,
+      "endMs": 271056,
+      "text": "Dejé mi abrigo en el autobús",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 271974,
+      "endMs": 275056,
+      "text": "El lago se congela por completo durante el invierno.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 276038,
+      "endMs": 278736,
+      "text": "Ella siempre lleva un par extra de calcetines.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 279526,
+      "endMs": 282320,
+      "text": "Podíamos escuchar el mal desde nuestra habitación.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 283238,
+      "endMs": 285392,
+      "text": "El médico recomendó mucho descanso.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 286278,
+      "endMs": 288656,
+      "text": "él susurró la respuesta para que nadie llegara.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 289542,
+      "endMs": 292496,
+      "text": "El autobús estaba tan lleno que tuve que ir de pie.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 293382,
+      "endMs": 295152,
+      "text": "Dehigo las plantas diapor",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 296070,
+      "endMs": 298352,
+      "text": "Los niños se rieron del Pallasso Gracioso.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 299270,
+      "endMs": 302320,
+      "text": "Ella rose suficiente dinero para comprar una bicicleta.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 303206,
+      "endMs": 305648,
+      "text": "El sendero lleva directamente a la cascada.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 306758,
+      "endMs": 308976,
+      "text": "Celebramos la buena noticia con una cena.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 309958,
+      "endMs": 312336,
+      "text": "La impresora se quedó sin tinta otra vez.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 313190,
+      "endMs": 315824,
+      "text": "aprendió a nadar cuando tenía cinco años.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 316678,
+      "endMs": 319600,
+      "text": "Las calles estaban vacías a altas horas de la noche.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 320518,
+      "endMs": 322672,
+      "text": "siempre tomote antes de dormir.",
+      "nativeTimestamps": []
+    },
+    {
+      "startMs": 323558,
+      "endMs": 325872,
+      "text": "El jardinero podó los setos esta mañana.",
+      "nativeTimestamps": []
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # Progresso do port Android — registro de andamento
 
 **Última atualização:** 2026-07-14
-**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui; 17 commits à frente de `main`)
+**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui; 21 commits à frente de `main`)
 **Branch estável:** `main` em `b15c821` — desktop exatamente como antes, 199 testes; é a âncora para voltar se algo der errado.
 
 > Este documento é o índice de andamento. Os detalhes de cada item estão nos documentos referenciados (spec, `decisoes.md`, relatórios de spike). Ordem normativa de trabalho: §17 de [especificacao-android.md](especificacao-android.md).
@@ -35,9 +35,9 @@
 | Branch | HEAD | Testes | Papel |
 |---|---|---|---|
 | `main` | `b15c821` | 199 | Desktop estável, intocado. Referência para regressão. |
-| `android-port` | `8ad91bb` | 213 | Todo o trabalho do port + as correções de bug do engine. Onde evoluímos daqui. |
+| `android-port` | `3e91a4c` | 315 | Todo o trabalho do port + as correções de bug do engine. Onde evoluímos daqui. |
 
-Motivo (decisão do usuário, 2026-07-12): as mudanças do engine afetam **ambas** as plataformas (o `dubbing_engine` é compartilhado), então, para não arriscar o desktop com nada não previsto, o trabalho ficou isolado no `android-port`. `main` só recebe quando estiver validado. Verificado rodando os testes em cada branch: `main` = 199 (baseline original), `android-port` = 213.
+Motivo (decisão do usuário, 2026-07-12): as mudanças do engine afetam **ambas** as plataformas (o `dubbing_engine` é compartilhado), então, para não arriscar o desktop com nada não previsto, o trabalho ficou isolado no `android-port`. `main` só recebe quando estiver validado. Verificado rodando os testes em cada branch: `main` = 199 (baseline original), `android-port` = 315 (via `tool/verify.ps1`, piso 284).
 
 ---
 
@@ -80,7 +80,7 @@ Metodologia nova: áudio de teste **sintetizado** via Piper (mesma engine de pro
 
 - **6 combos** (en/pt/es × whisper-tiny/whisper-base) rodados no device via app de benchmark descartável: RTF 0,138–0,267 (teto: <1), pico do processo 711 MB (teto: 1,5 GB), **zero** regressão de timestamp e **zero** janela perdida nos 6 combos.
 - **Confirmado empiricamente:** `enableSegmentTimestamps` não devolve timestamps nativos do Whisper no sherpa-onnx 1.13.4 — o VAD como segmentador (§8/P3) é obrigatório, não uma opção; fecha uma dúvida que a auditoria original tinha levantado.
-- **Sincronia** (baseline `whisper-cli` desktop real + `buildDubbingSegments`, mesmo segmentador dos dois lados): ≥90% em 5/6 combos (96–99%). O 6º (`es/best`) mediu 69,7% — mas só pela comparação literal a uma **run isolada e ruidosa** do baseline desktop (erro de até 861 ms contra o ground truth); o **device**, medido contra o mesmo ground truth, acerta **99%** nesse combo — idêntico aos outros 5. Confirma o que já estava registrado: o baseline desktop é uma faixa, não um número único.
+- **Sincronia** (baseline `whisper-cli` desktop real + `buildDubbingSegments`, mesmo segmentador dos dois lados): ≥90% em 5/6 combos (96–99%). O 6º (`es/best`) mediu 69,7% — verificado com **mediana de N=5 runs** (idêntico: whisper-cli é determinístico), é **viés sistemático do `whisper-small` desktop neste material espanhol** (66,7% contra o ground truth, erro de até 861 ms; o `whisper-base` desktop acerta 100% no mesmo áudio). O **device**, medido contra o mesmo ground truth, acerta **99%** nesse combo — idêntico aos outros 5. A divergência é 100% atribuível ao baseline.
 - **Achado de storage (não bloqueia produção):** arquivos copiados via `adb push`/`adb shell mkdir` para dentro da pasta externa do app ficam com dono `shell` e o Android nega acesso ao **próprio app** — só o que o processo do app cria sobrevive. Contorno do spike: assets em `/data/local/tmp`, copiados pelo app no primeiro start. Produção não é afetada (`ModelManager` sempre escreve pelo processo do app).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine

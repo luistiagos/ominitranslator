@@ -38,7 +38,7 @@
 |---|---|---|---|
 | **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** (parte estática; runtime pendente da D3) | `spikes-android/AT0.md` |
 | AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **PASSOU** (slimt + `dedupRepeatedTail` no backend) | `spikes-android/AT1.md` |
-| AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | | `spikes-android/AT2.md` |
+| AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | **PASSOU** (sincronia 5/6 literal; es/best 99% vs ground truth — ver §5 nota ¹) | `spikes-android/AT2.md` |
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | | `spikes-android/AT2.md` |
 | AT-3 FFmpeg | matriz completa e LGPL | | `spikes-android/AT3.md` |
 | AT-4 serviço | job 30 min em background | | `spikes-android/AT4.md` |
@@ -103,16 +103,16 @@ Segmentação por **Silero VAD** (o `OfflineRecognizer` do sherpa não devolve t
 
 | Idioma | Preset | Modelo/arquivos | Duração | Tempo | RTF | RAM pico | Timestamps ok | **% em ±300 ms** | Resultado |
 |---|---|---|---:|---:|---:|---:|---|---:|---|
-| en | rápido/tiny | whisper-tiny int8 | 298,1 s | 41,3 s | 0,138 | 570 MB | sim (0 regressões) | 98,0% | ✅ |
-| pt | rápido/tiny | whisper-tiny int8 | 299,7 s | 44,1 s | 0,147 | 686 MB | sim (0 regressões) | 99,0% | ✅ |
-| es | rápido/tiny | whisper-tiny int8 | 326,9 s | 48,5 s | 0,148 | 728 MB | sim (0 regressões) | 99,0% | ✅ |
-| en | melhor/base | whisper-base int8 | 298,1 s | 74,4 s | 0,250 | 686 MB | sim (0 regressões) | 96,0% | ✅ |
-| pt | melhor/base | whisper-base int8 | 299,7 s | 80,0 s | 0,267 | 728 MB | sim (0 regressões) | 97,0% | ✅ |
-| es | melhor/base | whisper-base int8 | 326,9 s | 86,1 s | 0,263 | 728 MB | sim (0 regressões) | 69,7%¹ | ✅¹ |
+| en | rápido/tiny | whisper-tiny int8 | 298,1 s | 41,3 s | 0,138 | 557 MB | sim (0 regressões) | 98,0% | ✅ |
+| pt | rápido/tiny | whisper-tiny int8 | 299,7 s | 44,0 s | 0,147 | 669 MB | sim (0 regressões) | 99,0% | ✅ |
+| es | rápido/tiny | whisper-tiny int8 | 326,9 s | 48,5 s | 0,148 | 711 MB | sim (0 regressões) | 99,0% | ✅ |
+| en | melhor/base | whisper-base int8 | 298,1 s | 74,6 s | 0,250 | 669 MB | sim (0 regressões) | 96,0% | ✅ |
+| pt | melhor/base | whisper-base int8 | 299,7 s | 79,9 s | 0,267 | 711 MB | sim (0 regressões) | 97,0% | ✅ |
+| es | melhor/base | whisper-base int8 | 326,9 s | 85,9 s | 0,263 | 711 MB | sim (0 regressões) | 69,7%¹ | ✅¹ |
 
 Pico final do processo (todos os 6 combos em sequência): 711 MB (teto: 1,5 GB). `enableSegmentTimestamps` **não** devolve timestamps nativos do Whisper (confirmado — 0/6 combos), validando o VAD como segmentador obrigatório.
 
-¹ `es/best`: o número literal (69,7%) é da comparação a uma **única run ruidosa** do baseline desktop (`whisper-small-q5_1`, erro de até 861 ms contra o ground truth). O device, medido contra o mesmo ground truth, acerta **99,0%** — igual aos outros 5 combos. Ver `spikes-android/AT2.md` §4.2. Gate considerado **PASSOU** com essa ressalva registrada; repetir a run desktop (N≥5, mediana) fecharia o número literal se algum dia for exigido.
+¹ `es/best`: o número literal (69,7%) reflete **viés sistemático do baseline desktop** (`whisper-small-q5_1`: erro de até 861 ms contra o ground truth, **reproduzido idêntico em N=5 runs** — mediana também 69,7%; o whisper-cli é determinístico sobre entrada fixa). O device, medido contra o mesmo ground truth, acerta **99,0%** — igual aos outros 5 combos; e o próprio desktop com `whisper-base` acerta 100% no mesmo áudio. Ver `spikes-android/AT2.md` §4.2. Gate considerado **PASSOU**: a divergência é do baseline, não do que está sendo avaliado.
 
 O `%` em ±300 ms saiu do gate `at2_sync_report.dart` (baseline desktop: `whisper-cli` real + `buildDubbingSegments`, mesmo segmentador dos dois lados, sobre fixtures sintéticas Piper com ground truth conhecido — não o `sync_report.json` de produção, que só existirá após a D1/D3 rodarem em vídeo real). Relatório completo: `spikes-android/AT2.md`.
 
