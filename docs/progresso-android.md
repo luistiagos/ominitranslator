@@ -1,7 +1,7 @@
 # Progresso do port Android — registro de andamento
 
 **Última atualização:** 2026-07-14
-**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui; 21 commits à frente de `main`)
+**Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui, à frente de `main`; contagem exata via `git rev-list --count main..android-port`)
 **Branch estável:** `main` em `b15c821` — desktop exatamente como antes, 199 testes; é a âncora para voltar se algo der errado.
 
 > Este documento é o índice de andamento. Os detalhes de cada item estão nos documentos referenciados (spec, `decisoes.md`, relatórios de spike). Ordem normativa de trabalho: §17 de [especificacao-android.md](especificacao-android.md).
