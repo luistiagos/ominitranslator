@@ -1,6 +1,6 @@
 # Progresso do port Android — registro de andamento
 
-**Última atualização:** 2026-07-13
+**Última atualização:** 2026-07-14
 **Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui; 17 commits à frente de `main`)
 **Branch estável:** `main` em `b15c821` — desktop exatamente como antes, 199 testes; é a âncora para voltar se algo der errado.
 
@@ -14,7 +14,8 @@
 |---|---|---|
 | Etapa 0 | Fechar a especificação (spec v2) | ✅ concluída |
 | D0.5 | **AT-0** — gate de 16 KB | ✅ **PASSOU** (parte estática; runtime na D3) |
-| D2 | **AT-1** — tradução pt | 🟡 fonte/licença/qualidade resolvidas; execução no device pendente |
+| D2 | **AT-1** — tradução pt | ✅ **PASSOU** no moto g86 (slimt + `dedupRepeatedTail`) |
+| D2 | **AT-2** — ASR (Whisper ONNX + Silero VAD) | ✅ **PASSOU** no moto g86 (ver §3.3b) |
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
 | D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
 | D1 | **Refatoração de memória** (áudio em disco, writer sequencial, `WavReader`) | ✅ **concluída** (ver §3.6) |
@@ -22,10 +23,10 @@
 | D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
-| D2 | AT-2 / AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
+| D2 | AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
-**A fase D1 está concluída.** O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **284 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. O próximo passo real são os spikes no aparelho (D2), bloqueados só pela falta do device e do `libslimt.so` versionado.
+**A fase D1 está concluída**, e **AT-0, AT-1 e AT-2 passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **315 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os dois gates de device concluídos validam as duas peças de IA on-device mais arriscadas do M1 (tradução e ASR). O próximo passo real são os gates restantes (AT-2b TTS, AT-3 FFmpegKitNext, AT-4 foreground service, AT-5 SAF), todos exigindo device.
 
 ---
 
@@ -57,18 +58,30 @@ Relatório: [spikes-android/AT0.md](spikes-android/AT0.md).
 
 As três `.so` arm64 do `sherpa_onnx_android_arm64` 1.13.4 têm **todos** os segmentos `LOAD` com `align 0x4000` (16 KB), e o ONNX Runtime embutido é **1.27.0**. A issue k2-fsa/sherpa-onnx#3291 (que reportava ORT 1.17.1) está obsoleta, e a lib de que ela reclama (`libonnxruntime4j_jni.so`) é o binding **Java** — o pacote Dart não o empacota. **O remédio caro (recompilar sherpa + ORT do fonte) está descartado.** Restam só confirmações de runtime (`zipalign`, emulador 16 KB), que dependem de `app/android/` existir e entram na fase D3.
 
-### 3.3 AT-1 — tradução pt — fonte e qualidade resolvidas; device pendente
+### 3.3 AT-1 — tradução pt — **PASSOU** no moto g86
 
 Relatório: [spikes-android/AT1.md](spikes-android/AT1.md).
 
 **Correção de premissa importante:** o repositório arquivado `mozilla/firefox-translations-models` **não serve para download** — os arquivos estão em Git LFS e os objetos foram removidos do servidor (`410`). A fonte real é o **Remote Settings do Firefox** (CDN pública, com `location`, `size` e `hash` SHA-256 por registro). `version: "1.0"` = tier **tiny** (a arquitetura `ssru`/`dec-depth: 2` que o slimt suporta); `version: "2.x"` = `base-memory`.
 
-- Download do modelo tiny en→pt verificado ponta a ponta (HTTP 200, 17.140.899 bytes, SHA-256 confere).
-- Licença MPL-2.0.
+- Download do modelo tiny en→pt verificado ponta a ponta (HTTP 200, 17.140.899 bytes, SHA-256 confere). Licença MPL-2.0.
 - **Qualidade medida, não estimada** (BLEU/COMET dos `metadata.json`): nos pares de gate, o tiny perde só **0,6 BLEU em en→pt** e **0,1 em pt→en** ante o `base-memory`. Divergência desprezível.
 - Subproduto: o modelo instalado no desktop é bit a bit idêntico ao registro v2.1 → fonte pública/hasheável para pt também no Windows (encerra um risco antigo do desktop).
+- **Execução real no moto g86** (100 frases/direção): en→pt passou de cara (100/100, ~96 boas, ~20 ms/frase, 114 MB). pt→en reprovou cru — decodificação **gulosa** do slimt (beam 1) não para no EOS e repete a frase inteira (ex.: "I would like a cup of coffee. I would like a cup of coffee."). Não é defeito do modelo (en→de tiny, mesma arquitetura, traduz limpo) nem de qualidade — é o modo de falha do decodificador.
+- **Resolvido** com `dedupRepeatedTail` (`packages/dubbing_engine/lib/src/steps/translation_postprocess.dart`): 4 regras que são propriedades do modo de falha (pontuação metralhada, 4-gram repetido, eco de sentença, fragmento final repetitivo). Sobre as 100 saídas reais do device: 17→0 degeneradas, nenhuma frase limpa alterada. `AndroidTranslator` (D3) **deve** aplicar essa função antes de devolver.
 
-**Bloqueado para a execução no device por dois pré-requisitos:** (a) o `libslimt.so` do SA-1 não sobreviveu — foi construído no protótipo irmão e não versionado, e precisa virar script de build neste repo; (b) nenhum aparelho conectado; (c) a suíte de 100 frases/direção ainda não existe.
+Pendência não bloqueante: versionar o build do `libslimt.so` arm64 neste repo (hoje só sobrevive como binário em cache — dívida do SA-1, a resolver antes da D3).
+
+### 3.3b AT-2 — ASR (Whisper ONNX + Silero VAD) — **PASSOU** no moto g86
+
+Relatório: [spikes-android/AT2.md](spikes-android/AT2.md).
+
+Metodologia nova: áudio de teste **sintetizado** via Piper (mesma engine de produção) com pausas fixas entre frases, dando uma verdade conhecida (ground truth) do início real de cada fala — em vez de comparar dois backends de ASR ruidosos entre si.
+
+- **6 combos** (en/pt/es × whisper-tiny/whisper-base) rodados no device via app de benchmark descartável: RTF 0,138–0,267 (teto: <1), pico do processo 711 MB (teto: 1,5 GB), **zero** regressão de timestamp e **zero** janela perdida nos 6 combos.
+- **Confirmado empiricamente:** `enableSegmentTimestamps` não devolve timestamps nativos do Whisper no sherpa-onnx 1.13.4 — o VAD como segmentador (§8/P3) é obrigatório, não uma opção; fecha uma dúvida que a auditoria original tinha levantado.
+- **Sincronia** (baseline `whisper-cli` desktop real + `buildDubbingSegments`, mesmo segmentador dos dois lados): ≥90% em 5/6 combos (96–99%). O 6º (`es/best`) mediu 69,7% — mas só pela comparação literal a uma **run isolada e ruidosa** do baseline desktop (erro de até 861 ms contra o ground truth); o **device**, medido contra o mesmo ground truth, acerta **99%** nesse combo — idêntico aos outros 5. Confirma o que já estava registrado: o baseline desktop é uma faixa, não um número único.
+- **Achado de storage (não bloqueia produção):** arquivos copiados via `adb push`/`adb shell mkdir` para dentro da pasta externa do app ficam com dono `shell` e o Android nega acesso ao **próprio app** — só o que o processo do app cria sobrevive. Contorno do spike: assets em `/data/local/tmp`, copiados pelo app no primeiro start. Produção não é afetada (`ModelManager` sempre escreve pelo processo do app).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 
@@ -135,7 +148,7 @@ Nada disso mudou comportamento do desktop — são portabilidade e ferramentas. 
 ## 4. Verificação executada
 
 - **`main`:** `dart test` → **199 passam** (baseline original preservado).
-- **`android-port`:** `dart test` → **284 passam** (199 + 85 novos).
+- **`android-port`:** `dart test` → **315 passam** (199 + 116 novos, incluindo os 31 casos do device usados no `dedupRepeatedTail`).
 - **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real com whisper-cli, translateLocally, Piper e ffmpeg): **9/9 asserções**, saída com a duração exata do vídeo e **100 % das falas dentro de ±300 ms**.
 - `dart analyze` e `flutter analyze` sem erros nem warnings novos; teste de widget do app passa.
 
@@ -155,15 +168,18 @@ Mesmo assim, com fixture de SHA-256 idêntico, a segmentação ainda oscila 5↔
 
 ### 5.1 D1 — concluída
 
-Nada pendente na D1. O que era "desbloqueado, sem device" — contratos, memória, `MediaToolRunner`, `JobCheckpointStore`, scripts de gate — está feito e testado. O que resta do programa Android depende do aparelho (§5.2 abaixo).
+Nada pendente na D1. O que era "desbloqueado, sem device" — contratos, memória, `MediaToolRunner`, `JobCheckpointStore`, scripts de gate — está feito e testado.
 
-### 5.2 Bloqueado em pré-requisitos
+### 5.2 AT-1 e AT-2 — concluídos
 
-- **AT-1 no device:** versionar o build do `libslimt.so` arm64 (paga a dívida do SA-1), criar a suíte de 100 frases, conectar o moto g86.
-- **AT-2 / AT-2b / AT-3 / AT-4 / AT-5:** exigem o aparelho e, alguns, `app/android/` gerado.
+Ambos passaram no moto g86 (§3.3, §3.3b). Resta só a dívida não bloqueante de versionar o build do `libslimt.so` (§5.3).
+
+### 5.2b Bloqueado em pré-requisitos
+
+- **AT-2b / AT-3 / AT-4 / AT-5:** exigem o aparelho e, alguns, `app/android/` gerado.
 
 ### 5.3 Dívidas registradas
 
-- `libslimt.so` não versionado (SA-1 foi feito no protótipo irmão).
-- Sem aparelho conectado no momento.
+- `libslimt.so` não versionado (SA-1 foi feito no protótipo irmão) — pagar antes da D3.
+- Proveniência exata (URL/tag do release) dos assets `sherpa-onnx-whisper-tiny`/`whisper-base`/`silero_vad.onnx` a fixar no `ModelCatalog.android()` antes da D3 (hashes já medidos, ver `spikes-android/AT2.md` §6).
 - Sem CI (decisão D-d) — os gates são scripts locais.

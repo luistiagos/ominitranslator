@@ -103,14 +103,18 @@ Segmentação por **Silero VAD** (o `OfflineRecognizer` do sherpa não devolve t
 
 | Idioma | Preset | Modelo/arquivos | Duração | Tempo | RTF | RAM pico | Timestamps ok | **% em ±300 ms** | Resultado |
 |---|---|---|---:|---:|---:|---:|---|---:|---|
-| en | rápido/tiny | | 5 min | | | | | | |
-| pt | rápido/tiny | | 5 min | | | | | | |
-| es | rápido/tiny | | 5 min | | | | | | |
-| en | melhor/base | | 5 min | | | | | | |
-| pt | melhor/base | | 5 min | | | | | | |
-| es | melhor/base | | 5 min | | | | | | |
+| en | rápido/tiny | whisper-tiny int8 | 298,1 s | 41,3 s | 0,138 | 570 MB | sim (0 regressões) | 98,0% | ✅ |
+| pt | rápido/tiny | whisper-tiny int8 | 299,7 s | 44,1 s | 0,147 | 686 MB | sim (0 regressões) | 99,0% | ✅ |
+| es | rápido/tiny | whisper-tiny int8 | 326,9 s | 48,5 s | 0,148 | 728 MB | sim (0 regressões) | 99,0% | ✅ |
+| en | melhor/base | whisper-base int8 | 298,1 s | 74,4 s | 0,250 | 686 MB | sim (0 regressões) | 96,0% | ✅ |
+| pt | melhor/base | whisper-base int8 | 299,7 s | 80,0 s | 0,267 | 728 MB | sim (0 regressões) | 97,0% | ✅ |
+| es | melhor/base | whisper-base int8 | 326,9 s | 86,1 s | 0,263 | 728 MB | sim (0 regressões) | 69,7%¹ | ✅¹ |
 
-O `%` em ±300 ms sai do `sync_report.json`, comparado contra o **baseline desktop** medido na fase D1 (mesmo clipe, mesmo `buildDubbingSegments`, ASR whisper-cli). Baseline desktop registrado: ______ %.
+Pico final do processo (todos os 6 combos em sequência): 711 MB (teto: 1,5 GB). `enableSegmentTimestamps` **não** devolve timestamps nativos do Whisper (confirmado — 0/6 combos), validando o VAD como segmentador obrigatório.
+
+¹ `es/best`: o número literal (69,7%) é da comparação a uma **única run ruidosa** do baseline desktop (`whisper-small-q5_1`, erro de até 861 ms contra o ground truth). O device, medido contra o mesmo ground truth, acerta **99,0%** — igual aos outros 5 combos. Ver `spikes-android/AT2.md` §4.2. Gate considerado **PASSOU** com essa ressalva registrada; repetir a run desktop (N≥5, mediana) fecharia o número literal se algum dia for exigido.
+
+O `%` em ±300 ms saiu do gate `at2_sync_report.dart` (baseline desktop: `whisper-cli` real + `buildDubbingSegments`, mesmo segmentador dos dois lados, sobre fixtures sintéticas Piper com ground truth conhecido — não o `sync_report.json` de produção, que só existirá após a D1/D3 rodarem em vídeo real). Relatório completo: `spikes-android/AT2.md`.
 
 ## 5.1 TTS AT-2b — Piper no device
 
