@@ -56,8 +56,11 @@ class AppState extends ChangeNotifier {
 
   AppSettings settings = AppSettings.load();
 
-  AppState(this.tools, this.modelManager,
-      {this.diskSpace = const WindowsDiskSpaceProbe()}) {
+  AppState(
+    this.tools,
+    this.modelManager, {
+    this.diskSpace = const WindowsDiskSpaceProbe(),
+  }) {
     refreshModelStates();
     _cleanupOldWorkDirs();
   }
@@ -70,7 +73,8 @@ class AppState extends ChangeNotifier {
     if (!base.existsSync()) return;
     final timestampName = RegExp(r'^\d{13}$');
     for (final entry in base.listSync()) {
-      if (entry is Directory && timestampName.hasMatch(p.basename(entry.path))) {
+      if (entry is Directory &&
+          timestampName.hasMatch(p.basename(entry.path))) {
         try {
           entry.deleteSync(recursive: true);
         } catch (_) {}
@@ -87,7 +91,10 @@ class AppState extends ChangeNotifier {
   /// Define o navegador de cookies do YouTube, limpando o arquivo de
   /// cookies (as duas opções são mutuamente exclusivas).
   void setYtDlpCookiesFromBrowser(String browser) {
-    settings = settings.copyWith(ytDlpCookiesFromBrowser: browser, ytDlpCookiesFile: '');
+    settings = settings.copyWith(
+      ytDlpCookiesFromBrowser: browser,
+      ytDlpCookiesFile: '',
+    );
     settings.save();
     notifyListeners();
   }
@@ -95,7 +102,10 @@ class AppState extends ChangeNotifier {
   /// Define o arquivo cookies.txt do YouTube, limpando a seleção de
   /// navegador (as duas opções são mutuamente exclusivas).
   void setYtDlpCookiesFile(String file) {
-    settings = settings.copyWith(ytDlpCookiesFile: file, ytDlpCookiesFromBrowser: '');
+    settings = settings.copyWith(
+      ytDlpCookiesFile: file,
+      ytDlpCookiesFromBrowser: '',
+    );
     settings.save();
     notifyListeners();
   }
@@ -107,7 +117,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Map<String, ModelState> _modelStates = {};
+  final Map<String, ModelState> _modelStates = {};
   Map<String, ModelState> get modelStates => _modelStates;
 
   DubbingJobConfig? currentJob;
@@ -182,7 +192,8 @@ class AppState extends ChangeNotifier {
     _jobExitPort = exitPort;
     exitPort.listen((_) {
       if (_jobFinished) return;
-      jobError = 'O processo de dublagem encerrou inesperadamente '
+      jobError =
+          'O processo de dublagem encerrou inesperadamente '
           '(possível falta de memória). Tente um vídeo mais curto ou '
           'libere memória e tente novamente.';
       _finishJob();
