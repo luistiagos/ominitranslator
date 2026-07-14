@@ -27,7 +27,7 @@
 | D2 | AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
-**A fase D1 está concluída**, e **AT-0, AT-1, AT-2 e AT-2b passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **315 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os três gates de device concluídos validam as três peças de IA on-device mais arriscadas do M1 (tradução, ASR e TTS). O próximo passo real são os gates restantes (AT-3 FFmpegKitNext — o mais caro, exige build do fonte —, AT-4 foreground service, AT-5 SAF), todos exigindo device.
+**A fase D1 está concluída**, e **AT-0, AT-1, AT-2 e AT-2b passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **322 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os três gates de device concluídos validam as três peças de IA on-device mais arriscadas do M1 (tradução, ASR e TTS), e a infraestrutura de duas melhorias de produção derivadas do AT-2b (extração `.tar.gz` em streaming, asset de modelo compartilhado) já está pronta e testada (ver §3.3d). O próximo passo real são os gates restantes (AT-3 FFmpegKitNext — o mais caro, exige build do fonte —, AT-4 foreground service, AT-5 SAF), todos exigindo device.
 
 ---
 
@@ -36,9 +36,9 @@
 | Branch | HEAD | Testes | Papel |
 |---|---|---|---|
 | `main` | `b15c821` | 199 | Desktop estável, intocado. Referência para regressão. |
-| `android-port` | `3e91a4c` | 315 | Todo o trabalho do port + as correções de bug do engine. Onde evoluímos daqui. |
+| `android-port` | `be159a3` | 322 | Todo o trabalho do port + as correções de bug do engine. Onde evoluímos daqui. |
 
-Motivo (decisão do usuário, 2026-07-12): as mudanças do engine afetam **ambas** as plataformas (o `dubbing_engine` é compartilhado), então, para não arriscar o desktop com nada não previsto, o trabalho ficou isolado no `android-port`. `main` só recebe quando estiver validado. Verificado rodando os testes em cada branch: `main` = 199 (baseline original), `android-port` = 315 (via `tool/verify.ps1`, piso 284).
+Motivo (decisão do usuário, 2026-07-12): as mudanças do engine afetam **ambas** as plataformas (o `dubbing_engine` é compartilhado), então, para não arriscar o desktop com nada não previsto, o trabalho ficou isolado no `android-port`. `main` só recebe quando estiver validado. Verificado rodando os testes em cada branch: `main` = 199 (baseline original), `android-port` = 322 (via `tool/verify.ps1`, piso 284).
 
 ---
 
@@ -95,6 +95,15 @@ Reaproveitou o mesmo app de benchmark do AT-2 (já instalado no device, mesmo co
 - **Reamostragem para PCM16 mono 44,1 kHz + reabertura**: sucesso nos 3 idiomas (validado com um resampler/writer/reader WAV próprios do spike, já que o FFmpegKitNext do AT-3 ainda não existe).
 - **Cancelamento entre segmentos**: interrompido a meio de um lote de 20, `free()` + reinstanciação do `OfflineTts` bem-sucedida nos 3 idiomas — sem sessão órfã.
 - **Achados laterais:** `espeak-ng-data` é byte-idêntico entre as 3 vozes (candidato a asset compartilhado no catálogo); `es_ES-sharvard-medium` é um modelo multi-locutor (2 *speakers*, sid=0 já válido).
+
+### 3.3d Infraestrutura de produção — extração em streaming e asset compartilhado
+
+Os dois achados laterais do AT-2b (extração em memória cheia no spike, `espeak-ng-data` triplicado) viraram pendências de melhoria registradas em [spikes-android/AT2.md](spikes-android/AT2.md) §7. Implementadas em código de produção nesta etapa — **escopo combinado com o usuário**: só o mecanismo, testado com fixtures sintéticas; nada migrado nas 58 vozes reais do catálogo Windows, nenhuma URL inventada para um `ModelCatalog.android()` (que ainda não existe).
+
+- **Extração `.tar.gz` em streaming.** `ModelManager.download()` ganhou `kind: 'targz'`: baixa o pacote e extrai via `extractFileToDisk` do `package:archive`, que decodifica o gzip e escreve cada entrada por `InputFileStream`/`OutputFileStream` — sem materializar o pacote inteiro num buffer único em RAM (o que o app de benchmark do AT-2b fazia com `GZipDecoder().decodeBytes`). Reusa o mesmo padrão do caminho `tarbz2` existente (extrai num `.extract` temporário, achata um diretório de topo se houver via `_moveContentsUp`, valida SHA-256, limpa o intermediário). `archive` migrou de `dev_dependencies` para `dependencies` no `pubspec.yaml` do engine — antes só era usado por `tool/check_native_libs.dart`.
+- **Asset de modelo compartilhado.** `ModelEntry` ganhou `dependsOn` (IDs de outras entradas que devem estar prontas junto) e `ModelCatalog` ganhou `resolveRequiredIds()`, que expande uma lista de IDs para incluir as dependências transitivas — deduplicado, seguro contra ciclo. Dá a um catálogo futuro a capacidade de declarar `espeak-ng-data` como uma entrada baixada/extraída **uma vez**, referenciada por várias vozes, em vez de duplicada dentro do pacote de cada uma.
+- **Bug real encontrado ao testar (corrigido junto):** `stateOf()` e `download()` liam `manifest.firstWhere(...)` — o manifest **estático** do Windows (`ModelCatalog.windows().entries`) — em vez de `catalog.entryOf(id)`, a instância injetada no construtor do `ModelManager`. Ou seja: qualquer `ModelManager` construído com um `catalog` customizado (o meu teste com uma entrada `targz` sintética, e no futuro qualquer catálogo Android) já falhava com `Bad state: No element` nessas duas operações — as mais fundamentais da classe. Não era um problema hipotético; era um bug latente que só não tinha sido pisado ainda porque nada além do `ModelCatalog.windows()` default tinha sido exercitado via `download()`/`stateOf()` até agora.
+- **7 testes novos** em `model_manager_test.dart`: 2 de extração `targz` (fixture real gerada com o encoder do `package:archive`, servida por um `HttpServer` local — um caso flat, um com diretório de topo tipo os pacotes `tts-models` do sherpa-onnx hoje) + 5 de `resolveRequiredIds` (sem dependência, dependência compartilhada por duas vozes, transitividade, ciclo, ID sem entrada no catálogo).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 
@@ -161,7 +170,7 @@ Nada disso mudou comportamento do desktop — são portabilidade e ferramentas. 
 ## 4. Verificação executada
 
 - **`main`:** `dart test` → **199 passam** (baseline original preservado).
-- **`android-port`:** `dart test` → **315 passam** (199 + 116 novos, incluindo os 31 casos do device usados no `dedupRepeatedTail`).
+- **`android-port`:** `dart test` → **322 passam** (199 + 123 novos, incluindo os 31 casos do device usados no `dedupRepeatedTail` e os 7 de extração `targz`/`resolveRequiredIds`).
 - **Integração ponta a ponta** (`tool/integration_test.dart`, en→pt, pipeline real com whisper-cli, translateLocally, Piper e ffmpeg): **9/9 asserções**, saída com a duração exata do vídeo e **100 % das falas dentro de ±300 ms**.
 - `dart analyze` e `flutter analyze` sem erros nem warnings novos; teste de widget do app passa.
 
