@@ -1,0 +1,111 @@
+# AT-3 (docs/spikes-android/AT3-plano.md): compila o FFmpegKitNext LGPL,
+# arm64-v8a only, e publica o AAR + evidências do gate como artifact.
+#
+# Este arquivo É o "script de build reproduzível" que a spec §12.1 exige
+# versionar. Vive na branch android-port (main fica intocada — decisão C1):
+# o disparo primário é por push de a tag `at3-ffmpeg-build-*`, que roda o
+# workflow da própria ref pushada, sem exigir presença na branch default.
+# O workflow_dispatch fica disponível para o futuro (quando o android-port
+# for mesclado em main) ou via API.
+#
+# Fatos verificados no upstream em 2026-07-14 (não inferidos):
+# - tag real: v8.1.0 (commit 3e223118e6e8fb6208693ecf3952e77cd096f587);
+# - o build da v8.1.0 é via Nix: ./nix-android.sh --profile android-r27d
+#   (flake fixa NDK 27.3.13750724 = r27d, que alinha 16 KB por padrão);
+# - --enable-openh264 existe (scripts/function.sh:926); GPL só entra com
+#   --enable-gpl explícito (que NUNCA usamos);
+# - --api-level=api existe, default 24 (usamos 28 = minSdk do app);
+# - o AAR sai "under the prebuilt folder";
+# - a release v8.1.0 NÃO publica binários (reconfirmado) — build é obrigatório.
+name: build-ffmpeg-kit-next
+
+on:
+  push:
+    tags:
+      - 'at3-ffmpeg-build-*'
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: 'Tag do arthenica/ffmpeg-kit-next'
+        required: true
+        default: 'v8.1.0'
+      enable_openh264:
+        description: 'Incluir --enable-openh264 (decisão C3 do AT3-plano)'
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      # No disparo por tag, inputs é vazio — caem os defaults.
+      UPSTREAM_TAG: ${{ inputs.upstream_tag || 'v8.1.0' }}
+      OPENH264_FLAG: ${{ (github.event_name == 'push' || inputs.enable_openh264) && '--enable-openh264' || '' }}
+    steps:
+      - name: Liberar disco (o SDK Android do runner não é usado — o Nix traz o dele)
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Instalar Nix (flakes habilitados)
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Checkout pinado do ffmpeg-kit-next
+        run: |
+          git clone https://github.com/arthenica/ffmpeg-kit-next.git src
+          cd src
+          git checkout "$UPSTREAM_TAG"
+          mkdir -p ../evidence
+          git rev-parse HEAD | tee ../evidence/upstream-commit.txt
+
+      - name: Build (LGPL, arm64-v8a only, API 28)
+        working-directory: src
+        run: |
+          ./nix-android.sh --profile android-r27d \
+            --disable-arm-v7a --disable-arm-v7a-neon --disable-x86 --disable-x86-64 \
+            --api-level=28 \
+            $OPENH264_FLAG
+
+      - name: Evidências (buildconf, inventário de .so, alinhamento 16 KB)
+        working-directory: src
+        run: |
+          # build.log: nome/local conforme o upstream escrever (busca defensiva)
+          find . -maxdepth 3 -name 'build.log' -exec cp {} ../evidence/build.log \; || true
+          # A configuração do ffmpeg (prova de licença): procura no log e na árvore de build
+          { grep -ri "configuration:" ../evidence/build.log 2>/dev/null || \
+            grep -rih "configuration:" prebuilt 2>/dev/null || \
+            find . -name config.log -path '*ffmpeg*' -exec grep -h "configuration:" {} \; ; } \
+            | sort -u | tee ../evidence/buildconf.txt
+          test -s ../evidence/buildconf.txt || { echo "ERRO: buildconf não capturado"; exit 1; }
+          if grep -q -- "--enable-gpl" ../evidence/buildconf.txt; then
+            echo "ERRO: --enable-gpl presente no buildconf"; exit 1
+          fi
+          AAR=$(find prebuilt -name '*.aar' | head -1)
+          test -n "$AAR" || { echo "ERRO: AAR não encontrado em prebuilt/"; find prebuilt -type f | head -50; exit 1; }
+          cp "$AAR" ../evidence/ffmpeg-kit.aar
+          cd ../evidence && mkdir -p so && cd so
+          unzip -o ../ffmpeg-kit.aar > /dev/null
+          find . -name '*.so' | while read -r so; do
+            ls -la "$so"; sha256sum "$so"
+          done | tee ../so-inventory.txt
+          # Alinhamento 16 KB: GNU readelf lê ELF aarch64 normalmente
+          for so in $(find . -name '*.so'); do
+            echo "== $so =="; readelf -l "$so" | grep -E '^\s*LOAD'
+          done | tee ../alignment.txt
+          if grep -E '^\s*LOAD' ../alignment.txt | grep -qv '0x4000'; then
+            echo "ERRO: há .so sem alinhamento 16 KB (LOAD != 0x4000)"; exit 1
+          fi
+
+      - name: Publicar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-kit-next-arm64-lgpl
+          if-no-files-found: error
+          path: |
+            evidence/ffmpeg-kit.aar
+            evidence/upstream-commit.txt
+            evidence/buildconf.txt
+            evidence/so-inventory.txt
+            evidence/alignment.txt
+            evidence/build.log

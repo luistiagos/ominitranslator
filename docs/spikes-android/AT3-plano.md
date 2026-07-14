@@ -31,114 +31,29 @@
 
 ## 2. Checkpoints que EXIGEM o usuário (não prosseguir sem resposta)
 
-- **C1 — Onde o workflow vai viver.** O `workflow_dispatch` só aparece na UI do GitHub se o YAML existir na branch **default** (`main`) — mas a instrução vigente do usuário é que `main` fique **exatamente como era** (desktop puro). Opções a apresentar: **(a)** commit mínimo em `main` contendo só `.github/workflows/` (não toca em nenhum código; recomendado, mas é o usuário quem relaxa a regra); **(b)** repositório separado minúsculo só para o build (ex.: `luistiagos/ffmpeg-kit-next-build`), com o YAML também versionado no `android-port` por rastreabilidade; **(c)** trocar a branch default temporariamente (não recomendado). No mesmo checkpoint, perguntar se o `android-port` deve ser pushado para o origin (recomendado como backup — hoje só existe localmente).
+- **C1 — Onde o workflow vai viver. RESOLVIDO (2026-07-14):** o workflow vive no **próprio `android-port`** (pushado ao origin como backup na mesma data), disparado por **push de tag** `at3-ffmpeg-build-*` — workflows disparados por push rodam da ref pushada e não precisam existir na branch default, então `main` fica intocada e não há repo separado. O `workflow_dispatch` permanece no YAML para o futuro (merge em `main`) ou disparo via API. Arquivo: `.github/workflows/build-ffmpeg-kit-next.yml`. Disparo: `git tag at3-ffmpeg-build-1 && git push origin at3-ffmpeg-build-1` (numerar sequencialmente a cada re-execução).
 - **C2 — Minutos/billing do Actions.** Se o repo for privado, o plano gratuito dá 2.000 min/mês e este build (arm64-only, LGPL mínimo) deve consumir ~30–90 min por execução; se for público, é ilimitado. Confirmar que o usuário está ciente antes da primeira execução (e de eventuais re-execuções por tentativa e erro de flags).
 - **C3 — `--enable-openh264`.** Recomendação: **incluir** (BSD, compatível com LGPL; o `muxer.dart:42` usa `libopenh264` no fallback de re-encode, então sem ele o engine precisaria de um caminho divergente no Android). Nuance a apresentar ao usuário: o patent grant da Cisco cobre o **binário deles**, não builds do fonte — o desktop já convive com essa posição (`tools/win` tem openh264), mas a decisão de manter paridade deve ser dele. Registrar a resposta em `decisoes.md`.
-- **C4 — Falha estrutural.** Se a tag `8.1.0` não existir, o script de build falhar de forma não-óbvia por mais de ~3 tentativas de correção, ou o AAR resultante não carregar no device, parar, resumir o que foi tentado e perguntar.
+- **C4 — Falha estrutural.** Se o build falhar de forma não-óbvia por mais de ~3 tentativas de correção, ou o AAR resultante não carregar no device, parar, resumir o que foi tentado e perguntar. (A existência da tag já foi verificada: é `v8.1.0`, ver §3.1.)
 
 ## 3. Fase 1 — Build LGPL (via GitHub Actions)
 
 ### 3.1 O workflow (é ele o "script de build versionado" da §12.1)
 
-Criar `.github/workflows/build-ffmpeg-kit-next.yml` (o destino — `main` mínimo ou repo separado — vem do checkpoint C1). Conteúdo de partida:
+**Já criado e versionado:** [`.github/workflows/build-ffmpeg-kit-next.yml`](../../.github/workflows/build-ffmpeg-kit-next.yml). Baseado em fatos **verificados no upstream em 2026-07-14** (não inferidos):
 
-```yaml
-name: build-ffmpeg-kit-next
-on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag do arthenica/ffmpeg-kit-next'
-        required: true
-        default: '8.1.0'   # VERIFICAR que existe; se for v8.1.0, corrigir aqui e registrar
-      ndk:
-        description: 'Versão do NDK (sdkmanager)'
-        required: true
-        default: '27.2.12479018'   # VERIFICAR contra o README/docs da tag; r27+ alinha 16 KB por padrão
-      enable_openh264:
-        description: 'Incluir --enable-openh264 (decisão C3)'
-        type: boolean
-        default: true
+| Fato verificado | Valor real | Como foi verificado |
+|---|---|---|
+| Tag | **`v8.1.0`** (a spec dizia "8.1.0" — o nome real tem `v`), commit `3e223118e6e8fb6208693ecf3952e77cd096f587` | `git ls-remote --tags` |
+| Sistema de build | **Nix** (`./nix-android.sh --profile android-r27d`) — **não existe mais `android.sh`**; a v8.1.0 reestruturou tudo para flakes (é a rota "Nix em Linux/CI" que a §12.1 já citava) | listagem da árvore da tag + leitura de `nix-android.sh` e `flake.nix` |
+| NDK | **27.3.13750724 (r27d)**, fixado pelo próprio flake (alinha 16 KB por padrão) — o workflow não instala SDK/NDK; o Nix traz tudo | `flake.nix` (bloco `android = {...}`) |
+| Flags | `--disable-arm-v7a --disable-arm-v7a-neon --disable-x86 --disable-x86-64 --api-level=28 [--enable-openh264]`; GPL só entraria com `--enable-gpl` explícito (nunca usamos); `--api-level` default é 24 | `scripts/help-android.sh` + `scripts/function.sh:926` |
+| Saída | AAR "under the prebuilt folder" | `help-android.sh` |
+| Binários prontos? | **Não** — a release v8.1.0 não tem assets (premissa de 2026-07-11 reconfirmada) | GitHub API `releases/tags/v8.1.0` |
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - name: Pré-requisitos do android.sh
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y autoconf automake libtool pkg-config curl git \
-            nasm yasm cmake gperf texinfo bison flex meson ninja-build wget autopoint
+O job já embute as evidências do gate: commit pinado, `buildconf.txt` com **falha dura** se `--enable-gpl` aparecer, inventário de `.so` (tamanho + SHA-256) e checagem de alinhamento 16 KB via GNU `readelf` que **reprova o build** se qualquer `LOAD != 0x4000`. Tudo sobe como artifact `ffmpeg-kit-next-arm64-lgpl`.
 
-      - name: NDK
-        run: |
-          echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;${{ inputs.ndk }}"
-          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/${{ inputs.ndk }}" >> "$GITHUB_ENV"
-
-      - name: Checkout pinado do ffmpeg-kit-next
-        run: |
-          git clone https://github.com/arthenica/ffmpeg-kit-next.git src
-          cd src
-          git checkout "${{ inputs.tag }}"
-          git rev-parse HEAD | tee ../evidence-commit.txt   # REGISTRAR no AT3.md e decisoes.md
-
-      - name: Build (LGPL, só arm64-v8a, API 28)
-        working-directory: src
-        run: |
-          ./android.sh --help || true   # deixa as flags reais no log para auditoria
-          EXTRA=""
-          if [ "${{ inputs.enable_openh264 }}" = "true" ]; then EXTRA="--enable-openh264"; fi
-          ./android.sh \
-            --disable-arm-v7a --disable-arm-v7a-neon --disable-x86 --disable-x86-64 \
-            --api-level=28 \
-            $EXTRA
-
-      - name: Evidências (buildconf, inventário de .so, alinhamento 16 KB)
-        working-directory: src
-        run: |
-          mkdir -p ../evidence
-          cp build.log ../evidence/build.log        # VERIFICAR nome/path do log na tag
-          # buildconf: a linha "configuration:" do configure do ffmpeg está no build.log;
-          # extrair e provar a ausência de GPL:
-          grep -i "configuration:" build.log | tee ../evidence/buildconf.txt
-          if grep -q -- "--enable-gpl" ../evidence/buildconf.txt; then
-            echo "ERRO: --enable-gpl presente"; exit 1
-          fi
-          AAR=$(find prebuilt -name '*.aar' | head -1)   # VERIFICAR path real na tag
-          cp "$AAR" ../evidence/ffmpeg-kit.aar
-          cd ../evidence && mkdir so && cd so
-          unzip -o ../ffmpeg-kit.aar 'jni/*' > /dev/null
-          find . -name '*.so' -exec ls -la {} \; | tee ../so-inventory.txt
-          find . -name '*.so' -exec sha256sum {} \; | tee -a ../so-inventory.txt
-          READELF="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
-          for so in $(find . -name '*.so'); do
-            echo "== $so ==" | tee -a ../alignment.txt
-            "$READELF" -l "$so" | grep LOAD | tee -a ../alignment.txt
-          done
-          # falha o job se qualquer LOAD não for 0x4000:
-          if grep LOAD ../alignment.txt | grep -qv "0x4000"; then
-            echo "ERRO: .so sem alinhamento 16 KB"; exit 1
-          fi
-
-      - name: Publicar artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ffmpeg-kit-next-arm64-lgpl
-          path: |
-            evidence/ffmpeg-kit.aar
-            evidence/evidence-commit.txt
-            evidence/buildconf.txt
-            evidence/so-inventory.txt
-            evidence/alignment.txt
-            evidence/build.log
-```
-
-Notas para o implementador:
-
-- Os `# VERIFICAR` são literais: os três pontos incertos (nome da tag, versão de NDK exigida, path do `.aar`/`build.log` dentro do checkout) devem ser confirmados no repositório upstream **antes** do primeiro dispatch; errar aqui custa uma execução inteira de CI.
-- O resto do requisito da matriz (§12.2) **não precisa de lib externa nenhuma**: `atempo`, `asetrate`, `aresample`, `amix`, `sidechaincompress`, `loudnorm`, muxer `segment`, demuxer `concat`, encoder `aac` nativo e `-c:v copy` são todos internos do FFmpeg stock. Não adicionar `--enable-*` além do openh264 (C3).
-- Disparo: GitHub → Actions → `build-ffmpeg-kit-next` → *Run workflow* (UI web; o `gh` CLI não está instalado nesta máquina). Artifact baixa da página da run.
+**Disparo** (C1): `git tag at3-ffmpeg-build-1 && git push origin at3-ffmpeg-build-1` — numerar sequencialmente a cada re-execução. Acompanhar e baixar o artifact pela UI web (Actions → run) — o `gh` CLI não está instalado.
 
 ### 3.2 Depois do download do artifact
 
