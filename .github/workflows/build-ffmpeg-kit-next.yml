@@ -116,17 +116,42 @@ jobs:
           if-no-files-found: warn
           path: evidence/**
 
-      # Gate: só aqui o job pode reprovar — depois de o artifact já estar salvo.
-      - name: Gate — licença LGPL e alinhamento 16 KB
+      # Diagnóstico no Summary da run (visível no navegador sem baixar nada —
+      # o download de artifact/logs exige auth admin, o Summary não).
+      - name: Resumo diagnóstico no Summary
+        if: always()
         working-directory: evidence
         run: |
-          test -f ffmpeg-kit.aar || { echo "FALHOU: AAR não produzido"; exit 1; }
-          test -s buildconf.txt  || { echo "FALHOU: buildconf não capturado (ver buildconf-search.txt)"; exit 1; }
-          if grep -q -- "--enable-gpl" buildconf.txt; then
-            echo "FALHOU: --enable-gpl presente"; exit 1
-          fi
-          test -s alignment.txt || { echo "FALHOU: sem inventário de alinhamento"; exit 1; }
-          if grep -E '^\s*LOAD' alignment.txt | grep -qv '0x4000'; then
-            echo "FALHOU: há .so sem alinhamento 16 KB (LOAD != 0x4000)"; exit 1
-          fi
-          echo "GATE OK"
+          {
+            echo "## AT-3 build — diagnóstico"
+            echo '### aar-path'; echo '```'; cat aar-path.txt 2>/dev/null; echo '```'
+            echo '### buildconf.txt (primeiras linhas)'; echo '```'; head -5 buildconf.txt 2>/dev/null; echo '```'
+            echo '### buildconf-search.txt'; echo '```'; cat buildconf-search.txt 2>/dev/null; echo '```'
+            echo '### logs-found.txt'; echo '```'; cat logs-found.txt 2>/dev/null; echo '```'
+            echo '### prebuilt-tree.txt (primeiras 60)'; echo '```'; head -60 prebuilt-tree.txt 2>/dev/null; echo '```'
+            echo '### alignment.txt'; echo '```'; cat alignment.txt 2>/dev/null; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Gate dividido em checagens NOMEADAS: cada conclusão é legível via API
+      # anonimamente (nome + success/failure), então a próxima run diz por si
+      # qual asserção reprovou, sem eu precisar ler log. Todas rodam (always).
+      - name: 'Gate 1 — AAR produzido'
+        if: always()
+        working-directory: evidence
+        run: test -f ffmpeg-kit.aar
+      - name: 'Gate 2 — buildconf capturado'
+        if: always()
+        working-directory: evidence
+        run: test -s buildconf.txt
+      - name: 'Gate 3 — sem --enable-gpl'
+        if: always()
+        working-directory: evidence
+        run: '! grep -q -- "--enable-gpl" buildconf.txt'
+      - name: 'Gate 4 — inventário de alinhamento existe'
+        if: always()
+        working-directory: evidence
+        run: test -s alignment.txt
+      - name: 'Gate 5 — todas as .so com LOAD 0x4000 (16 KB)'
+        if: always()
+        working-directory: evidence
+        run: '! grep -E "^\s*LOAD" alignment.txt | grep -qv "0x4000"'
