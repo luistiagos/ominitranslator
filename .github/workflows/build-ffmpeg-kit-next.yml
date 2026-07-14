@@ -67,45 +67,66 @@ jobs:
             --api-level=28 \
             $OPENH264_FLAG
 
-      - name: Evidências (buildconf, inventário de .so, alinhamento 16 KB)
+      # Coleta best-effort: NUNCA falha, para o artifact sempre subir e poder
+      # ser inspecionado. As checagens que reprovam o gate ficam no step
+      # seguinte, depois do upload.
+      - name: Coletar evidências (best-effort)
+        if: always()
         working-directory: src
         run: |
-          # build.log: nome/local conforme o upstream escrever (busca defensiva)
-          find . -maxdepth 3 -name 'build.log' -exec cp {} ../evidence/build.log \; || true
-          # A configuração do ffmpeg (prova de licença): procura no log e na árvore de build
-          { grep -ri "configuration:" ../evidence/build.log 2>/dev/null || \
-            grep -rih "configuration:" prebuilt 2>/dev/null || \
-            find . -name config.log -path '*ffmpeg*' -exec grep -h "configuration:" {} \; ; } \
-            | sort -u | tee ../evidence/buildconf.txt
-          test -s ../evidence/buildconf.txt || { echo "ERRO: buildconf não capturado"; exit 1; }
-          if grep -q -- "--enable-gpl" ../evidence/buildconf.txt; then
-            echo "ERRO: --enable-gpl presente no buildconf"; exit 1
+          set +e
+          # Mapa do que o build produziu — descobre os caminhos reais (o layout
+          # do nix-build da v8.1.0 ainda não foi observado de dentro).
+          find prebuilt -type f 2>/dev/null | head -200 | tee ../evidence/prebuilt-tree.txt
+          find . -name '*.log' 2>/dev/null | head -50 | tee ../evidence/logs-found.txt
+          # Prova de licença — a linha de configuração do ffmpeg mora no config.log
+          # do configure (contém a linha de comando completa) e/ou numa linha
+          # "configuration:". Buscar amplamente e guardar de onde veio.
+          {
+            echo "### grep 'configuration:' em toda a árvore src:"
+            grep -rIl "configuration:" . 2>/dev/null | head -20
+            echo "### ocorrências de enable-gpl (deve ser vazio):"
+            grep -rIn -- "--enable-gpl" . 2>/dev/null | grep -v "help\|\.md\|usage" | head -20
+            echo "### config.log do ffmpeg (linha de configure):"
+            for cl in $(find . -name config.log -path '*ffmpeg*' 2>/dev/null | head -5); do
+              echo "--- $cl ---"; grep -m1 -i "configuration\|configure " "$cl"
+            done
+          } | tee ../evidence/buildconf-search.txt
+          # Melhor tentativa de um buildconf.txt limpo:
+          grep -rIh "configuration:" . 2>/dev/null | sort -u | head -5 > ../evidence/buildconf.txt
+          # AAR + .so:
+          AAR=$(find prebuilt -name '*.aar' 2>/dev/null | head -1)
+          echo "AAR=$AAR" | tee ../evidence/aar-path.txt
+          if [ -n "$AAR" ]; then
+            cp "$AAR" ../evidence/ffmpeg-kit.aar
+            mkdir -p ../evidence/so && (cd ../evidence/so && unzip -o ../ffmpeg-kit.aar >/dev/null 2>&1)
+            { find ../evidence/so -name '*.so' -exec ls -la {} \; ; \
+              find ../evidence/so -name '*.so' -exec sha256sum {} \; ; } | tee ../evidence/so-inventory.txt
+            for so in $(find ../evidence/so -name '*.so' 2>/dev/null); do
+              echo "== $so =="; readelf -l "$so" 2>/dev/null | grep -E '^\s*LOAD'
+            done | tee ../evidence/alignment.txt
           fi
-          AAR=$(find prebuilt -name '*.aar' | head -1)
-          test -n "$AAR" || { echo "ERRO: AAR não encontrado em prebuilt/"; find prebuilt -type f | head -50; exit 1; }
-          cp "$AAR" ../evidence/ffmpeg-kit.aar
-          cd ../evidence && mkdir -p so && cd so
-          unzip -o ../ffmpeg-kit.aar > /dev/null
-          find . -name '*.so' | while read -r so; do
-            ls -la "$so"; sha256sum "$so"
-          done | tee ../so-inventory.txt
-          # Alinhamento 16 KB: GNU readelf lê ELF aarch64 normalmente
-          for so in $(find . -name '*.so'); do
-            echo "== $so =="; readelf -l "$so" | grep -E '^\s*LOAD'
-          done | tee ../alignment.txt
-          if grep -E '^\s*LOAD' ../alignment.txt | grep -qv '0x4000'; then
-            echo "ERRO: há .so sem alinhamento 16 KB (LOAD != 0x4000)"; exit 1
-          fi
+          true
 
-      - name: Publicar artifact
+      - name: Publicar artifact (sempre)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-kit-next-arm64-lgpl
-          if-no-files-found: error
-          path: |
-            evidence/ffmpeg-kit.aar
-            evidence/upstream-commit.txt
-            evidence/buildconf.txt
-            evidence/so-inventory.txt
-            evidence/alignment.txt
-            evidence/build.log
+          if-no-files-found: warn
+          path: evidence/**
+
+      # Gate: só aqui o job pode reprovar — depois de o artifact já estar salvo.
+      - name: Gate — licença LGPL e alinhamento 16 KB
+        working-directory: evidence
+        run: |
+          test -f ffmpeg-kit.aar || { echo "FALHOU: AAR não produzido"; exit 1; }
+          test -s buildconf.txt  || { echo "FALHOU: buildconf não capturado (ver buildconf-search.txt)"; exit 1; }
+          if grep -q -- "--enable-gpl" buildconf.txt; then
+            echo "FALHOU: --enable-gpl presente"; exit 1
+          fi
+          test -s alignment.txt || { echo "FALHOU: sem inventário de alinhamento"; exit 1; }
+          if grep -E '^\s*LOAD' alignment.txt | grep -qv '0x4000'; then
+            echo "FALHOU: há .so sem alinhamento 16 KB (LOAD != 0x4000)"; exit 1
+          fi
+          echo "GATE OK"
