@@ -33,10 +33,12 @@
 
 ## 2. Estratégia de branches
 
-| Branch | HEAD | Testes | Papel |
+| Branch | HEAD verificado¹ | Testes | Papel |
 |---|---|---|---|
 | `main` | `b15c821` | 199 | Desktop estável, intocado. Referência para regressão. |
 | `android-port` | `be159a3` | 322 | Todo o trabalho do port + as correções de bug do engine. Onde evoluímos daqui. |
+
+¹ O commit em que a contagem de testes foi verificada com `tool/verify.ps1` — commits posteriores só de docs não a alteram (o HEAD real pode estar à frente; `git log` é a fonte).
 
 Motivo (decisão do usuário, 2026-07-12): as mudanças do engine afetam **ambas** as plataformas (o `dubbing_engine` é compartilhado), então, para não arriscar o desktop com nada não previsto, o trabalho ficou isolado no `android-port`. `main` só recebe quando estiver validado. Verificado rodando os testes em cada branch: `main` = 199 (baseline original), `android-port` = 322 (via `tool/verify.ps1`, piso 284).
 

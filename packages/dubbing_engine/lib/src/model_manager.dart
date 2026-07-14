@@ -836,7 +836,9 @@ class ModelManager {
       // Dart puro e lento demais — daí .tar.gz aqui em vez de .tar.bz2. A
       // extração usa extractFileToDisk, que decodifica o gzip e escreve cada
       // entrada via InputFileStream/OutputFileStream (streaming) em vez de
-      // materializar o pacote inteiro num único buffer em RAM.
+      // materializar o pacote inteiro num único buffer em RAM. O custo é um
+      // `temp.tar` intermediário (~tamanho descomprimido) em
+      // Directory.systemTemp — disco transitório em vez de RAM, de propósito.
       final archiveFile = p.join(destDir, 'model.tar.gz');
       final partFile = '$archiveFile.part';
       yield* downloadWithRetry(() => _downloadWithResume(entry.url, partFile),
@@ -857,16 +859,22 @@ class ModelManager {
         }
       }
       File(archiveFile).deleteSync();
+    } else {
+      throw StateError(
+          'Modelo $id tem kind desconhecido "${entry.kind}" no catálogo '
+          '(esperado: file, tarbz2 ou targz).');
     }
     yield 1.0;
   }
 
   Future<void> _verifyAndWriteSha256(ModelEntry entry, String destDir, String file) async {
     // Isolate próprio: hashear um arquivo de ~200 MB é pesado demais para
-    // rodar no isolate da UI.
-    final hash = await Isolate.run(() {
-      final bytes = File(file).readAsBytesSync();
-      return sha256.convert(bytes).toString();
+    // rodar no isolate da UI — e por stream, não readAsBytesSync: num device
+    // low-RAM o arquivo inteiro em memória anularia parte do ganho da
+    // extração streaming.
+    final hash = await Isolate.run(() async {
+      final digest = await sha256.bind(File(file).openRead()).first;
+      return digest.toString();
     });
     if (entry.sha256 != null && hash != entry.sha256) {
       File(file).deleteSync();

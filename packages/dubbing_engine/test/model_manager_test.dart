@@ -439,6 +439,33 @@ void main() {
     });
   });
 
+  group('download com kind desconhecido', () {
+    test('lança StateError em vez de emitir 1.0 sem baixar nada', () async {
+      final tempDir = Directory.systemTemp.createTempSync('bad_kind_test_');
+      try {
+        final entry = ModelEntry(
+          id: 'typo-kind',
+          kind: 'tar.gz', // typo proposital — o kind correto é 'targz'
+          url: 'https://example.invalid/x.tar.gz',
+          sizeMb: 1,
+          expects: ['x.onnx'],
+          displayName: 'Typo kind',
+        );
+        final catalog = ModelCatalog(
+          platform: ModelPlatform.android,
+          entries: [entry],
+          asrModelIds: const {},
+          defaultVoiceIds: const {},
+        );
+        final mgr = ModelManager(tempDir.path, _dummyTools, catalog: catalog);
+        await expectLater(
+            mgr.download('typo-kind').toList(), throwsStateError);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+  });
+
   group('ModelCatalog.resolveRequiredIds', () {
     ModelCatalog catalogWith(List<ModelEntry> entries) => ModelCatalog(
           platform: ModelPlatform.android,
