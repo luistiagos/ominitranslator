@@ -110,8 +110,9 @@ Os arquivos vieram empacotados como `sherpa-onnx-whisper-tiny.tar.bz2` / `sherpa
 ## 7. Pendências que não bloqueiam o gate
 
 - ~~Repetir `es/best` no desktop com N≥5 runs~~ — **feito** (2026-07-14): mediana de N=5 idêntica à run única (69,7%; determinístico). Fecha a questão — o desvio é do baseline, sistematicamente (§4.2).
-- Fixar URL/tag exatos dos assets do sherpa-onnx no catálogo Android (§6, e os das vozes Piper em §11).
-- ~~AT-2b (TTS Piper on-device)~~ — **feito**, ver §11.
+- Fixar URL/tag exatos dos assets do sherpa-onnx no catálogo Android (§6, e os das vozes Piper em §8.4).
+- ~~AT-2b (TTS Piper on-device)~~ — **feito**, ver §8.
+- **Para a D3 (melhorias de produção derivadas do AT-2b):** (a) extração de modelos por **streaming** (`InputFileStream` do `package:archive`) em vez de `decodeBytes` — o spike segura ~2× o tamanho do pacote em RAM transitória, irrelevante no g86 mas relevante em devices de 3–4 GB; (b) `espeak-ng-data` como **asset compartilhado** no `ModelCatalog.android()` em vez de triplicado por voz (identidade byte a byte verificada, §8.1 — ~36 MB de disco economizados).
 
 ## 8. AT-2b — TTS Piper (VITS via `sherpa_onnx`) no device — **PASSOU**
 
@@ -119,22 +120,27 @@ Escopo: §11.4 da spec. Reaproveitado o mesmo scaffold do AT-2 (app já instalad
 
 ### 8.1 Método
 
-- **Vozes:** as mesmas já usadas em produção no desktop (`piper-en` = `en_US-lessac-medium`, `piper-pt-br` = `pt_BR-faber-medium`, `piper-es` = `es_ES-sharvard-medium`) — mas carregadas via `sherpa_onnx.OfflineTts` (VITS), não via o `piper.exe`/FFI nativo do Windows. É a mesma arquitetura de modelo (Piper exporta VITS ONNX), runtime diferente por plataforma — exatamente a premissa que o §11.4 pedia para testar, não presumir.
+- **Vozes:** as mesmas já usadas em produção no desktop (`piper-en` = `en_US-lessac-medium`, `piper-pt-br` = `pt_BR-faber-medium`, `piper-es` = `es_ES-sharvard-medium`), carregadas pelo **mesmo caminho de código** que a produção usa: `sherpa_onnx.OfflineTts` com `OfflineTtsVitsModelConfig` (é o que `piper_synthesizer.dart:145-155` já faz no desktop — não há `piper.exe` no projeto). O que muda no device é o **binário nativo** (`.so` arm64 do `sherpa_onnx_android_arm64` em vez da `.dll` win-x64) e o caminho de extração — exatamente a premissa que o §11.4 pedia para testar em vez de presumir ("o código é praticamente o mesmo, mas premissa não testada não é gate"). Paridade de configuração verificada: `numThreads: 2` idêntico à produção, e `noiseScale: 0.667 / noiseScaleW: 0.8 / lengthScale: 1.0` (explícitos no bench) são os mesmos defaults que a produção usa implicitamente.
 - **Frases:** 20 por idioma — en/pt são as 20 primeiras da suíte do AT-1 ([at1-suite/](at1-suite/)); es é a tradução literal das mesmas 20 (mesma lista usada em `at2_gen_fixture.dart`, primeiras 20 entradas) — corpus paralelo entre os três idiomas, sem inventar frases novas.
-- **Pacotes:** cada voz empacotada como `.tar.gz` (modelo `.onnx` + `.onnx.json` + `tokens.txt` + `espeak-ng-data/`, 67–80 MB compactado) a partir dos mesmos arquivos já em produção no desktop. `espeak-ng-data` é **idêntico** entre as 3 vozes (355 arquivos, mesmo hash) — no catálogo real ele pode ser um asset compartilhado em vez de triplicado.
+- **Pacotes:** cada voz empacotada como `.tar.gz` (modelo `.onnx` + `.onnx.json` + `tokens.txt` + `espeak-ng-data/`, 67–80 MB compactado) a partir dos mesmos arquivos já em produção no desktop. `espeak-ng-data` é **byte-idêntico** entre as 3 vozes (hash recursivo do conteúdo completo — 355 arquivos — idêntico nas três) — no catálogo real ele pode ser um asset compartilhado em vez de triplicado (~36 MB de disco economizados com 3 vozes instaladas).
 - **Extração no device:** `package:archive` (`GZipDecoder` + `TarDecoder`), Dart puro — a mesma escolha já decidida para o Android (D-c) por não haver `tar` nativo.
 - **Reamostragem + reabertura:** sem FFmpegKitNext (AT-3 ainda não existe), um resampler linear + writer/reader WAV PCM16 mono próprios do spike validam o round-trip para o formato final de produção (44,1 kHz).
 - Código completo do benchmark versionado em [at2-evidence/at2b-bench-main.dart](at2-evidence/at2b-bench-main.dart).
 
 ### 8.2 Resultado
 
-| Idioma | Voz | Extração `.tar.gz` | RTF | Pico de RAM (VmHWM) | 44,1 kHz PCM16 reaberto | Cancelamento entre segmentos |
+| Idioma | Voz | Extração `.tar.gz` | RTF | VmHWM do processo após a run | 44,1 kHz PCM16 reaberto | Cancelamento entre segmentos |
 |---|---|---:|---:|---:|---|---|
 | en | en_US-lessac-medium (1 speaker) | 1,90 s (67,4 MB) | 0,135 | 657 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
 | pt | pt_BR-faber-medium (1 speaker) | 1,88 s (67,3 MB) | 0,139 | 657 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
 | es | es_ES-sharvard-medium (2 speakers) | 2,28 s (80,1 MB) | 0,135 | 688 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
 
 Pico final do processo (as 3 vozes em sequência): **690 MB**. Zero frase com áudio vazio nos 60 sintetizados (20 × 3). `es_ES-sharvard-medium` reporta 2 *speakers* — modelo multi-locutor, sid=0 (o padrão usado) é uma voz válida; não afeta o resultado, só é um dado a mais para quem for escolher a voz padrão do idioma.
+
+Duas notas de leitura sobre a coluna de memória e a evidência:
+
+- O `VmHWM` é o pico **cumulativo do processo** (monotônico — pt mostra os mesmos 657 MB do en porque não os excedeu) e **inclui a extração em memória**: o spike usa `GZipDecoder().decodeBytes` sobre o pacote inteiro (~67–80 MB compactado + ~150 MB descomprimido em RAM transitória). Ou seja, o número é um **teto conservador** para o critério "pico de memória do `OfflineTts`" do §11.4 — que passa com folga mesmo assim.
+- Os JSONs versionados em `at2-evidence/tts-device-results/` registram `numSpeakers: 0`: o campo era lido **depois** do `tts.free()` do teste de cancelamento, e o getter do sherpa devolve 0 silenciosamente sobre ponteiro nulo. O bug foi corrigido no fonte versionado (`at2b-bench-main.dart` captura o valor no load) — é a única diferença entre o fonte versionado e o binário que gerou os JSONs. Os valores corretos (en=1, pt=1, es=2) estão no `log.txt` da mesma pasta e são os citados acima.
 
 ### 8.3 Resultado formal do AT-2b
 

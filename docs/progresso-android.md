@@ -88,7 +88,7 @@ Metodologia nova: áudio de teste **sintetizado** via Piper (mesma engine de pro
 
 Relatório: [spikes-android/AT2.md](spikes-android/AT2.md) §8.
 
-Reaproveitou o mesmo app de benchmark do AT-2 (já instalado no device, mesmo contorno de storage) — só o corpo mudou, de ASR para TTS. Testava uma premissa não verificada: as mesmas vozes Piper já em produção no desktop (via FFI nativo do `piper.exe`) carregam e sintetizam igual através do `sherpa_onnx.OfflineTts` (VITS), o runtime que o Android vai usar.
+Reaproveitou o mesmo app de benchmark do AT-2 (já instalado no device, mesmo contorno de storage) — só o corpo mudou, de ASR para TTS. Testava a premissa não verificada do §11.4: o `sherpa_onnx.OfflineTts` (VITS) — o **mesmo caminho de código** que `piper_synthesizer.dart` já usa em produção no desktop — carrega e sintetiza igual sobre o **binário nativo do Android** (`.so` arm64 em vez da `.dll` win-x64), com as mesmas vozes.
 
 - **20 frases/idioma** (en/pt: as 20 primeiras da suíte do AT-1; es: tradução literal das mesmas 20), zero vazias: RTF 0,135–0,139 (teto: <0,3), pico do processo 690 MB (teto: 1,5 GB).
 - **Extração do pacote de voz** (`.tar.gz`, 67–80 MB, via `package:archive` — Dart puro, D-c) medida no device: 1,9–2,3 s.
