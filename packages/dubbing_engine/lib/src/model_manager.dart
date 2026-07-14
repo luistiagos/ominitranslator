@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -54,6 +55,14 @@ class ModelEntry {
   /// por idioma). null para modelos que não são vozes (whisper, spleeter,
   /// diarização, gender-tagging).
   final Lang? lang;
+
+  /// IDs de outras entradas do catálogo que devem estar prontas junto com
+  /// esta — ex.: um `espeak-ng-data` compartilhado por várias vozes Piper,
+  /// baixado/extraído uma única vez para seu próprio diretório em vez de
+  /// duplicado dentro do pacote de cada voz. Vazio por padrão: não muda o
+  /// comportamento de nenhuma entrada existente. Ver [ModelCatalog.resolveRequiredIds].
+  final List<String> dependsOn;
+
   const ModelEntry({
     required this.id,
     required this.kind,
@@ -63,6 +72,7 @@ class ModelEntry {
     required this.displayName,
     this.sha256,
     this.lang,
+    this.dependsOn = const [],
   });
 }
 
@@ -113,6 +123,34 @@ class ModelCatalog {
       if (e.id == id) return e;
     }
     return null;
+  }
+
+  /// Expande [ids] para incluir as dependências transitivas declaradas via
+  /// [ModelEntry.dependsOn] (ex.: o `espeak-ng-data` compartilhado de uma
+  /// voz Piper), deduplicado e sem alterar a ordem relativa dos originais.
+  /// IDs sem entrada no catálogo são preservados no resultado (a checagem de
+  /// prontidão de quem chama já sinaliza isso via `stateOf`), só não são
+  /// expandidos. Seguro contra ciclo em `dependsOn`.
+  ///
+  /// Uso pretendido: `models.catalog.resolveRequiredIds([asrId, targetVoiceId])`
+  /// no lugar da lista de IDs pronta, para que a checagem de prontidão e a UI
+  /// de download cubram as dependências automaticamente.
+  List<String> resolveRequiredIds(List<String> ids) {
+    final result = <String>[];
+    final seen = <String>{};
+    void add(String id) {
+      if (!seen.add(id)) return;
+      result.add(id);
+      final entry = entryOf(id);
+      if (entry == null) return;
+      for (final dep in entry.dependsOn) {
+        add(dep);
+      }
+    }
+    for (final id in ids) {
+      add(id);
+    }
+    return result;
   }
 }
 
@@ -717,7 +755,7 @@ class ModelManager {
   }
 
   ModelState stateOf(String id) {
-    final entry = manifest.firstWhere((e) => e.id == id);
+    final entry = catalog.entryOf(id)!;
     final base = pathOf(id);
     if (!Directory(base).existsSync()) return ModelState.missing;
     bool complete = true;
@@ -749,7 +787,7 @@ class ModelManager {
     int maxAttempts = defaultMaxAttempts,
     Duration Function(int attempt) retryDelay = defaultRetryDelay,
   }) async* {
-    final entry = manifest.firstWhere((e) => e.id == id);
+    final entry = catalog.entryOf(id)!;
     final destDir = pathOf(id);
     Directory(destDir).createSync(recursive: true);
 
@@ -787,6 +825,32 @@ class ModelManager {
         throw StateError(
             'Não foi possível executar "tar" para extrair o modelo $id. '
             'O tar.exe vem com o Windows 10+; verifique se está no PATH.');
+      } finally {
+        if (Directory(extractDir).existsSync()) {
+          Directory(extractDir).deleteSync(recursive: true);
+        }
+      }
+      File(archiveFile).deleteSync();
+    } else if (entry.kind == 'targz') {
+      // Android (D-c): sem `tar` nativo, e o BZip2Decoder do package:archive é
+      // Dart puro e lento demais — daí .tar.gz aqui em vez de .tar.bz2. A
+      // extração usa extractFileToDisk, que decodifica o gzip e escreve cada
+      // entrada via InputFileStream/OutputFileStream (streaming) em vez de
+      // materializar o pacote inteiro num único buffer em RAM.
+      final archiveFile = p.join(destDir, 'model.tar.gz');
+      final partFile = '$archiveFile.part';
+      yield* downloadWithRetry(() => _downloadWithResume(entry.url, partFile),
+          maxAttempts: maxAttempts, retryDelay: retryDelay);
+      File(partFile).renameSync(archiveFile);
+      final extractDir = p.join(destDir, '.extract');
+      if (Directory(extractDir).existsSync()) {
+        Directory(extractDir).deleteSync(recursive: true);
+      }
+      Directory(extractDir).createSync();
+      try {
+        await extractFileToDisk(archiveFile, extractDir);
+        _moveContentsUp(extractDir, destDir);
+        await _verifyAndWriteSha256(entry, destDir, p.join(destDir, entry.expects.first));
       } finally {
         if (Directory(extractDir).existsSync()) {
           Directory(extractDir).deleteSync(recursive: true);

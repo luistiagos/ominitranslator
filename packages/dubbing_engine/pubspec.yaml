@@ -9,9 +9,9 @@ dependencies:
   http: ^1.2.0
   crypto: ^3.0.0
   ffi: ^2.1.0
+  # Extração de modelos .tar.gz em streaming (Android, D-c) — antes só usado
+  # por tool/check_native_libs.dart (lê o ZIP do APK/AAB).
+  archive: ^3.6.0
 dev_dependencies:
   test: ^1.25.0
   lints: ^4.0.0
-  # Só para tool/check_native_libs.dart (lê o ZIP do APK/AAB). Vira dependência
-  # de produção quando o ArchiveExtractor do Android (§5.3) for construído.
-  archive: ^3.6.0

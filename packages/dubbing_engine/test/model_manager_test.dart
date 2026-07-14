@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dubbing_engine/src/constants.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
@@ -341,6 +343,157 @@ void main() {
       } finally {
         tempDir.deleteSync(recursive: true);
       }
+    });
+  });
+
+  group('targz extraction (streaming)', () {
+    test('downloads and extracts a real .tar.gz over HTTP', () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile('model.onnx', 4, [1, 2, 3, 4]))
+        ..addFile(ArchiveFile('tokens.txt', 5, utf8.encode('hello')));
+      final tarBytes = TarEncoder().encode(archive);
+      final gzBytes = GZipEncoder().encode(tarBytes)!;
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((req) {
+        req.response.add(gzBytes);
+        req.response.close();
+      });
+
+      final tempDir = Directory.systemTemp.createTempSync('targz_test_');
+      try {
+        final entry = ModelEntry(
+          id: 'fake-targz',
+          kind: 'targz',
+          url: 'http://${server.address.address}:${server.port}/model.tar.gz',
+          sizeMb: 1,
+          expects: ['model.onnx', 'tokens.txt'],
+          displayName: 'Fake targz',
+        );
+        final catalog = ModelCatalog(
+          platform: ModelPlatform.android,
+          entries: [entry],
+          asrModelIds: const {},
+          defaultVoiceIds: const {},
+        );
+        final mgr = ModelManager(tempDir.path, _dummyTools, catalog: catalog);
+
+        final progress = await mgr.download('fake-targz').toList();
+        expect(progress.last, 1.0);
+
+        final base = p.join(tempDir.path, 'fake-targz');
+        expect(File(p.join(base, 'model.onnx')).readAsBytesSync(), [1, 2, 3, 4]);
+        expect(File(p.join(base, 'tokens.txt')).readAsStringSync(), 'hello');
+        expect(mgr.stateOf('fake-targz'), ModelState.ready);
+        // O .tar.gz baixado e o diretório de extração intermediário não
+        // devem sobrar — só os arquivos do modelo e o .sha256.
+        expect(File(p.join(base, 'model.tar.gz')).existsSync(), isFalse);
+        expect(Directory(p.join(base, '.extract')).existsSync(), isFalse);
+      } finally {
+        await server.close(force: true);
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('flattens a single wrapping directory like upstream tts-models packages', () async {
+      // Os pacotes .tar.bz2 do sherpa-onnx hoje têm um diretório de topo
+      // (ex.: vits-piper-en_US-lessac-medium/model.onnx); o .tar.gz do
+      // Android precisa do mesmo achatamento via _moveContentsUp.
+      final archive = Archive()
+        ..addFile(ArchiveFile('voice-pkg/model.onnx', 3, [9, 9, 9]))
+        ..addFile(ArchiveFile('voice-pkg/tokens.txt', 1, utf8.encode('x')));
+      final gzBytes = GZipEncoder().encode(TarEncoder().encode(archive))!;
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((req) {
+        req.response.add(gzBytes);
+        req.response.close();
+      });
+
+      final tempDir = Directory.systemTemp.createTempSync('targz_wrap_test_');
+      try {
+        final entry = ModelEntry(
+          id: 'fake-wrapped',
+          kind: 'targz',
+          url: 'http://${server.address.address}:${server.port}/x.tar.gz',
+          sizeMb: 1,
+          expects: ['model.onnx', 'tokens.txt'],
+          displayName: 'Fake wrapped',
+        );
+        final catalog = ModelCatalog(
+          platform: ModelPlatform.android,
+          entries: [entry],
+          asrModelIds: const {},
+          defaultVoiceIds: const {},
+        );
+        final mgr = ModelManager(tempDir.path, _dummyTools, catalog: catalog);
+        await mgr.download('fake-wrapped').toList();
+
+        final base = p.join(tempDir.path, 'fake-wrapped');
+        expect(File(p.join(base, 'model.onnx')).existsSync(), isTrue);
+        expect(Directory(p.join(base, 'voice-pkg')).existsSync(), isFalse);
+      } finally {
+        await server.close(force: true);
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+  });
+
+  group('ModelCatalog.resolveRequiredIds', () {
+    ModelCatalog catalogWith(List<ModelEntry> entries) => ModelCatalog(
+          platform: ModelPlatform.android,
+          entries: entries,
+          asrModelIds: const {},
+          defaultVoiceIds: const {},
+        );
+
+    ModelEntry entry(String id, {List<String> dependsOn = const []}) => ModelEntry(
+          id: id,
+          kind: 'file',
+          url: 'https://example.invalid/$id',
+          sizeMb: 1,
+          expects: ['$id.bin'],
+          displayName: id,
+          dependsOn: dependsOn,
+        );
+
+    test('returns ids unchanged when nothing declares a dependency', () {
+      final catalog = catalogWith([entry('a'), entry('b')]);
+      expect(catalog.resolveRequiredIds(['a', 'b']), ['a', 'b']);
+    });
+
+    test('pulls in a shared dependency once, even if requested by several voices', () {
+      final catalog = catalogWith([
+        entry('espeak-ng-data'),
+        entry('piper-en', dependsOn: ['espeak-ng-data']),
+        entry('piper-pt', dependsOn: ['espeak-ng-data']),
+      ]);
+      expect(
+        catalog.resolveRequiredIds(['piper-en', 'piper-pt']),
+        ['piper-en', 'espeak-ng-data', 'piper-pt'],
+      );
+    });
+
+    test('resolves transitive dependencies', () {
+      final catalog = catalogWith([
+        entry('c'),
+        entry('b', dependsOn: ['c']),
+        entry('a', dependsOn: ['b']),
+      ]);
+      expect(catalog.resolveRequiredIds(['a']), ['a', 'b', 'c']);
+    });
+
+    test('is safe against a dependency cycle', () {
+      final catalog = catalogWith([
+        entry('a', dependsOn: ['b']),
+        entry('b', dependsOn: ['a']),
+      ]);
+      expect(catalog.resolveRequiredIds(['a']), ['a', 'b']);
+    });
+
+    test('keeps an id with no catalog entry, without expanding it', () {
+      final catalog = catalogWith([entry('a')]);
+      expect(catalog.resolveRequiredIds(['a', 'ghost']), ['a', 'ghost']);
     });
   });
 }
