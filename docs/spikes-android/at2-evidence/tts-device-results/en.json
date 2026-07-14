@@ -1,0 +1,23 @@
+{
+  "lang": "en",
+  "extractSec": 1.903,
+  "packageBytes": 67363573,
+  "packageEntries": 395,
+  "nativeSampleRate": 22050,
+  "numSpeakers": 0,
+  "sentenceCount": 20,
+  "emptyCount": 0,
+  "elapsedSec": 5.267,
+  "audioDurationSec": 38.98607709750567,
+  "rtf": 0.1350995122393831,
+  "vmHwmKbAfterRun": 672624,
+  "resample44kReopen": {
+    "ok": true,
+    "sampleRate": 44100,
+    "numChannels": 1,
+    "bitsPerSample": 16,
+    "durationSec": 1.9504761904761905
+  },
+  "cancelledAfter": 11,
+  "cancelReinstantiateOk": true
+}

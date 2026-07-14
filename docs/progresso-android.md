@@ -16,6 +16,7 @@
 | D0.5 | **AT-0** — gate de 16 KB | ✅ **PASSOU** (parte estática; runtime na D3) |
 | D2 | **AT-1** — tradução pt | ✅ **PASSOU** no moto g86 (slimt + `dedupRepeatedTail`) |
 | D2 | **AT-2** — ASR (Whisper ONNX + Silero VAD) | ✅ **PASSOU** no moto g86 (ver §3.3b) |
+| D2 | **AT-2b** — TTS Piper (VITS via `sherpa_onnx`) | ✅ **PASSOU** no moto g86 (ver §3.3c) |
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
 | D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
 | D1 | **Refatoração de memória** (áudio em disco, writer sequencial, `WavReader`) | ✅ **concluída** (ver §3.6) |
@@ -23,10 +24,10 @@
 | D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
-| D2 | AT-2b / AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
+| D2 | AT-3 / AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
-**A fase D1 está concluída**, e **AT-0, AT-1 e AT-2 passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **315 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os dois gates de device concluídos validam as duas peças de IA on-device mais arriscadas do M1 (tradução e ASR). O próximo passo real são os gates restantes (AT-2b TTS, AT-3 FFmpegKitNext, AT-4 foreground service, AT-5 SAF), todos exigindo device.
+**A fase D1 está concluída**, e **AT-0, AT-1, AT-2 e AT-2b passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **315 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os três gates de device concluídos validam as três peças de IA on-device mais arriscadas do M1 (tradução, ASR e TTS). O próximo passo real são os gates restantes (AT-3 FFmpegKitNext — o mais caro, exige build do fonte —, AT-4 foreground service, AT-5 SAF), todos exigindo device.
 
 ---
 
@@ -82,6 +83,18 @@ Metodologia nova: áudio de teste **sintetizado** via Piper (mesma engine de pro
 - **Confirmado empiricamente:** `enableSegmentTimestamps` não devolve timestamps nativos do Whisper no sherpa-onnx 1.13.4 — o VAD como segmentador (§8/P3) é obrigatório, não uma opção; fecha uma dúvida que a auditoria original tinha levantado.
 - **Sincronia** (baseline `whisper-cli` desktop real + `buildDubbingSegments`, mesmo segmentador dos dois lados): ≥90% em 5/6 combos (96–99%). O 6º (`es/best`) mediu 69,7% — verificado com **mediana de N=5 runs** (idêntico: whisper-cli é determinístico), é **viés sistemático do `whisper-small` desktop neste material espanhol** (66,7% contra o ground truth, erro de até 861 ms; o `whisper-base` desktop acerta 100% no mesmo áudio). O **device**, medido contra o mesmo ground truth, acerta **99%** nesse combo — idêntico aos outros 5. A divergência é 100% atribuível ao baseline.
 - **Achado de storage (não bloqueia produção):** arquivos copiados via `adb push`/`adb shell mkdir` para dentro da pasta externa do app ficam com dono `shell` e o Android nega acesso ao **próprio app** — só o que o processo do app cria sobrevive. Contorno do spike: assets em `/data/local/tmp`, copiados pelo app no primeiro start. Produção não é afetada (`ModelManager` sempre escreve pelo processo do app).
+
+### 3.3c AT-2b — TTS Piper (VITS via `sherpa_onnx`) — **PASSOU** no moto g86
+
+Relatório: [spikes-android/AT2.md](spikes-android/AT2.md) §8.
+
+Reaproveitou o mesmo app de benchmark do AT-2 (já instalado no device, mesmo contorno de storage) — só o corpo mudou, de ASR para TTS. Testava uma premissa não verificada: as mesmas vozes Piper já em produção no desktop (via FFI nativo do `piper.exe`) carregam e sintetizam igual através do `sherpa_onnx.OfflineTts` (VITS), o runtime que o Android vai usar.
+
+- **20 frases/idioma** (en/pt: as 20 primeiras da suíte do AT-1; es: tradução literal das mesmas 20), zero vazias: RTF 0,135–0,139 (teto: <0,3), pico do processo 690 MB (teto: 1,5 GB).
+- **Extração do pacote de voz** (`.tar.gz`, 67–80 MB, via `package:archive` — Dart puro, D-c) medida no device: 1,9–2,3 s.
+- **Reamostragem para PCM16 mono 44,1 kHz + reabertura**: sucesso nos 3 idiomas (validado com um resampler/writer/reader WAV próprios do spike, já que o FFmpegKitNext do AT-3 ainda não existe).
+- **Cancelamento entre segmentos**: interrompido a meio de um lote de 20, `free()` + reinstanciação do `OfflineTts` bem-sucedida nos 3 idiomas — sem sessão órfã.
+- **Achados laterais:** `espeak-ng-data` é byte-idêntico entre as 3 vozes (candidato a asset compartilhado no catálogo); `es_ES-sharvard-medium` é um modelo multi-locutor (2 *speakers*, sid=0 já válido).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 

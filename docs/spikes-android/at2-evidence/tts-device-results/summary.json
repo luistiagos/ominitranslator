@@ -1,0 +1,24 @@
+{
+  "en": {
+    "extractSec": 1.903,
+    "rtf": 0.1350995122393831,
+    "vmHwmKbAfterRun": 672624,
+    "resample44kReopenOk": true,
+    "cancelReinstantiateOk": true
+  },
+  "pt": {
+    "extractSec": 1.877,
+    "rtf": 0.13929771659257276,
+    "vmHwmKbAfterRun": 672624,
+    "resample44kReopenOk": true,
+    "cancelReinstantiateOk": true
+  },
+  "es": {
+    "extractSec": 2.277,
+    "rtf": 0.1352044012469421,
+    "vmHwmKbAfterRun": 704092,
+    "resample44kReopenOk": true,
+    "cancelReinstantiateOk": true
+  },
+  "finalVmHwmKb": 706200
+}

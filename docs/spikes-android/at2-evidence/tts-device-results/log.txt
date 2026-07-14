@@ -1,0 +1,20 @@
+2026-07-14T11:50:23.393067 vmhwm at start: 263536 KB
+2026-07-14T11:50:23.396337 === en ===
+2026-07-14T11:50:25.301156 extração: 1.90 s (395 entradas, 67.4 MB compactado)
+2026-07-14T11:50:26.387438 OfflineTts carregado: nativeSampleRate=22050 numSpeakers=1
+2026-07-14T11:50:31.655764 en: rtf=0.135 elapsed=5.3s audioDur=39.0s vmhwm=672624KB empty=0
+2026-07-14T11:50:31.686930 reamostragem+reabertura: {ok: true, sampleRate: 44100, numChannels: 1, bitsPerSample: 16, durationSec: 1.9504761904761905}
+2026-07-14T11:50:35.997905 cancelamento: parou em 11/20, reinstanciação após free() ok=true
+2026-07-14T11:50:35.998453 === pt ===
+2026-07-14T11:50:37.878194 extração: 1.88 s (395 entradas, 67.3 MB compactado)
+2026-07-14T11:50:38.948349 OfflineTts carregado: nativeSampleRate=22050 numSpeakers=1
+2026-07-14T11:50:44.329258 pt: rtf=0.139 elapsed=5.4s audioDur=38.6s vmhwm=672624KB empty=0
+2026-07-14T11:50:44.339007 reamostragem+reabertura: {ok: true, sampleRate: 44100, numChannels: 1, bitsPerSample: 16, durationSec: 1.6021768707482993}
+2026-07-14T11:50:48.686673 cancelamento: parou em 11/20, reinstanciação após free() ok=true
+2026-07-14T11:50:48.687635 === es ===
+2026-07-14T11:50:50.966180 extração: 2.28 s (395 entradas, 80.1 MB compactado)
+2026-07-14T11:50:51.991467 OfflineTts carregado: nativeSampleRate=22050 numSpeakers=2
+2026-07-14T11:50:57.768222 es: rtf=0.135 elapsed=5.8s audioDur=42.7s vmhwm=704092KB empty=0
+2026-07-14T11:50:57.771905 reamostragem+reabertura: {ok: true, sampleRate: 44100, numChannels: 1, bitsPerSample: 16, durationSec: 1.6718367346938776}
+2026-07-14T11:51:02.297699 cancelamento: parou em 11/20, reinstanciação após free() ok=true
+2026-07-14T11:51:02.328362 === DONE === finalVmHwm=706200KB

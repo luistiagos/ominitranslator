@@ -39,7 +39,7 @@
 | **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** (parte estática; runtime pendente da D3) | `spikes-android/AT0.md` |
 | AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **PASSOU** (slimt + `dedupRepeatedTail` no backend) | `spikes-android/AT1.md` |
 | AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | **PASSOU** (sincronia 5/6 literal; es/best 99% vs ground truth — ver §5 nota ¹) | `spikes-android/AT2.md` |
-| **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | | `spikes-android/AT2.md` |
+| **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | **PASSOU** (RTF 0,135–0,139; pico 690 MB) | `spikes-android/AT2.md` |
 | AT-3 FFmpeg | matriz completa e LGPL | | `spikes-android/AT3.md` |
 | AT-4 serviço | job 30 min em background | | `spikes-android/AT4.md` |
 | AT-5 armazenamento | SAF, exportação, StatFs e extração `.tar.gz` | | `spikes-android/AT5.md` |
@@ -120,11 +120,13 @@ O `%` em ±300 ms saiu do gate `at2_sync_report.dart` (baseline desktop: `whispe
 
 | Idioma | Voz | Frases | Tempo | RTF | RAM pico | Saída 44,1 kHz reaberta | Extração `.tar.gz` (s) | Resultado |
 |---|---|---:|---:|---:|---:|---|---:|---|
-| en | | 20 | | | | | | |
-| pt | | 20 | | | | | | |
-| es | | 20 | | | | | | |
+| en | en_US-lessac-medium | 20 | 5,3 s | 0,135 | 657 MB | sim | 1,90 s (67,4 MB) | ✅ |
+| pt | pt_BR-faber-medium | 20 | 5,4 s | 0,139 | 657 MB | sim | 1,88 s (67,3 MB) | ✅ |
+| es | es_ES-sharvard-medium | 20 | 5,8 s | 0,135 | 688 MB | sim | 2,28 s (80,1 MB) | ✅ |
 
-- Cancelamento entre segmentos encerra a síntese sem sessão órfã: [ ]
+Pico final do processo (as 3 vozes em sequência): 690 MB. Zero frase com áudio vazio (60/60). Relatório completo: `spikes-android/AT2.md` §8.
+
+- Cancelamento entre segmentos encerra a síntese sem sessão órfã: [x] (3/3 — `free()` a meio de um lote + reinstanciação bem-sucedida)
 
 ## 6. FFmpeg AT-3
 

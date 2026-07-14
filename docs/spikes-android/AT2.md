@@ -110,5 +110,54 @@ Os arquivos vieram empacotados como `sherpa-onnx-whisper-tiny.tar.bz2` / `sherpa
 ## 7. Pendências que não bloqueiam o gate
 
 - ~~Repetir `es/best` no desktop com N≥5 runs~~ — **feito** (2026-07-14): mediana de N=5 idêntica à run única (69,7%; determinístico). Fecha a questão — o desvio é do baseline, sistematicamente (§4.2).
-- Fixar URL/tag exatos dos assets do sherpa-onnx no catálogo Android (§6).
-- AT-2b (TTS Piper on-device) — próximo gate, ainda não iniciado.
+- Fixar URL/tag exatos dos assets do sherpa-onnx no catálogo Android (§6, e os das vozes Piper em §11).
+- ~~AT-2b (TTS Piper on-device)~~ — **feito**, ver §11.
+
+## 8. AT-2b — TTS Piper (VITS via `sherpa_onnx`) no device — **PASSOU**
+
+Escopo: §11.4 da spec. Reaproveitado o mesmo scaffold do AT-2 (app já instalado no moto g86, mesmo contorno de storage via `/data/local/tmp`) — só o corpo do benchmark mudou, de ASR para TTS.
+
+### 8.1 Método
+
+- **Vozes:** as mesmas já usadas em produção no desktop (`piper-en` = `en_US-lessac-medium`, `piper-pt-br` = `pt_BR-faber-medium`, `piper-es` = `es_ES-sharvard-medium`) — mas carregadas via `sherpa_onnx.OfflineTts` (VITS), não via o `piper.exe`/FFI nativo do Windows. É a mesma arquitetura de modelo (Piper exporta VITS ONNX), runtime diferente por plataforma — exatamente a premissa que o §11.4 pedia para testar, não presumir.
+- **Frases:** 20 por idioma — en/pt são as 20 primeiras da suíte do AT-1 ([at1-suite/](at1-suite/)); es é a tradução literal das mesmas 20 (mesma lista usada em `at2_gen_fixture.dart`, primeiras 20 entradas) — corpus paralelo entre os três idiomas, sem inventar frases novas.
+- **Pacotes:** cada voz empacotada como `.tar.gz` (modelo `.onnx` + `.onnx.json` + `tokens.txt` + `espeak-ng-data/`, 67–80 MB compactado) a partir dos mesmos arquivos já em produção no desktop. `espeak-ng-data` é **idêntico** entre as 3 vozes (355 arquivos, mesmo hash) — no catálogo real ele pode ser um asset compartilhado em vez de triplicado.
+- **Extração no device:** `package:archive` (`GZipDecoder` + `TarDecoder`), Dart puro — a mesma escolha já decidida para o Android (D-c) por não haver `tar` nativo.
+- **Reamostragem + reabertura:** sem FFmpegKitNext (AT-3 ainda não existe), um resampler linear + writer/reader WAV PCM16 mono próprios do spike validam o round-trip para o formato final de produção (44,1 kHz).
+- Código completo do benchmark versionado em [at2-evidence/at2b-bench-main.dart](at2-evidence/at2b-bench-main.dart).
+
+### 8.2 Resultado
+
+| Idioma | Voz | Extração `.tar.gz` | RTF | Pico de RAM (VmHWM) | 44,1 kHz PCM16 reaberto | Cancelamento entre segmentos |
+|---|---|---:|---:|---:|---|---|
+| en | en_US-lessac-medium (1 speaker) | 1,90 s (67,4 MB) | 0,135 | 657 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
+| pt | pt_BR-faber-medium (1 speaker) | 1,88 s (67,3 MB) | 0,139 | 657 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
+| es | es_ES-sharvard-medium (2 speakers) | 2,28 s (80,1 MB) | 0,135 | 688 MB | ✅ | ✅ (parou em 11/20, reinstanciação limpa) |
+
+Pico final do processo (as 3 vozes em sequência): **690 MB**. Zero frase com áudio vazio nos 60 sintetizados (20 × 3). `es_ES-sharvard-medium` reporta 2 *speakers* — modelo multi-locutor, sid=0 (o padrão usado) é uma voz válida; não afeta o resultado, só é um dado a mais para quem for escolher a voz padrão do idioma.
+
+### 8.3 Resultado formal do AT-2b
+
+| Pergunta | Resultado |
+|---|---|
+| 20 frases/idioma sintetizadas no moto g86? | **PASSOU** (60/60, zero vazias) |
+| RTF < 0,3? | **PASSOU** (0,135–0,139) |
+| Pico de memória do `OfflineTts` registrado? | **PASSOU** (657–690 MB) |
+| Saída reamostrada para PCM16 mono 44,1 kHz e reaberta com sucesso? | **PASSOU** (3/3) |
+| Tempo de extração do `.tar.gz` da voz medido no device? | **PASSOU** (1,9–2,3 s para 67–80 MB) |
+| Cancelamento entre segmentos encerra a síntese sem sessão órfã? | **PASSOU** (3/3 — `free()` + reinstanciação bem-sucedida) |
+| **AT-2b — Piper/VITS via `sherpa_onnx` aprovado para o Android M1?** | **PASSOU** |
+
+### 8.4 Modelos usados (proveniência a fechar antes da D3)
+
+| Arquivo | SHA-256 (medido, arquivos já em produção no desktop) |
+|---|---|
+| `en_US-lessac-medium.onnx` | `4ba07d8549906668ee855fd9abf9faf66c5db74742712ff026a159f7277fca9f` |
+| `piper-en/tokens.txt` | `87c8ef66eae5473ed0cc0366b3964c736ca6c5f676c979522ea31234e47430b9` |
+| `pt_BR-faber-medium.onnx` | `1eecd74d1984c73922033629de08974a4cf878f0b4b150e78146331d3d37a053` |
+| `piper-pt-br/tokens.txt` | `2619c1a9de1bcf928162f40c583caf39368cfd6b2340c7bcad51dc634411ec36` |
+| `es_ES-sharvard-medium.onnx` | `b1281e1c9d9ddd2c4c509d85b97f75ac70d28dfc0fc784c6699af7ec21866417` |
+| `piper-es/tokens.txt` | `87c8ef66eae5473ed0cc0366b3964c736ca6c5f676c979522ea31234e47430b9` |
+| `espeak-ng-data/phontab` (idêntico nas 3 vozes) | `886f3fa402cb0ba73d483aa8ad000af47a6b7cc06293c75a97913fba68a530f6` |
+
+`tokens.txt` de en e es com hash idêntico é **correto** (mesmo conjunto IPA de fonemas do espeak-ng, independente do idioma-alvo) — mesma situação já observada com os tokenizers do Whisper em §6, não um erro de cópia. Esses são os mesmos arquivos já baixados e usados em produção no desktop (`ModelManager`/`piper_synthesizer.dart`); a proveniência upstream (Hugging Face `rhasspy/piper-voices`) já está documentada lá. Pendência: registrar as entradas equivalentes no `ModelCatalog.android()` (D-c) — mesma dívida já anotada para os assets do sherpa-onnx ASR (§6).
