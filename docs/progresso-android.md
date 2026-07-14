@@ -24,7 +24,7 @@
 | D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
-| D2 | **AT-3** — FFmpegKitNext | ⬜ pendente — **plano de execução detalhado pronto**: [spikes-android/AT3-plano.md](spikes-android/AT3-plano.md) (build LGPL no WSL2, ponte Kotlin, matriz com comandos exatos de produção, checkpoints C1–C4) |
+| D2 | **AT-3** — FFmpegKitNext | ⬜ pendente — **plano de execução detalhado pronto**: [spikes-android/AT3-plano.md](spikes-android/AT3-plano.md) (build LGPL via GitHub Actions — decisão do usuário 2026-07-14 —, ponte Kotlin, matriz com comandos exatos de produção, checkpoints C1–C4) |
 | D2 | AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
