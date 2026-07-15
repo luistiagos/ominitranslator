@@ -1,0 +1,215 @@
+# Pré-requisito da D3.2 (dívida do SA-1/AT-1 — docs/spikes-android/AT1.md §"pendências"):
+# versiona o build da libslimt.so arm64 que hoje só sobrevive em cache local.
+#
+# Este arquivo É o "script de build reproduzível" (mesmo padrão do AT-3,
+# docs/spikes-android/AT3-plano.md). Vive na branch android-port (main fica
+# intocada): disparo primário é push de tag `at-slimt-build-*`.
+#
+# RISCO DE LICENÇA ACEITO (decisoes.md, 2026-07-15): slimt é GPLv2 — conflita
+# com a regra §16/#6 da spec ("sem GPL no binário distribuído"). Decisão do
+# usuário: prosseguir mesmo assim, linkando in-process como a §10.3 já
+# especifica. Isto precisa ser revisitado antes do release (checklist de D4).
+#
+# Configuração combinada de duas fontes verificadas (não inferida):
+# - SA1.md §5: a configuração que rodou de verdade no moto g86 e traduziu
+#   corretamente (BUILD_JNI=OFF — usamos dart:ffi direto no libslimt.so, não
+#   JNI/Java; BUILD_SHARED=ON + BUILD_STATIC=ON; os dois patches abaixo);
+# - scripts/ci/android/02-build.sh do próprio jerinphilip/slimt: confirma
+#   independentemente ABI=arm64-v8a, ANDROID_PLATFORM=android-28 (bate com o
+#   minSdk=28 da spec) e ANDROID_STL=c++_static.
+# NDK: r27 (27.0.12077973) — a MESMA versão pinada em app/android (D3.0,
+# build.gradle.kts) para manter um único NDK em todo o projeto. NDK ≥ r27
+# alinha 16 KB por padrão (confirmado no AT-3 e no D3.0 com .so reais).
+name: build-slimt
+
+on:
+  push:
+    tags:
+      - 'at-slimt-build-*'
+  workflow_dispatch:
+    inputs:
+      upstream_commit:
+        description: 'Commit do jerinphilip/slimt'
+        required: true
+        default: '9f0b1a20d14871cc94dbe65b7a3df128e5e81f55'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UPSTREAM_COMMIT: ${{ inputs.upstream_commit || '9f0b1a20d14871cc94dbe65b7a3df128e5e81f55' }}
+      NDK_VERSION: r27
+    steps:
+      - name: Checkout omnitranslator (só para os patches versionados)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tool/android/slimt-patches
+          sparse-checkout-cone-mode: false
+
+      - name: Instalar ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Baixar NDK r27 (27.0.12077973 — mesma versão do app/android)
+        run: |
+          wget -c --quiet https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+          unzip -qq android-ndk-${NDK_VERSION}-linux.zip
+          echo "NDK=$PWD/android-ndk-${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Checkout pinado do slimt (com submódulos)
+        run: |
+          git clone https://github.com/jerinphilip/slimt.git src
+          cd src
+          git checkout "$UPSTREAM_COMMIT"
+          git submodule update --init --recursive
+          mkdir -p ../evidence
+          git rev-parse HEAD | tee ../evidence/upstream-commit.txt
+          cp LICENSE ../evidence/LICENSE-slimt.txt
+
+      - name: Aplicar patches (SA1.md §4 — remover -Werror; PCRE2 + Ninja)
+        working-directory: src
+        run: |
+          git apply --verbose ../tool/android/slimt-patches/0001-remove-werror.patch
+          git apply --verbose ../tool/android/slimt-patches/0002-pcre2-ninja-generator.patch
+
+      - name: Configurar (CMake + NDK toolchain, arm64-v8a, API 28)
+        working-directory: src
+        run: |
+          set -x
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-28 \
+            -DANDROID_ARM_NEON=TRUE \
+            -DANDROID_STL=c++_static \
+            -DWITH_RUY=ON \
+            -DWITH_INTGEMM=OFF \
+            -DWITH_GEMMOLOGY=OFF \
+            -DWITH_BLAS=OFF \
+            -DUSE_BUILTIN_SENTENCEPIECE=ON \
+            -DSLIMT_USE_INTERNAL_PCRE2=ON \
+            -DBUILD_JNI=OFF \
+            -DWITH_TESTS=OFF \
+            -DBUILD_SHARED=ON \
+            -DBUILD_STATIC=ON \
+            -S . -B build
+
+      - name: Build
+        working-directory: src
+        run: |
+          cmake --build build --target pcre2
+          cmake --build build --target all
+
+      # Coleta best-effort: nunca falha, para o artifact sempre subir. Os
+      # gates que reprovam ficam depois do upload (mesmo padrão do AT-3).
+      - name: Coletar evidências (best-effort)
+        if: always()
+        working-directory: src
+        run: |
+          set +e
+          SO=$(find build -name 'libslimt.so' | head -1)
+          echo "SO=$SO" | tee ../evidence/so-path.txt
+          if [ -n "$SO" ]; then
+            cp "$SO" ../evidence/libslimt.so
+            cp "$SO" ../evidence/libslimt.unstripped.so
+            "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip ../evidence/libslimt.so
+            { ls -la ../evidence/libslimt.unstripped.so ../evidence/libslimt.so; \
+              sha256sum ../evidence/libslimt.unstripped.so ../evidence/libslimt.so; } \
+              | tee ../evidence/so-inventory.txt
+            # -lW: linha única — sem -W o readelf quebra cada LOAD em duas
+            # linhas e a coluna Align cai na segunda (achado do AT-3).
+            "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -lW ../evidence/libslimt.so \
+              | grep -E '^\s*LOAD' | tee ../evidence/alignment.txt
+            "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -dW ../evidence/libslimt.so \
+              | grep NEEDED | tee ../evidence/needed.txt
+          fi
+          CLI=$(find build -name 'slimt-cli' | head -1)
+          echo "CLI=$CLI" | tee ../evidence/cli-path.txt
+          if [ -n "$CLI" ]; then
+            cp "$CLI" ../evidence/slimt-cli
+          fi
+          true
+
+      - name: Publicar artifact (sempre)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimt-arm64
+          if-no-files-found: warn
+          path: evidence/**
+
+      - name: Resumo diagnóstico no Summary
+        if: always()
+        working-directory: evidence
+        run: |
+          {
+            echo "## build-slimt — diagnóstico"
+            echo "### upstream-commit"; echo '```'; cat upstream-commit.txt 2>/dev/null; echo '```'
+            echo "### so-path"; echo '```'; cat so-path.txt 2>/dev/null; echo '```'
+            echo "### so-inventory"; echo '```'; cat so-inventory.txt 2>/dev/null; echo '```'
+            echo "### alignment"; echo '```'; cat alignment.txt 2>/dev/null; echo '```'
+            echo "### needed"; echo '```'; cat needed.txt 2>/dev/null; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 'Gate 1 — libslimt.so produzida'
+        if: always()
+        working-directory: evidence
+        run: |
+          if [ ! -f libslimt.so ]; then
+            echo "::error::Gate1 libslimt.so ausente. so-path.txt: $(cat so-path.txt 2>/dev/null)"
+            exit 1
+          fi
+
+      - name: 'Gate 2 — commit pinado é o esperado'
+        if: always()
+        working-directory: evidence
+        run: |
+          GOT=$(cat upstream-commit.txt 2>/dev/null)
+          if [ "$GOT" != "$UPSTREAM_COMMIT" ]; then
+            echo "::error::Gate2 commit inesperado. esperado=$UPSTREAM_COMMIT obtido=$GOT"
+            exit 1
+          fi
+
+      - name: 'Gate 3 — todas as LOAD com Align 16 KB (múltiplo de 0x4000)'
+        if: always()
+        working-directory: evidence
+        run: |
+          if [ -z "$(cat alignment.txt 2>/dev/null)" ]; then
+            echo "::error::Gate3 alignment.txt vazio — a .so não foi produzida ou o readelf falhou"
+            exit 1
+          fi
+          # Requisito real é "múltiplo de 16384", não "igual a 0x4000"
+          # (achado do D3.0: 0x10000 = 4×16384 também é compatível). Usa
+          # aritmética do bash ($((0x...))), não awk strtonum — o awk padrão
+          # do Ubuntu (mawk) não tem strtonum, só o gawk (achado deste build).
+          BAD=""
+          while read -r line; do
+            align_hex=$(echo "$line" | awk '{print $NF}')
+            if [ $(( align_hex % 16384 )) -ne 0 ]; then
+              BAD="$BAD|$line"
+            fi
+          done < <(grep -E '^\s*LOAD' alignment.txt)
+          if [ -n "$BAD" ]; then
+            echo "::error::Gate3 LOAD com Align não múltiplo de 16384: $BAD"
+            exit 1
+          fi
+
+      - name: 'Gate 4 — dependências dinâmicas são só as esperadas (liblog/libm/libdl/libc)'
+        if: always()
+        working-directory: evidence
+        run: |
+          # SA1.md §6: NEEDED esperado é só liblog/libm/libdl/libc (libc++
+          # linkada estaticamente via ANDROID_STL=c++_static). Uma dependência
+          # nova e inesperada é sinal de que o link mudou de comportamento.
+          UNEXPECTED=$(grep -oP '\[\K[^\]]+' needed.txt 2>/dev/null \
+            | grep -vE '^(liblog\.so|libm\.so|libdl\.so|libc\.so)$' | tr '\n' '|')
+          if [ -z "$(cat needed.txt 2>/dev/null)" ]; then
+            echo "::error::Gate4 needed.txt vazio — readelf -d falhou"
+            exit 1
+          fi
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::Gate4 dependência dinâmica inesperada: $UNEXPECTED (needed.txt: $(cat needed.txt | tr '\n' '|'))"
+            exit 1
+          fi

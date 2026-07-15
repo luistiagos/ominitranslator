@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 289a16b..4d60b1b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -44,7 +44,6 @@ set(SLIMT_COMPILE_OPTIONS
+     -Wall
+     -Wextra
+     -Wno-unknown-pragmas
+-    -Werror
+     -Wno-missing-field-initializers
+     -Wno-unused-function
+     -pedantic

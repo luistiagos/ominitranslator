@@ -1,0 +1,29 @@
+diff --git a/cmake/FindPCRE2.cmake b/cmake/FindPCRE2.cmake
+index 56aa7d2..f5707f7 100644
+--- a/cmake/FindPCRE2.cmake
++++ b/cmake/FindPCRE2.cmake
+@@ -47,7 +47,14 @@ if(SLIMT_USE_INTERNAL_PCRE2)
+ 
+   include(GNUInstallDirs)
+   set(PCRE2_CONFIGURE_OPTIONS
++      # Inherit the parent generator/make program: without this the nested
++      # sub-cmake picks the host default (Visual Studio on Windows) and links
++      # against the wrong arch. Force Ninja + parent's make program.
++      -G${CMAKE_GENERATOR}
++      -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+       -DBUILD_SHARED_LIBS=OFF
++      -DPCRE2_BUILD_PCRE2GREP=OFF
++      -DPCRE2_BUILD_TESTS=OFF
+       -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+       -DCMAKE_BUILD_TYPE=Release
+       -DPCRE2_SUPPORT_JIT=${PCRE2_SUPPORT_JIT}
+@@ -82,6 +89,9 @@ if(SLIMT_USE_INTERNAL_PCRE2)
+     CONFIGURE_COMMAND ${CMAKE_COMMAND} ${PCRE2_SOURCE_DIR}
+                       ${PCRE2_CONFIGURE_OPTIONS}
+     BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR>
++    # Declare the produced static lib so Ninja knows the rule that creates it
++    # (without this the slimt link step fails: "missing and no known rule").
++    BUILD_BYPRODUCTS ${PCRE2_LIBRARIES}
+     INSTALL_DIR ${CMAKE_BINARY_DIR})
+ 
+   add_library(pcre2-lib INTERFACE)
