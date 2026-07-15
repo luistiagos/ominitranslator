@@ -36,7 +36,16 @@
 - **C3 — `--enable-openh264`.** Recomendação: **incluir** (BSD, compatível com LGPL; o `muxer.dart:42` usa `libopenh264` no fallback de re-encode, então sem ele o engine precisaria de um caminho divergente no Android). Nuance a apresentar ao usuário: o patent grant da Cisco cobre o **binário deles**, não builds do fonte — o desktop já convive com essa posição (`tools/win` tem openh264), mas a decisão de manter paridade deve ser dele. Registrar a resposta em `decisoes.md`.
 - **C4 — Falha estrutural.** Se o build falhar de forma não-óbvia por mais de ~3 tentativas de correção, ou o AAR resultante não carregar no device, parar, resumir o que foi tentado e perguntar. (A existência da tag já foi verificada: é `v8.1.0`, ver §3.1.)
 
-## 3. Fase 1 — Build LGPL (via GitHub Actions)
+## 3. Fase 1 — Build LGPL (via GitHub Actions) — ✅ CONCLUÍDA (2026-07-14)
+
+**Resultado: `at3-ffmpeg-build-5`, run [29378821127](https://github.com/luistiagos/ominitranslator/actions/runs/29378821127) — os 5 gates nomeados passaram** (AAR produzido; buildconf capturado; sem `--enable-gpl`; inventário de alinhamento existe; **todas as `.so` com `Align = 0x4000`**, i.e. 16 KB). Artifact `ffmpeg-kit-next-arm64-lgpl` (17,8 MB, id `8329000349`) publicado.
+
+Duas iterações de diagnóstico até chegar aqui (histórico completo em `decisoes.md`):
+- **build-1/2**: o step de coleta de evidências não achava os caminhos certos no layout do `nix-build` da v8.1.0 (chutes iniciais erravam) — o **build do FFmpeg em si sempre passou** desde a build-1. Corrigido tornando a coleta *best-effort* (nunca falha, artifact sempe sobe) e movendo os gates para depois do upload.
+- **build-3/4**: gate de alinhamento 16 KB reprovava, mas era **falso positivo**: `readelf -l` (sem `-W`) quebra cada `LOAD` em duas linhas e a coluna `Align` fica na segunda; o grep só via a primeira. Corrigido com `readelf -lW` (linha única) + checagem de `$NF` (última coluna) — verificado localmente antes de subir.
+- Efeito colateral útil: como download de log/artifact exige auth admin (o `gh` CLI não está instalado nesta máquina) e só a **listagem** de artifacts e as **anotações `::error::`** são legíveis anonimamente via API num repo público, os gates passaram a emitir o conteúdo real do erro nessas anotações — permitindo diagnosticar as duas iterações acima sem precisar de token nem da UI web.
+
+**Pendente para fechar a Fase 1:** baixar o artifact (exige sessão autenticada no navegador — pedir ao usuário) e re-verificar localmente conforme §3.2.
 
 ### 3.1 O workflow (é ele o "script de build versionado" da §12.1)
 
