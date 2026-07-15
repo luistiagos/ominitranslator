@@ -36,7 +36,7 @@
 
 | Gate | Critério resumido | Resultado | Relatório |
 |---|---|---|---|
-| **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** (parte estática; runtime pendente da D3) | `spikes-android/AT0.md` |
+| **AT-0 16 KB** | **todas as `.so` com `align 2**14`; app carrega em emulador 16 KB** | **PASSOU** — estática (AT0.md) **e** confirmada no APK real da D3.0: `zipalign -c -P 16` ok, `readelf -lW` com `Align` múltiplo de 16 KB em todas as 5 `.so` empacotadas (sherpa/ORT em 0x4000; `libflutter.so`/Vulkan em 0x10000, também múltiplo). Só falta o emulador 16 KB de verdade (o g86 é 4 KB e não testa isso) | `spikes-android/AT0.md`, `progresso-android.md` §3.3f |
 | AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **PASSOU** (slimt + `dedupRepeatedTail` no backend) | `spikes-android/AT1.md` |
 | AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | **PASSOU** (sincronia 5/6 literal; es/best 99% vs ground truth — ver §5 nota ¹) | `spikes-android/AT2.md` |
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | **PASSOU** (RTF 0,135–0,139; pico 690 MB) | `spikes-android/AT2.md` |

@@ -13,7 +13,7 @@
 | Fase | Item | Estado |
 |---|---|---|
 | Etapa 0 | Fechar a especificação (spec v2) | ✅ concluída |
-| D0.5 | **AT-0** — gate de 16 KB | ✅ **PASSOU** (parte estática; runtime na D3) |
+| D0.5 | **AT-0** — gate de 16 KB | ✅ **PASSOU** (estática + confirmada no APK real da D3.0, ver §3.3f) |
 | D2 | **AT-1** — tradução pt | ✅ **PASSOU** no moto g86 (slimt + `dedupRepeatedTail`) |
 | D2 | **AT-2** — ASR (Whisper ONNX + Silero VAD) | ✅ **PASSOU** no moto g86 (ver §3.3b) |
 | D2 | **AT-2b** — TTS Piper (VITS via `sherpa_onnx`) | ✅ **PASSOU** no moto g86 (ver §3.3c) |
@@ -25,10 +25,11 @@
 | D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
-| D2 | AT-4 / AT-5 | ⬜ pendente (exigem device) |
-| D3/D4 | Integração e aceite Android | ⬜ pendente |
+| **D3** | **D3.0 — scaffold `app/android`** | ✅ **feito** — build sobe no moto g86 (ver §3.3f) |
+| D3 | D3.1 SAF/StatFs (AT-5) · D3.2 backends+runtime · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
+| D4 | Aceite e release | ⬜ pendente |
 
-**A fase D1 está concluída**, e **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **322 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os quatro gates de device de IA/mídia concluídos validam as peças mais arriscadas do M1 (tradução, ASR, TTS e o FFmpeg LGPL próprio), e a infraestrutura de duas melhorias de produção derivadas do AT-2b (extração `.tar.gz` em streaming, asset de modelo compartilhado) já está pronta e testada (ver §3.3d). O próximo passo real são os gates restantes de plataforma (AT-4 foreground service, AT-5 SAF), que já entram junto da casca Android da D3.
+**A fase D1 está concluída**, **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**, e **a D3 (casca Android M1) começou**: o scaffold `app/android` existe, builda e sobe no device, com o alinhamento 16 KB confirmado no APK real. O engine continua passando **323 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Decisão do usuário (2026-07-15): AT-4 (foreground service) e AT-5 (SAF/StatFs) deixam de ser spikes isolados e passam a ser validados dentro da própria D3, já que dependem da casca Android existir de verdade. Ordem da D3: D3.1 armazenamento/SAF (=AT-5) → D3.2 backends Android + `AndroidRuntime` → D3.3 foreground service (=AT-4) → D3.4 liga a UI e roda end-to-end nos três idiomas. Pré-requisito antes da D3.2: versionar o build da `libslimt.so` (dívida do SA-1/AT-1).
 
 ---
 
@@ -117,6 +118,18 @@ O único gate que exigia **compilar** um binário nativo próprio (não há buil
 - **Fase 1 — build LGPL** via GitHub Actions (rota decidida com o usuário; o `nix-android.sh` é Linux-only e o WSL local está sem distro). FFmpegKitNext **v8.1.0** (commit `3e223118…`), arm64-v8a only, API 28, `--enable-openh264`, **sem `--enable-gpl`**. O workflow versionado (`.github/workflows/build-ffmpeg-kit-next.yml`) é o script de build reproduzível. Levou 6 iterações — nenhuma foi o FFmpeg falhando (ele compilou de primeira); foram bugs no meu script de evidências, sendo o mais importante que a prova de licença tem de vir do **binário** (`strings libavutil.so`, macro `FFMPEG_CONFIGURATION`), não de `grep "configuration:"` na árvore-fonte, que só pega format strings — os gates "passavam" sem checar nada até eu baixar o AAR e inspecionar à mão.
 - **Fase 2 — matriz no device.** App de bench descartável (`at3_bench`) com o AAR local e uma ponte Kotlin MethodChannel (API v8.1.0 verificada via `javap` — a interface `Session` usa funções, `ReturnCode`/`Statistics` usam propriedades). Os **13 casos** rodaram no moto g86 sobre esse build, comandos copiados literais do código de produção, cada output reaberto e validado por ffprobe: probe/demux/atempo/asetrate/sidechain+amix+loudnorm/segment/concat/aac/mux `-c:v copy`/re-encode openh264. Os primitivos do §12.3 provados: progresso (10 amostras de statistics), **cancelamento** (`returnCode=255`, `isCancel=true` — o sinal que o `FFmpegKitNextRunner` da D3 vai mapear) e **timeout** (`timedOut=true`, distinguível). `ALL_OK=true`.
 - Todas as 10 `.so` do AAR com `LOAD Align=0x4000` (16 KB), verificado com `readelf -lW` (o `-W` é obrigatório: sem ele o readelf quebra `LOAD` em duas linhas e esconde a coluna de alinhamento).
+
+### 3.3f D3.0 — Scaffold `app/android` — **feito**, primeiro build sobe no moto g86
+
+Início da fase D3 (casca Android M1), decisão do usuário 2026-07-15: iniciar a integração e validar AT-4/AT-5 dentro dela, em vez de mais spikes descartáveis — os 5 gates de primitivo isolado (AT-0…AT-3) já estavam todos verdes, e a casca em si (service, SAF, StatFs) não é isolável de `app/android` existir de verdade.
+
+- `flutter create --platforms=android .` dentro de `app/`, preservando `lib/` e `windows/` intactos (§13.1). Ajustado manualmente porque o gerador usa o nome do pacote Dart (`omnitranslator_app`) como applicationId, e a spec pede o nome do produto: `applicationId`/`namespace` = **`com.luistiagos.omnitranslator`**, `MainActivity.kt` movido para o pacote certo.
+- `minSdk=28`, NDK fixado em **27.0.12077973** (o default do Flutter pode ser mais velho; sherpa e o FFmpegKitNext do AT-3 exigem r27+ para alinhar 16 KB por padrão), Java/Kotlin 17, `abiFilters=["arm64-v8a"]`, `packaging.jniLibs.useLegacyPackaging=false` (§13.1/§13.2/§16.1).
+- Manifest mínimo do §13.3: `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROCESSING` — sem `MANAGE_EXTERNAL_STORAGE`/`READ_MEDIA_VIDEO`.
+- `gradle.properties` com os mesmos ajustes anti-OOM já provados nos spikes ([[at3-ffmpeg-passou]]): `-Xmx768m`, Serial GC, Kotlin in-process, 1 worker — o default do template (`-Xmx8G`) é o que estourava o commit charge desta máquina.
+- **Build debug arm64 subiu no moto g86** (PID vivo). `sherpa_onnx` já aparece como dependência transitiva do `dubbing_engine` mesmo sem nenhum backend Android escrito ainda — 5 `.so` no APK real (`libflutter`, `libVkLayer_khronos_validation` — só debug, tooling do Vulkan/Impeller —, `libonnxruntime`, `libsherpa-onnx-c-api`, `libsherpa-onnx-cxx-api`).
+- **Fecha a confirmação de runtime que o AT-0 tinha deixado pendente** (§16.1): `zipalign -c -P 16 -v 4` no APK real → **Verification succesful**; `readelf -lW` em todas as 5 `.so` → **todos os `LOAD` com `Align` múltiplo de 16 KB** (sherpa/ORT em `0x4000`; `libflutter.so` e a lib de validação Vulkan em `0x10000` — mais rígido, também compatível: 65536 = 4×16384). Só falta o teste num emulador Android 15+ de página 16 KB de verdade (o g86 é 4 KB e não exercita isso).
+- `tool/verify.ps1` continua verde (323 testes) — nada no engine mudou, só a casca nova.
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 
