@@ -27,6 +27,7 @@
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
 | **D3** | **D3.0 — scaffold `app/android`** | ✅ **feito** — build sobe no moto g86 (ver §3.3f) |
 | D3 | **D3.1 — armazenamento/SAF** (AT-5) | ✅ **PASSOU** no moto g86 (ver §3.3g) |
+| D3 | Pré-req D3.2 — build versionado da `libslimt.so` | ✅ **feito** (ver §3.3h) |
 | D3 | D3.2 backends+runtime · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
 | D4 | Aceite e release | ⬜ pendente |
 
@@ -141,6 +142,15 @@ Início da fase D3 (casca Android M1), decisão do usuário 2026-07-15: iniciar 
 - **Resultados:** `StatFs` devolve espaço real (170 GB livres); import e export SAF fazem round-trip **byte-exato com hash MD5 idêntico** nas duas direções; `extractFileToDisk` (a mesma função do `ModelManager` para `kind: 'targz'`) extraiu um modelo de tradução real de 16,7MB em 17,5s no device — achado para a D3.4: vale mostrar progresso na UI de download de modelos, porque o decoder gzip é Dart-puro e não é instantâneo em modelos maiores.
 - Relatório completo, com as duas tabelas de hash e a análise do provedor externo: [spikes-android/AT5.md](spikes-android/AT5.md).
 - `tool/verify.ps1` continua verde; 2 testes novos no engine (`AndroidDiskSpaceProbe`) e 7 testes novos no app (`android_storage_test.dart`, travando o contrato Dart↔Kotlin: nomes de método e chaves de argumento).
+
+### 3.3h Pré-requisito da D3.2 — build versionado da `libslimt.so` (dívida do SA-1) paga
+
+- `.github/workflows/build-slimt.yml` (mesmo padrão do AT-3) + patches versionados em `tool/android/slimt-patches/` — os dois patches que o SA-1 tinha aplicado manualmente (remover `-Werror`; fix de generator/`BUILD_BYPRODUCTS` no `FindPCRE2.cmake` pro Ninja), recuperados do checkout intacto que ainda sobrevivia em cache de uma sessão anterior. Fonte pinada: `jerinphilip/slimt` commit `9f0b1a20d14871cc94dbe65b7a3df128e5e81f55`, o mesmo do SA-1.
+- **Achado de licença, tratado antes de escrever o build**: o `LICENSE` do slimt é **GPLv2 genuíno**, conflitando com a regra §16/#6 da spec ("sem GPL no binário distribuído"). Nunca tinha sido checado no SA-1/AT-1 (que avaliaram só viabilidade técnica). Decisão do usuário: prosseguir mesmo assim, linkando in-process como a §10.3 já especifica — risco registrado em `decisoes.md`, a ser revisitado antes do release (o checklist de D4 vai reprovar formalmente enquanto isso não for resolvido).
+- **Achado técnico**: NDK r27 **base** (27.0.12077973, a mesma versão pinada em `app/android`) **não** alinha 16 KB por padrão — a primeira tentativa de build reprovou com `Align=0x1000`. Corrige a suposição repetida nesta sessão ("NDK ≥ r27 alinha por padrão"), que nunca tinha sido testada contra um build próprio do zero. Corrigido passando a flag de linker explicitamente (`-Wl,-z,max-page-size=16384`) em vez de confiar em defaults por versão de NDK.
+- Segunda tentativa passou os 4 gates automatizados; artifact baixado manualmente e **reverificado de forma independente** (`llvm-readelf`/hash locais reproduzem exatamente o que a CI reportou — mesmo padrão de rigor do AT-3, não confiar só no self-report).
+- Smoke test funcional no device (comparar tradução contra a saída original do SA-1) ficou pendente — o moto g86 não respondeu ao adb no momento (sem prompt de autorização, provável cabo/porta só-carga). Não bloqueia o pré-requisito: a evidência estrutural (hash, alinhamento, dependências dinâmicas idênticas ao SA-1) já é suficiente.
+- Relatório completo: [spikes-android/slimt-build.md](spikes-android/slimt-build.md).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 

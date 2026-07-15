@@ -210,4 +210,4 @@ Implementado em `packages/dubbing_engine/lib/src/steps/translation_postprocess.d
 | Velocidade ≤ 300 ms/frase e RSS ≤ 500 MB? | **PASSOU** (~20 ms, ~114 MB) |
 | **AT-1 — slimt aprovado como backend de tradução do Android M1?** | **PASSOU** (com `dedupRepeatedTail` obrigatório) |
 
-Pendências que não bloqueiam o gate: versionar o script de build do slimt no repo (dívida do SA-1, necessária antes da D3) e conferir o alinhamento 16 KB da `libslimt.so` no rebuild.
+~~Pendências que não bloqueiam o gate: versionar o script de build do slimt no repo (dívida do SA-1, necessária antes da D3) e conferir o alinhamento 16 KB da `libslimt.so` no rebuild.~~ **PAGA em 2026-07-15**: build reproduzível via GitHub Actions, 4/4 gates passam, 16 KB confirmado por dois caminhos independentes. Achado importante no processo: NDK r27 **base** não alinha 16 KB por padrão (precisou de flag de linker explícita) — ver [slimt-build.md](slimt-build.md). Smoke test funcional no device ficou pendente por indisponibilidade momentânea do moto g86, não bloqueia.
