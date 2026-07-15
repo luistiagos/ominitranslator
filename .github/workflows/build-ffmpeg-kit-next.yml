@@ -79,22 +79,8 @@ jobs:
           # do nix-build da v8.1.0 ainda não foi observado de dentro).
           find prebuilt -type f 2>/dev/null | head -200 | tee ../evidence/prebuilt-tree.txt
           find . -name '*.log' 2>/dev/null | head -50 | tee ../evidence/logs-found.txt
-          # Prova de licença — a linha de configuração do ffmpeg mora no config.log
-          # do configure (contém a linha de comando completa) e/ou numa linha
-          # "configuration:". Buscar amplamente e guardar de onde veio.
-          {
-            echo "### grep 'configuration:' em toda a árvore src:"
-            grep -rIl "configuration:" . 2>/dev/null | head -20
-            echo "### ocorrências de enable-gpl (deve ser vazio):"
-            grep -rIn -- "--enable-gpl" . 2>/dev/null | grep -v "help\|\.md\|usage" | head -20
-            echo "### config.log do ffmpeg (linha de configure):"
-            for cl in $(find . -name config.log -path '*ffmpeg*' 2>/dev/null | head -5); do
-              echo "--- $cl ---"; grep -m1 -i "configuration\|configure " "$cl"
-            done
-          } | tee ../evidence/buildconf-search.txt
-          # Melhor tentativa de um buildconf.txt limpo:
-          grep -rIh "configuration:" . 2>/dev/null | sort -u | head -5 > ../evidence/buildconf.txt
-          # AAR + .so:
+          # AAR + .so primeiro — a prova de licença real (abaixo) precisa dos
+          # binários já extraídos.
           AAR=$(find prebuilt -name '*.aar' 2>/dev/null | head -1)
           echo "AAR=$AAR" | tee ../evidence/aar-path.txt
           if [ -n "$AAR" ]; then
@@ -110,6 +96,23 @@ jobs:
               echo "== $so =="; readelf -lW "$so" 2>/dev/null | grep -E '^\s*LOAD'
             done | tee ../evidence/alignment.txt
           fi
+          # Prova de licença REAL: o FFmpeg embute a linha exata do ./configure
+          # (macro FFMPEG_CONFIGURATION) como string constante no próprio
+          # binário compilado — extraída com `strings`, não com grep na árvore
+          # fonte. (grep "configuration:" no source só pega format strings tipo
+          # `av_log(..., "%s%-11s configuration: %s\n", ...)` — não a linha real;
+          # foi o que aconteceu nos builds 1-5: buildconf.txt "passava" o Gate2/3
+          # sem checar nada de verdade. Verificado localmente com llvm-strings
+          # contra este mesmo .so antes de mudar isto.)
+          LIBAVUTIL=$(find ../evidence/so -name 'libavutil.so' 2>/dev/null | head -1)
+          if [ -n "$LIBAVUTIL" ]; then
+            strings "$LIBAVUTIL" 2>/dev/null | grep -m1 -- "--target-os=" \
+              | tee ../evidence/buildconf.txt
+          fi
+          {
+            echo "### buildconf extraído de: $LIBAVUTIL"
+            echo "### tamanho do buildconf.txt: $(wc -c < ../evidence/buildconf.txt 2>/dev/null || echo 0) bytes"
+          } | tee ../evidence/buildconf-search.txt
           true
 
       - name: Publicar artifact (sempre)
@@ -152,13 +155,17 @@ jobs:
             echo "::error::Gate1 AAR ausente. aar-path.txt: $V"
             exit 1
           fi
-      - name: 'Gate 2 — buildconf capturado'
+      - name: 'Gate 2 — buildconf capturado (linha real do configure, não coincidência de texto)'
         if: always()
         working-directory: evidence
         run: |
-          if [ ! -s buildconf.txt ]; then
-            V=$(cat buildconf-search.txt 2>/dev/null | tr '\n' '|' | cut -c1-800)
-            echo "::error::Gate2 buildconf vazio. buildconf-search.txt: $V"
+          # --target-os= só existe na linha de configure de verdade — um
+          # buildconf.txt "não-vazio" por si só não prova nada (foi o bug dos
+          # builds 1-5: passava com conteúdo irrelevante).
+          if [ ! -s buildconf.txt ] || ! grep -q -- "--target-os=" buildconf.txt; then
+            V=$(cat buildconf-search.txt 2>/dev/null | tr '\n' '|' | cut -c1-500)
+            C=$(cat buildconf.txt 2>/dev/null | tr '\n' '|' | cut -c1-500)
+            echo "::error::Gate2 buildconf sem --target-os= (não é a linha real). buildconf.txt: $C | search: $V"
             exit 1
           fi
       - name: 'Gate 3 — sem --enable-gpl'
