@@ -29,3 +29,16 @@ class FixedDiskSpaceProbe implements DiskSpaceProbe {
   @override
   Future<int?> freeBytes(String path) async => bytes;
 }
+
+/// Android: `StatFs` vem por `MethodChannel`, que é `package:flutter`. Este
+/// pacote é Dart puro (nenhuma dependência de Flutter) — por isso a chamada
+/// de verdade é injetada pela camada do app, não implementada aqui. Mesmo
+/// padrão de [DiskSpaceProbe] em si: o engine pede a CAPACIDADE, quem monta
+/// o app é que resolve para a API concreta da plataforma.
+class AndroidDiskSpaceProbe implements DiskSpaceProbe {
+  final Future<int?> Function(String path) _freeBytes;
+  const AndroidDiskSpaceProbe(this._freeBytes);
+
+  @override
+  Future<int?> freeBytes(String path) => _freeBytes(path);
+}

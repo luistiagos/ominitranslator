@@ -36,4 +36,21 @@ void main() {
       await expectLater(probe.freeBytes(r'Z:\nao\existe'), completes);
     });
   });
+
+  group('AndroidDiskSpaceProbe', () {
+    test('delega ao callback injetado, com o path certo', () async {
+      String? received;
+      final probe = AndroidDiskSpaceProbe((path) async {
+        received = path;
+        return 999;
+      });
+      expect(await probe.freeBytes('/storage/emulated/0/foo'), 999);
+      expect(received, '/storage/emulated/0/foo');
+    });
+
+    test('propaga null quando o callback não sabe responder', () async {
+      final probe = AndroidDiskSpaceProbe((_) async => null);
+      expect(await probe.freeBytes('/x'), isNull);
+    });
+  });
 }
