@@ -42,7 +42,7 @@
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | **PASSOU** (RTF 0,135–0,139; pico 690 MB) | `spikes-android/AT2.md` |
 | AT-3 FFmpeg | matriz completa e LGPL | **PASSOU** (build LGPL v8.1.0 próprio; 13/13 casos no moto g86) | `spikes-android/AT3.md` |
 | AT-4 serviço | job 30 min em background | | `spikes-android/AT4.md` |
-| AT-5 armazenamento | SAF, exportação, StatFs e extração `.tar.gz` | | `spikes-android/AT5.md` |
+| AT-5 armazenamento | SAF, exportação, StatFs e extração `.tar.gz` | **PASSOU** (StatFs real; import/export SAF byte-exato/hash idêntico; extração `.tar.gz` de produção medida em 17,5s/16,7MB) | `spikes-android/AT5.md` |
 
 Valores permitidos em Resultado: `PASSOU`, `FALHOU`, `NÃO TESTADO`.
 
@@ -190,13 +190,16 @@ As colunas `±300ms`, `Overflow` e `Cauda cortada` saem do `sync_report.json` ge
 
 | Cenário | Resultado esperado | Resultado |
 |---|---|---|
-| importar vídeo por Files/Downloads | copia para workdir | |
-| importar por outro document provider | copia ou informa incompatibilidade | |
-| espaço abaixo da fórmula | bloqueia antes do job | |
-| usuário cancela destino | preserva `completedPendingExport` | |
-| exportar novamente | não reprocessa | |
-| desinstalação | outputs externos permanecem | |
-| permissões amplas | nenhuma solicitada | |
+| importar vídeo por Files/Downloads | copia para workdir | ✅ (1.045.335 bytes, hash idêntico ao original, ver AT5.md §3) |
+| importar por outro document provider | copia ou informa incompatibilidade | ✅ por construção — `ContentResolver.openInputStream` é provider-agnostic; Drive visível no picker mas não clicado manualmente (AT5.md §3) |
+| exportar para Downloads | copia do workdir para o destino escolhido | ✅ (1.045.335 bytes, hash idêntico, ver AT5.md §3) |
+| espaço abaixo da fórmula | bloqueia antes do job | pendente (depende do job real, D3.3/D3.4) |
+| usuário cancela destino | preserva `completedPendingExport` | pendente (depende do job real, D3.3/D3.4) |
+| exportar novamente | não reprocessa | pendente (depende do job real, D3.3/D3.4) |
+| desinstalação | outputs externos permanecem | pendente |
+| permissões amplas | nenhuma solicitada | ✅ (manifest só tem os 4 itens do §13.3, sem `MANAGE_EXTERNAL_STORAGE`/`READ_MEDIA_VIDEO`) |
+| `StatFs` devolve espaço real | valor > 0 num path existente | ✅ (170.178.433.024 bytes, ver AT5.md §2) |
+| tempo de extração `.tar.gz` | medido no device | ✅ (17,5s / 16,7MB comprimidos, `extractFileToDisk` de produção, ver AT5.md §4) |
 
 ## 10. Compatibilidade e distribuição
 

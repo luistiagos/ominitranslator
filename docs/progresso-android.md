@@ -1,6 +1,6 @@
 # Progresso do port Android — registro de andamento
 
-**Última atualização:** 2026-07-14
+**Última atualização:** 2026-07-15
 **Branch de trabalho:** `android-port` (todo o trabalho abaixo vive aqui, à frente de `main`; contagem exata via `git rev-list --count main..android-port`)
 **Branch estável:** `main` em `b15c821` — desktop exatamente como antes, 199 testes; é a âncora para voltar se algo der errado.
 
@@ -26,10 +26,11 @@
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
 | **D3** | **D3.0 — scaffold `app/android`** | ✅ **feito** — build sobe no moto g86 (ver §3.3f) |
-| D3 | D3.1 SAF/StatFs (AT-5) · D3.2 backends+runtime · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
+| D3 | **D3.1 — armazenamento/SAF** (AT-5) | ✅ **PASSOU** no moto g86 (ver §3.3g) |
+| D3 | D3.2 backends+runtime · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
 | D4 | Aceite e release | ⬜ pendente |
 
-**A fase D1 está concluída**, **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**, e **a D3 (casca Android M1) começou**: o scaffold `app/android` existe, builda e sobe no device, com o alinhamento 16 KB confirmado no APK real. O engine continua passando **323 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Decisão do usuário (2026-07-15): AT-4 (foreground service) e AT-5 (SAF/StatFs) deixam de ser spikes isolados e passam a ser validados dentro da própria D3, já que dependem da casca Android existir de verdade. Ordem da D3: D3.1 armazenamento/SAF (=AT-5) → D3.2 backends Android + `AndroidRuntime` → D3.3 foreground service (=AT-4) → D3.4 liga a UI e roda end-to-end nos três idiomas. Pré-requisito antes da D3.2: versionar o build da `libslimt.so` (dívida do SA-1/AT-1).
+**A fase D1 está concluída**, **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**, e **a D3 (casca Android M1) está em andamento**: o scaffold `app/android` existe e builda no device (D3.0), e **AT-5 (StatFs + SAF) passou** dentro da D3.1 (ver §3.3g) — código de produção real (`MainActivity.kt`, `AndroidDiskSpaceProbe`, `android_storage.dart`), não spike descartável. O engine continua passando **323 testes**, com o pipeline real dublando ponta a ponta a 100% de sincronia. Decisão do usuário (2026-07-15): AT-4 (foreground service) e AT-5 (SAF/StatFs) deixam de ser spikes isolados e passam a ser validados dentro da própria D3, já que dependem da casca Android existir de verdade. Ordem da D3: D3.1 armazenamento/SAF (=AT-5, ✅) → D3.2 backends Android + `AndroidRuntime` → D3.3 foreground service (=AT-4) → D3.4 liga a UI e roda end-to-end nos três idiomas. Pré-requisito antes da D3.2: versionar o build da `libslimt.so` (dívida do SA-1/AT-1).
 
 ---
 
@@ -130,6 +131,16 @@ Início da fase D3 (casca Android M1), decisão do usuário 2026-07-15: iniciar 
 - **Build debug arm64 subiu no moto g86** (PID vivo). `sherpa_onnx` já aparece como dependência transitiva do `dubbing_engine` mesmo sem nenhum backend Android escrito ainda — 5 `.so` no APK real (`libflutter`, `libVkLayer_khronos_validation` — só debug, tooling do Vulkan/Impeller —, `libonnxruntime`, `libsherpa-onnx-c-api`, `libsherpa-onnx-cxx-api`).
 - **Fecha a confirmação de runtime que o AT-0 tinha deixado pendente** (§16.1): `zipalign -c -P 16 -v 4` no APK real → **Verification succesful**; `readelf -lW` em todas as 5 `.so` → **todos os `LOAD` com `Align` múltiplo de 16 KB** (sherpa/ORT em `0x4000`; `libflutter.so` e a lib de validação Vulkan em `0x10000` — mais rígido, também compatível: 65536 = 4×16384). Só falta o teste num emulador Android 15+ de página 16 KB de verdade (o g86 é 4 KB e não exercita isso).
 - `tool/verify.ps1` continua verde (323 testes) — nada no engine mudou, só a casca nova.
+
+### 3.3g D3.1 — Armazenamento/SAF — **AT-5 PASSOU** no moto g86
+
+- `AndroidDiskSpaceProbe implements DiskSpaceProbe` (`disk_space_probe.dart`) — injeta um callback assíncrono em vez de chamar `MethodChannel` direto, porque o `dubbing_engine` é Dart puro (zero dependência de `package:flutter`, mesma regra que já valia para `MediaToolRunner`/`RunToolFn`).
+- `app/lib/src/platform/android_storage.dart` — a ponte real do app: `createAndroidDiskSpaceProbe()`, `pickImportDocument()`, `pickExportLocation()`, `copyUriToLocalFile()`, `copyLocalFileToUri()`, todas sobre `MethodChannel('omnitranslator/storage')`.
+- `MainActivity.kt` ganhou o handler do canal: `StatFs` (sobe a árvore até achar um ancestral que existe), `ACTION_OPEN_DOCUMENT`/`ACTION_CREATE_DOCUMENT` via **`startActivityForResult`/`onActivityResult` clássico** — `FlutterActivity` estende `Activity` puro, não `ComponentActivity`, então `registerForActivityResult` não está disponível mesmo com `activity-ktx` declarado (achado verificado: adicionar a dependência não resolveu o erro de compilação; só a troca de padrão resolveu).
+- **Validado no device com o app de produção** (não um bench descartável): `main.dart` foi trocado temporariamente por uma tela mínima de 5 botões só para poder rodar os MethodChannels sem esperar o `AndroidRuntime` (D3.2), depois revertido byte a byte (`diff` conferido) antes do commit — nenhum código de teste ficou no `main.dart` commitado.
+- **Resultados:** `StatFs` devolve espaço real (170 GB livres); import e export SAF fazem round-trip **byte-exato com hash MD5 idêntico** nas duas direções; `extractFileToDisk` (a mesma função do `ModelManager` para `kind: 'targz'`) extraiu um modelo de tradução real de 16,7MB em 17,5s no device — achado para a D3.4: vale mostrar progresso na UI de download de modelos, porque o decoder gzip é Dart-puro e não é instantâneo em modelos maiores.
+- Relatório completo, com as duas tabelas de hash e a análise do provedor externo: [spikes-android/AT5.md](spikes-android/AT5.md).
+- `tool/verify.ps1` continua verde; 2 testes novos no engine (`AndroidDiskSpaceProbe`) e 7 testes novos no app (`android_storage_test.dart`, travando o contrato Dart↔Kotlin: nomes de método e chaves de argumento).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 
