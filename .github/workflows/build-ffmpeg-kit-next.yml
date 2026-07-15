@@ -135,23 +135,52 @@ jobs:
       # Gate dividido em checagens NOMEADAS: cada conclusão é legível via API
       # anonimamente (nome + success/failure), então a próxima run diz por si
       # qual asserção reprovou, sem eu precisar ler log. Todas rodam (always).
+      # Cada gate, ao falhar, emite ::error:: com o conteúdo real — essas
+      # mensagens SÃO legíveis anonimamente via
+      # GET /repos/{owner}/{repo}/check-runs/{id}/annotations (confirmado
+      # em 2026-07-14; download de log/artifact exige auth, annotations não).
       - name: 'Gate 1 — AAR produzido'
         if: always()
         working-directory: evidence
-        run: test -f ffmpeg-kit.aar
+        run: |
+          if [ ! -f ffmpeg-kit.aar ]; then
+            V=$(cat aar-path.txt 2>/dev/null | tr '\n' ' ' | cut -c1-300)
+            echo "::error::Gate1 AAR ausente. aar-path.txt: $V"
+            exit 1
+          fi
       - name: 'Gate 2 — buildconf capturado'
         if: always()
         working-directory: evidence
-        run: test -s buildconf.txt
+        run: |
+          if [ ! -s buildconf.txt ]; then
+            V=$(cat buildconf-search.txt 2>/dev/null | tr '\n' '|' | cut -c1-800)
+            echo "::error::Gate2 buildconf vazio. buildconf-search.txt: $V"
+            exit 1
+          fi
       - name: 'Gate 3 — sem --enable-gpl'
         if: always()
         working-directory: evidence
-        run: '! grep -q -- "--enable-gpl" buildconf.txt'
+        run: |
+          if grep -q -- "--enable-gpl" buildconf.txt 2>/dev/null; then
+            echo "::error::Gate3 --enable-gpl presente: $(cat buildconf.txt | tr '\n' '|' | cut -c1-500)"
+            exit 1
+          fi
       - name: 'Gate 4 — inventário de alinhamento existe'
         if: always()
         working-directory: evidence
-        run: test -s alignment.txt
+        run: |
+          if [ ! -s alignment.txt ]; then
+            V=$(find so -name '*.so' 2>/dev/null | tr '\n' '|' | cut -c1-500)
+            echo "::error::Gate4 alignment.txt vazio. .so encontradas: $V"
+            exit 1
+          fi
       - name: 'Gate 5 — todas as .so com LOAD 0x4000 (16 KB)'
         if: always()
         working-directory: evidence
-        run: '! grep -E "^\s*LOAD" alignment.txt | grep -qv "0x4000"'
+        run: |
+          BAD=$(grep -E "^\s*LOAD" alignment.txt 2>/dev/null | grep -v "0x4000" | tr '\n' '|' | cut -c1-800)
+          if [ -n "$BAD" ]; then
+            echo "::error::Gate5 LOAD fora de 16KB: $BAD"
+            echo "::error::Gate5 alignment.txt completo: $(cat alignment.txt | tr '\n' '|' | cut -c1-1500)"
+            exit 1
+          fi
