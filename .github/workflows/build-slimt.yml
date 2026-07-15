@@ -77,6 +77,18 @@ jobs:
         working-directory: src
         run: |
           set -x
+          # -Wl,-z,max-page-size=16384: NÃO confiar no default do NDK por
+          # versão — o r27 BASE (27.0.12077973, a mesma versão pinada em
+          # app/android) linka em 4 KB (0x1000) sem esta flag (achado desta
+          # build: build-slimt run 29446177326, Gate 3 reprovou com
+          # Align=0x1000). O AT-3 usou r27d via Nix e saiu 16 KB, mas isso
+          # não prova que o default do r27d seja 16 KB — o próprio script de
+          # build do FFmpegKitNext pode passar a flag por conta própria. Não
+          # inferir "NDK >= r27 alinha por padrão" de novo: pedir 16 KB
+          # explicitamente é o que a própria documentação da Android NDK
+          # recomenda para quem precisa de garantia antes do r28 (onde vira
+          # default).
+          ALIGN_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
@@ -84,6 +96,8 @@ jobs:
             -DANDROID_PLATFORM=android-28 \
             -DANDROID_ARM_NEON=TRUE \
             -DANDROID_STL=c++_static \
+            -DCMAKE_SHARED_LINKER_FLAGS="$ALIGN_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$ALIGN_FLAGS" \
             -DWITH_RUY=ON \
             -DWITH_INTGEMM=OFF \
             -DWITH_GEMMOLOGY=OFF \
