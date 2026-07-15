@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "state": "COMPLETED",
+  "returnCode": 255,
+  "isCancel": true,
+  "isSuccess": false,
+  "note": "state=COMPLETED isCancel=true"
+}

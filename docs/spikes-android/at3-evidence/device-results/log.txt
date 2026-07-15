@@ -1,0 +1,14 @@
+2026-07-15T00:45:26.189125 === AT-3 matriz ===
+2026-07-15T00:45:26.427274 01_probe: ok=true dur=60.0
+2026-07-15T00:45:26.986025 02_demux: ok=true dur=60.000363
+2026-07-15T00:45:27.540052 03_atempo: ok=true dur=48.000181 (esperado ~48)
+2026-07-15T00:45:28.292876 04_asetrate_aresample: ok=true rate=50715 dur=59.994376
+2026-07-15T00:45:33.304617 05_sidechain_amix_loudnorm: ok=true dur=60.0 progress=10
+2026-07-15T00:45:33.509624 08a_segment: ok=true 6 partes
+2026-07-15T00:45:34.074855 08b_concat: ok=true dur=60.0
+2026-07-15T00:45:36.400621 09_aac192k: ok=true codec=aac
+2026-07-15T00:45:42.160315 10_mux_copy: ok=true v=h264:true audio=2
+2026-07-15T00:45:46.923312 11_reencode_openh264: ok=true v=h264:true
+2026-07-15T00:45:49.130987 12_cancel: ok=true state=COMPLETED isCancel=true
+2026-07-15T00:45:52.164302 13_timeout: ok=true timedOut=true state=RUNNING
+2026-07-15T00:45:52.165403 === DONE === ALL_OK=true

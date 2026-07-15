@@ -9,7 +9,7 @@
 | Commit OmniTranslator | |
 | Flutter/Dart | |
 | sherpa_onnx | |
-| FFmpegKitNext tag/commit | |
+| FFmpegKitNext tag/commit | v8.1.0 / `3e223118e6e8fb6208693ecf3952e77cd096f587` (LGPL, arm64, openh264) |
 | Backend de tradução | slimt / bergamot |
 | Commit do backend de tradução | |
 | NDK/CMake | |
@@ -40,7 +40,7 @@
 | AT-1 tradução | en↔pt aprovado, 100 frases/direção (tiny) | **PASSOU** (slimt + `dedupRepeatedTail` no backend) | `spikes-android/AT1.md` |
 | AT-2 ASR | en/pt/es, tiny/base, RTF < 1, **≥90% em ±300 ms** | **PASSOU** (sincronia 5/6 literal; es/best 99% vs ground truth — ver §5 nota ¹) | `spikes-android/AT2.md` |
 | **AT-2b TTS** | **Piper no device: RTF < 0,3, memória, 44,1 kHz** | **PASSOU** (RTF 0,135–0,139; pico 690 MB) | `spikes-android/AT2.md` |
-| AT-3 FFmpeg | matriz completa e LGPL | | `spikes-android/AT3.md` |
+| AT-3 FFmpeg | matriz completa e LGPL | **PASSOU** (build LGPL v8.1.0 próprio; 13/13 casos no moto g86) | `spikes-android/AT3.md` |
 | AT-4 serviço | job 30 min em background | | `spikes-android/AT4.md` |
 | AT-5 armazenamento | SAF, exportação, StatFs e extração `.tar.gz` | | `spikes-android/AT5.md` |
 
@@ -128,30 +128,34 @@ Pico final do processo (as 3 vozes em sequência): 690 MB. Zero frase com áudio
 
 - Cancelamento entre segmentos encerra a síntese sem sessão órfã: [x] (3/3 — `free()` a meio de um lote + reinstanciação bem-sucedida)
 
-## 6. FFmpeg AT-3
+## 6. FFmpeg AT-3 — **PASSOU** (2026-07-15, moto g86, build LGPL próprio v8.1.0)
 
 | Recurso | Comando/fixture | Output validado | Cancelamento | Resultado |
 |---|---|---|---|---|
-| ffprobe JSON | | | n/a | |
-| demux PCM16 | | | | |
-| atempo | | | | |
-| asetrate/aresample | | | | |
-| amix | | | | |
-| sidechaincompress | | | | |
-| loudnorm | | | | |
-| segment/concat | | | | |
-| AAC 192k | | | | |
-| mux `-c:v copy` | | | | |
+| ffprobe JSON | `-print_format json -show_format -show_streams` / fixture.mp4 | h264+aac, dur 60,0 s | n/a | ✅ |
+| demux PCM16 | `-vn -ac 2 -ar 44100 -c:a pcm_s16le` | pcm_s16le/2ch/44100, 60,0 s | ok | ✅ |
+| atempo | `atempo=1.2500` | dur 48,0 s | ok | ✅ |
+| asetrate/aresample | `asetrate=50715,aresample=44100,atempo=0.8696` | 44100 Hz, 59,99 s | ok | ✅ |
+| amix | `amix=inputs=2:duration=first:normalize=0` (no filtergraph de mix) | pcm_s16le, 60,0 s | ok | ✅ |
+| sidechaincompress | `sidechaincompress=threshold=0.02:ratio=12:...` (idem) | idem | ok | ✅ |
+| loudnorm | `loudnorm=I=-16:TP=-1.5:LRA=11` (idem) | idem, 10 amostras progresso | ok | ✅ |
+| segment/concat | `-f segment -segment_time 10` / `-f concat -safe 0` | 6 partes / 60,0 s | ok | ✅ |
+| AAC 192k | `-c:a aac -b:a 192k` | codec aac | ok | ✅ |
+| mux `-c:v copy` | `-map 0:v -map 1:a -map 0:a -c:v copy ... language` | v=h264 (copy), 2 faixas, tags | ok | ✅ |
 
-Configuração FFmpeg completa:
+Cancelamento (sessão longa): `returnCode=255`, `isCancel=true`, `isSuccess=false` — distinguível. Timeout: `timedOut=true`, distinguível de erro. Progresso: 10 amostras crescentes de statistics. Re-encode fallback openh264: v=h264 ✅. Relatório completo: `spikes-android/AT3.md`.
+
+Configuração FFmpeg (extraída do binário `libavutil.so`, não da árvore-fonte — `at3-evidence/build-ffmpeg-configuration.txt`):
 
 ```text
-preencher saída -buildconf
+... --enable-version3 --arch=aarch64 --cpu=armv8-a --target-os=android ... --enable-libopenh264 --disable-openssl --disable-zlib --disable-mediacodec
+(sem --enable-gpl; sem x264/x265/vidstab/rubberband)
 ```
 
-- `--enable-gpl` ausente: [ ]
-- inventário de `.so` anexado: [ ]
-- notices atualizados: [ ]
+- `--enable-gpl` ausente: [x] (verificado no binário compilado)
+- inventário de `.so` anexado: [x] (`AT3.md` §1.1; 10 `.so` arm64-v8a, todas `Align=0x4000`)
+- notices atualizados: [x] (LGPL v3 + BSD/openh264 embutidos no AAR; a fazer no app real da D3)
+- FFmpegKitNext tag/commit: **v8.1.0 / `3e223118e6e8fb6208693ecf3952e77cd096f587`**
 
 ## 7. End-to-end — seis direções
 

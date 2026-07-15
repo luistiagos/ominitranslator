@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "ffmpeg": {
+    "state": "COMPLETED",
+    "returnCode": 0,
+    "isSuccess": true,
+    "isCancel": false,
+    "elapsedMs": 4645,
+    "progressSampleCount": 9,
+    "logsTail": "libavcodec     62. 28.102 / 62. 28.102 |   libavformat    62. 12.102 / 62. 12.102 |   libavdevice    62.  3.102 / 62.  3.102 |   libavfilter    11. 14.102 / 11. 14.102 |   libswscale      9.  5.102 /  9.  5.102 |   libswresample   6.  3.102 /  6.  3.102"
+  },
+  "videoIsH264": true,
+  "note": "v=h264:true"
+}

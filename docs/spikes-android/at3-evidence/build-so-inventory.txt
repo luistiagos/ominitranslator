@@ -1,0 +1,20 @@
+-rw-r--r-- 1 runner runner 72392 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libswresample.so
+-rw-r--r-- 1 runner runner 558184 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libavutil.so
+-rw-r--r-- 1 runner runner 2225528 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libavformat.so
+-rw-r--r-- 1 runner runner 2914384 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libavfilter.so
+-rw-r--r-- 1 runner runner 56112 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libavdevice.so
+-rw-r--r-- 1 runner runner 560864 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libffmpegkit.so
+-rw-r--r-- 1 runner runner 1794776 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libc++_shared.so
+-rw-r--r-- 1 runner runner 38072 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libffmpegkit_abidetect.so
+-rw-r--r-- 1 runner runner 9445272 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libavcodec.so
+-rw-r--r-- 1 runner runner 545376 Feb  1  1980 ../evidence/so/jni/arm64-v8a/libswscale.so
+51d5d9e1f76397dbe434e09790fb97136e8d456d2a71e571dcdbe9929d61d6ef  ../evidence/so/jni/arm64-v8a/libswresample.so
+f54f99dec7faa7cb00747ea4d3c6540cc39f6c7e2453b78731fb3c707877a53c  ../evidence/so/jni/arm64-v8a/libavutil.so
+8dc4dc9ad3326666720e34059796887edd472cd0213e5dfde263923def0f8920  ../evidence/so/jni/arm64-v8a/libavformat.so
+860c5fb7d3b6b9e45c1927480dc2726ebdffe5f1936b984cd8ee9bae129db89f  ../evidence/so/jni/arm64-v8a/libavfilter.so
+a5fd423a90332478c6427261eb10b318d94764861b2d9a093bcd9b6c52973902  ../evidence/so/jni/arm64-v8a/libavdevice.so
+4a81dc977f8ae951d54926741cb36df024bb05537261cd33998bf675dbf247f4  ../evidence/so/jni/arm64-v8a/libffmpegkit.so
+d523468d62d9b603cb3354294d70d4b2feabf2c3f1e43b0c96c9aabf32813708  ../evidence/so/jni/arm64-v8a/libc++_shared.so
+2811389badf07eaf68a0a3ccc860e18a709625fafa675cc6c26342bdbf667b13  ../evidence/so/jni/arm64-v8a/libffmpegkit_abidetect.so
+48233221b7918daa8e52fc425e7c3ef327a32b3f67fc6825e4c5f9bb13765fb1  ../evidence/so/jni/arm64-v8a/libavcodec.so
+0a982281e1836842d49a17172c8ab6890cf17ff2846828cdf55ba2af474cafdd  ../evidence/so/jni/arm64-v8a/libswscale.so

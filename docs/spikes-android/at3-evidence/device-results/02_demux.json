@@ -1,0 +1,53 @@
+{
+  "ok": true,
+  "ffmpeg": {
+    "state": "COMPLETED",
+    "returnCode": 0,
+    "isSuccess": true,
+    "isCancel": false,
+    "elapsedMs": 405,
+    "progressSampleCount": 1,
+    "logsTail": "ffmpeg version n8.1.2 Copyright (c) 2000-2026 the FFmpeg developers |   built with Android (13691557, +pgo, +bolt, +lto, +mlgo, based on r522817d) clang version 18.0.4 (https://android.googlesource.com/toolchain/llvm-project d8003a456d14a3deb8054cdaa529ffbf02d9b262) |   configuration: --cross-prefix=aarch64-linux-android- --sysroot=/nix/store/6sd6s3z4zc0cv300biwa1gq66b1p8kg7-androidsdk/libexec/android-sdk/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/sysroot --prefix=/home/runner/work/ominitranslator/ominitranslator/src/prebuilt/android-arm64-28/ffmpeg --pkg-config=/nix/store/h5rj7l2nxnhwz88jj5ljkpr1dz3x0p0f-pkg-config-wrapper-0.29.2/bin/pkg-config --enable-version3 --arch=aarch64 --cpu=armv8-a --target-os=android --enable-neon --enable-asm --enable-inline-asm --ar=llvm-ar --cc=aarch64-linux-android28-clang --cxx=aarch64-linux-android28-clang++ --ranlib=llvm-ranlib --strip=llvm-strip --nm=llvm-nm --extra-libs='-L/home/runner/work/ominitranslator/ominitranslator/src/prebuilt/android-arm64-28/cpu-features/lib -lndk_compat' --disable-autodetect --enable-cross-compile --enable-pic --enable-jni --enable-optimizations --enable-swscale --disable-static --enable-shared --enable-pthreads --enable-v4l2-m2m --disable-outdev=fbdev --disable-indev=fbdev --enable-small --disable-xmm-clobber-test --disable-debug --enable-lto --disable-neon-clobber-test --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-sndio --disable-schannel --disable-securetransport --disable-xlib --disable-cuda --disable-cuvid --disable-nvenc --disable-vaapi --disable-vdpau --disable-videotoolbox --disable-audiotoolbox --disable-appkit --disable-alsa --disable-cuda --disable-cuvid --disable-nvenc --disable-vaapi --disable-vdpau --disable-sdl2 --enable-libopenh264 --disable-openssl --disable-zlib --disable-mediacodec |   libavutil      60. 26.102 / 60. 26.102 |   libavcodec     62. 28.102 / 62. 28.102 |   libavformat    62. 12.102 / 62. 12.102"
+  },
+  "probe": {
+    "index": 0,
+    "codec_name": "pcm_s16le",
+    "codec_long_name": "unknown",
+    "codec_type": "audio",
+    "codec_tag_string": "[1][0][0][0]",
+    "codec_tag": "0x0001",
+    "sample_fmt": "s16",
+    "sample_rate": "44100",
+    "channels": 2,
+    "bits_per_sample": 16,
+    "initial_padding": 0,
+    "r_frame_rate": "0/0",
+    "avg_frame_rate": "0/0",
+    "time_base": "1/44100",
+    "duration_ts": 2646016,
+    "duration": "60.000363",
+    "bit_rate": "1411200",
+    "disposition": {
+      "default": 0,
+      "dub": 0,
+      "original": 0,
+      "comment": 0,
+      "lyrics": 0,
+      "karaoke": 0,
+      "forced": 0,
+      "hearing_impaired": 0,
+      "visual_impaired": 0,
+      "clean_effects": 0,
+      "attached_pic": 0,
+      "timed_thumbnails": 0,
+      "non_diegetic": 0,
+      "captions": 0,
+      "descriptions": 0,
+      "metadata": 0,
+      "dependent": 0,
+      "still_image": 0,
+      "multilayer": 0
+    }
+  },
+  "note": "dur=60.000363"
+}

@@ -17,6 +17,7 @@
 | D2 | **AT-1** — tradução pt | ✅ **PASSOU** no moto g86 (slimt + `dedupRepeatedTail`) |
 | D2 | **AT-2** — ASR (Whisper ONNX + Silero VAD) | ✅ **PASSOU** no moto g86 (ver §3.3b) |
 | D2 | **AT-2b** — TTS Piper (VITS via `sherpa_onnx`) | ✅ **PASSOU** no moto g86 (ver §3.3c) |
+| D2 | **AT-3** — FFmpegKitNext (build LGPL próprio) | ✅ **PASSOU** no moto g86 (ver §3.3e) |
 | D1 | Correções de qualidade no engine (valem p/ desktop) | ✅ 4 itens feitos e verificados |
 | D1 | **Contratos G-1…G-7** | ✅ **concluídos** (ver §3.5) |
 | D1 | **Refatoração de memória** (áudio em disco, writer sequencial, `WavReader`) | ✅ **concluída** (ver §3.6) |
@@ -24,11 +25,10 @@
 | D1 | **`JobCheckpointStore` + fingerprint + política de retomada** (§5.7/§9.4) | ✅ **concluído** (ver §3.7) |
 | D1 | **`tool/verify.ps1` + `check_native_libs.dart`** (D-d) | ✅ **concluídos** (ver §3.7) |
 | **D1** | **fase completa** | ✅ **o engine está pronto para o port** |
-| D2 | **AT-3** — FFmpegKitNext | ⬜ pendente — **plano de execução detalhado pronto**: [spikes-android/AT3-plano.md](spikes-android/AT3-plano.md) (build LGPL via GitHub Actions — decisão do usuário 2026-07-14 —, ponte Kotlin, matriz com comandos exatos de produção, checkpoints C1–C4) |
 | D2 | AT-4 / AT-5 | ⬜ pendente (exigem device) |
 | D3/D4 | Integração e aceite Android | ⬜ pendente |
 
-**A fase D1 está concluída**, e **AT-0, AT-1, AT-2 e AT-2b passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **322 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os três gates de device concluídos validam as três peças de IA on-device mais arriscadas do M1 (tradução, ASR e TTS), e a infraestrutura de duas melhorias de produção derivadas do AT-2b (extração `.tar.gz` em streaming, asset de modelo compartilhado) já está pronta e testada (ver §3.3d). O próximo passo real são os gates restantes (AT-3 FFmpegKitNext — o mais caro, exige build do fonte —, AT-4 foreground service, AT-5 SAF), todos exigindo device.
+**A fase D1 está concluída**, e **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**. O engine foi refatorado no Windows — memória constante, contratos completos, nenhum `.exe` no core — e continua passando **322 testes** (era 199), com o pipeline real dublando ponta a ponta a 100% de sincronia. Os quatro gates de device de IA/mídia concluídos validam as peças mais arriscadas do M1 (tradução, ASR, TTS e o FFmpeg LGPL próprio), e a infraestrutura de duas melhorias de produção derivadas do AT-2b (extração `.tar.gz` em streaming, asset de modelo compartilhado) já está pronta e testada (ver §3.3d). O próximo passo real são os gates restantes de plataforma (AT-4 foreground service, AT-5 SAF), que já entram junto da casca Android da D3.
 
 ---
 
@@ -107,6 +107,16 @@ Os dois achados laterais do AT-2b (extração em memória cheia no spike, `espea
 - **Asset de modelo compartilhado.** `ModelEntry` ganhou `dependsOn` (IDs de outras entradas que devem estar prontas junto) e `ModelCatalog` ganhou `resolveRequiredIds()`, que expande uma lista de IDs para incluir as dependências transitivas — deduplicado, seguro contra ciclo. Dá a um catálogo futuro a capacidade de declarar `espeak-ng-data` como uma entrada baixada/extraída **uma vez**, referenciada por várias vozes, em vez de duplicada dentro do pacote de cada uma.
 - **Bug real encontrado ao testar (corrigido junto):** `stateOf()` e `download()` liam `manifest.firstWhere(...)` — o manifest **estático** do Windows (`ModelCatalog.windows().entries`) — em vez de `catalog.entryOf(id)`, a instância injetada no construtor do `ModelManager`. Ou seja: qualquer `ModelManager` construído com um `catalog` customizado (o meu teste com uma entrada `targz` sintética, e no futuro qualquer catálogo Android) já falhava com `Bad state: No element` nessas duas operações — as mais fundamentais da classe. Não era um problema hipotético; era um bug latente que só não tinha sido pisado ainda porque nada além do `ModelCatalog.windows()` default tinha sido exercitado via `download()`/`stateOf()` até agora.
 - **7 testes novos** em `model_manager_test.dart`: 2 de extração `targz` (fixture real gerada com o encoder do `package:archive`, servida por um `HttpServer` local — um caso flat, um com diretório de topo tipo os pacotes `tts-models` do sherpa-onnx hoje) + 5 de `resolveRequiredIds` (sem dependência, dependência compartilhada por duas vozes, transitividade, ciclo, ID sem entrada no catálogo).
+
+### 3.3e AT-3 — FFmpegKitNext LGPL próprio — **PASSOU** no moto g86
+
+Relatório: [spikes-android/AT3.md](spikes-android/AT3.md); plano de execução com histórico: [AT3-plano.md](spikes-android/AT3-plano.md).
+
+O único gate que exigia **compilar** um binário nativo próprio (não há build LGPL publicado do FFmpegKitNext). Feito em duas fases:
+
+- **Fase 1 — build LGPL** via GitHub Actions (rota decidida com o usuário; o `nix-android.sh` é Linux-only e o WSL local está sem distro). FFmpegKitNext **v8.1.0** (commit `3e223118…`), arm64-v8a only, API 28, `--enable-openh264`, **sem `--enable-gpl`**. O workflow versionado (`.github/workflows/build-ffmpeg-kit-next.yml`) é o script de build reproduzível. Levou 6 iterações — nenhuma foi o FFmpeg falhando (ele compilou de primeira); foram bugs no meu script de evidências, sendo o mais importante que a prova de licença tem de vir do **binário** (`strings libavutil.so`, macro `FFMPEG_CONFIGURATION`), não de `grep "configuration:"` na árvore-fonte, que só pega format strings — os gates "passavam" sem checar nada até eu baixar o AAR e inspecionar à mão.
+- **Fase 2 — matriz no device.** App de bench descartável (`at3_bench`) com o AAR local e uma ponte Kotlin MethodChannel (API v8.1.0 verificada via `javap` — a interface `Session` usa funções, `ReturnCode`/`Statistics` usam propriedades). Os **13 casos** rodaram no moto g86 sobre esse build, comandos copiados literais do código de produção, cada output reaberto e validado por ffprobe: probe/demux/atempo/asetrate/sidechain+amix+loudnorm/segment/concat/aac/mux `-c:v copy`/re-encode openh264. Os primitivos do §12.3 provados: progresso (10 amostras de statistics), **cancelamento** (`returnCode=255`, `isCancel=true` — o sinal que o `FFmpegKitNextRunner` da D3 vai mapear) e **timeout** (`timedOut=true`, distinguível). `ALL_OK=true`.
+- Todas as 10 `.so` do AAR com `LOAD Align=0x4000` (16 KB), verificado com `readelf -lW` (o `-W` é obrigatório: sem ele o readelf quebra `LOAD` em duas linhas e esconde a coluna de alinhamento).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 
