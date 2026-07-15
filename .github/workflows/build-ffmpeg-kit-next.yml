@@ -102,8 +102,12 @@ jobs:
             mkdir -p ../evidence/so && (cd ../evidence/so && unzip -o ../ffmpeg-kit.aar >/dev/null 2>&1)
             { find ../evidence/so -name '*.so' -exec ls -la {} \; ; \
               find ../evidence/so -name '*.so' -exec sha256sum {} \; ; } | tee ../evidence/so-inventory.txt
+            # -lW: formato de linha única (sem -W, o readelf quebra cada
+            # entrada de program header em DUAS linhas, e a coluna Align fica
+            # na segunda — um grep só na primeira nunca vê o alinhamento real;
+            # foi o que aconteceu no build-4, achando "falha" que não existia).
             for so in $(find ../evidence/so -name '*.so' 2>/dev/null); do
-              echo "== $so =="; readelf -l "$so" 2>/dev/null | grep -E '^\s*LOAD'
+              echo "== $so =="; readelf -lW "$so" 2>/dev/null | grep -E '^\s*LOAD'
             done | tee ../evidence/alignment.txt
           fi
           true
@@ -178,9 +182,11 @@ jobs:
         if: always()
         working-directory: evidence
         run: |
-          BAD=$(grep -E "^\s*LOAD" alignment.txt 2>/dev/null | grep -v "0x4000" | tr '\n' '|' | cut -c1-800)
+          # $NF = última coluna do readelf -lW = Align. Checar essa coluna
+          # especificamente, não a linha inteira (ver comentário na coleta).
+          BAD=$(grep -E "^\s*LOAD" alignment.txt 2>/dev/null | awk '$NF != "0x4000" {print}' | tr '\n' '|' | cut -c1-800)
           if [ -n "$BAD" ]; then
-            echo "::error::Gate5 LOAD fora de 16KB: $BAD"
+            echo "::error::Gate5 LOAD com Align != 0x4000: $BAD"
             echo "::error::Gate5 alignment.txt completo: $(cat alignment.txt | tr '\n' '|' | cut -c1-1500)"
             exit 1
           fi
