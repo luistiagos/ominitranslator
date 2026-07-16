@@ -12,3 +12,8 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Native libs baixadas por tool/android/fetch_native_libs.ps1 (P2, revisão
+# de 2026-07-16) — .so não entra no git; o hash pinado no script é a
+# proveniência. Rodar o script antes de cada build.
+app/src/main/jniLibs/

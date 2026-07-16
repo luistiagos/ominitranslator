@@ -1,0 +1,91 @@
+// Handler TEMPORARIO do canal 'omnitranslator/ffmpeg', so para o botao
+// "3. Transcrever" do smoke_main.dart. O handler REAL mora no
+// MediaProcessingService (D3.3, ainda nao escrito) -- o job de dublagem
+// roda em foreground service, nao na Activity, exatamente pra sobreviver a
+// troca de app/tela apagada/rotacao (AT-4). Este snippet e so pra provar o
+// AndroidTranscriber isoladamente ANTES da D3.3 existir.
+//
+// API identica ao AT-3 ja provado no device
+// (docs/spikes-android/at3-evidence/at3-bench-MainActivity.kt) -- mesmos
+// nomes de metodo/argumento que app/lib/src/platform/android_ffmpeg.dart
+// (Dart) ja espera.
+//
+// GAP AINDA NAO FECHADO (achado ao escrever este snippet, 2026-07-16): o AAR
+// do FFmpegKitNext (com.arthenica.ffmpegkit.*) NAO esta declarado em
+// app/android/app/build.gradle.kts -- mesma classe de lacuna que o P2 fechou
+// pra libslimt.so, so que pro FFmpegKit ainda esta aberta. Sem isso, os
+// imports com.arthenica.ffmpegkit.* abaixo nem compilam. Ou (a) baixar o AAR
+// da run do AT-3/build-ffmpeg-kit-next.yml, hospedar como fez o P1 pro
+// slimt, e declarar como dependencia local (`implementation(files(...))`),
+// ou (b) esperar a D3.3, que vai precisar resolver isto de qualquer forma
+// pro MediaProcessingService de verdade. Botoes 1/2/4 do smoke_main.dart
+// nao dependem disto.
+//
+// COMO USAR (depois do gap acima resolvido):
+//   1. Colar o bloco MethodChannel(...) abaixo dentro de
+//      MainActivity.configureFlutterEngine(), depois do bloco que ja
+//      registra 'omnitranslator/storage'.
+//   2. Adicionar os imports do topo do arquivo que faltarem.
+//   3. Rebuild + rodar o smoke test.
+//   4. REVERTER MainActivity.kt (git checkout -- ou git diff tem que
+//      voltar vazio) antes de commitar qualquer coisa. Nunca commitar
+//      este handler dentro de MainActivity.kt -- ele pertence ao
+//      MediaProcessingService da D3.3.
+
+// --- imports a adicionar no topo de MainActivity.kt (temporario) ---
+// import com.arthenica.ffmpegkit.FFmpegKit
+// import com.arthenica.ffmpegkit.FFmpegKitConfig
+// import com.arthenica.ffmpegkit.ReturnCode
+// import com.arthenica.ffmpegkit.Session
+
+// --- colar dentro de configureFlutterEngine(), apos o bloco do storage ---
+/*
+@Volatile private var lastStatTimeMs: Double = -1.0
+
+MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/ffmpeg")
+    .setMethodCallHandler { call, result ->
+        when (call.method) {
+            "ffmpegStart" -> {
+                @Suppress("UNCHECKED_CAST")
+                val args = (call.argument<List<String>>("args") as List<String>).toTypedArray()
+                lastStatTimeMs = -1.0
+                val session: Session = FFmpegKit.executeWithArgumentsAsync(
+                    args,
+                    { /* complete: nada, o Dart faz poll */ },
+                    { /* log: ignorado */ },
+                    { stat -> lastStatTimeMs = stat.time },
+                )
+                result.success(mapOf("sessionId" to session.sessionId))
+            }
+            "ffmpegPoll" -> {
+                val id = (call.argument<Number>("sessionId"))!!.toLong()
+                val s: Session? = FFmpegKitConfig.getSession(id)
+                val rc = s?.returnCode
+                result.success(
+                    mapOf(
+                        "returnCode" to rc?.value,
+                        "logsTail" to (s?.allLogsAsString?.takeLast(4000) ?: ""),
+                        "statTimeMs" to lastStatTimeMs,
+                    )
+                )
+            }
+            "ffmpegCancel" -> {
+                val id = (call.argument<Number>("sessionId"))!!.toLong()
+                FFmpegKit.cancel(id)
+                result.success(null)
+            }
+            "ffprobe" -> {
+                @Suppress("UNCHECKED_CAST")
+                val args = (call.argument<List<String>>("args") as List<String>).toTypedArray()
+                val s: Session = com.arthenica.ffmpegkit.FFprobeKit.executeWithArguments(args)
+                result.success(
+                    mapOf(
+                        "returnCode" to s.returnCode?.value,
+                        "output" to (s.output ?: ""),
+                    )
+                )
+            }
+            else -> result.notImplemented()
+        }
+    }
+*/
