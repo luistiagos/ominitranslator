@@ -1,0 +1,113 @@
+diff --git a/slimt/OtTranslatorCapi.cc b/slimt/OtTranslatorCapi.cc
+new file mode 100644
+index 0000000..f20066b
+--- /dev/null
++++ b/slimt/OtTranslatorCapi.cc
+@@ -0,0 +1,107 @@
++// C-API mínima do §10.3 da spec Android (especificacao-android.md), para o
++// dart:ffi do AndroidTranslator chamar direto o libslimt.so. Não faz parte
++// do slimt upstream — é adicionado ao SLIMT_SOURCES via patch (ver
++// tool/android/slimt-patches/).
++//
++// Contrato interno de config_path (não normativo — a spec só define a
++// assinatura extern "C"): arquivo texto UTF-8, duas linhas — linha 1 = path
++// absoluto do model.*.bin, linha 2 = path absoluto do vocab.*.spm. Sem
++// shortlist: o AT-1 (docs/spikes-android/AT1.md §6.1) achou que
++// --shortlist degenera a saída do slimt nestes modelos tiny.
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <memory>
++#include <string>
++
++#include "slimt/Frontend.hh"
++#include "slimt/Model.hh"
++
++#define OT_API extern "C" __attribute__((visibility("default")))
++
++namespace {
++
++struct OtTranslator {
++  std::shared_ptr<slimt::Model> model;
++  slimt::Blocking service;
++};
++
++char *DupCstr(const std::string &s) {
++  auto *out = static_cast<char *>(std::malloc(s.size() + 1));
++  if (out == nullptr) return nullptr;
++  std::memcpy(out, s.c_str(), s.size() + 1);
++  return out;
++}
++
++void SetError(char **error_utf8, const std::string &message) {
++  if (error_utf8 != nullptr) {
++    *error_utf8 = DupCstr(message);
++  }
++}
++
++}  // namespace
++
++OT_API void *ot_translator_create(const char *config_path, char **error_utf8) {
++  if (error_utf8 != nullptr) *error_utf8 = nullptr;
++  try {
++    std::ifstream in(config_path);
++    if (!in) {
++      SetError(error_utf8, std::string("não foi possível abrir config_path: ") + config_path);
++      return nullptr;
++    }
++    std::string model_path;
++    std::string vocab_path;
++    if (!std::getline(in, model_path) || !std::getline(in, vocab_path)) {
++      SetError(error_utf8, "config_path malformado: esperava 2 linhas (model, vocabulary)");
++      return nullptr;
++    }
++
++    slimt::Model::Config model_config = slimt::preset::tiny();
++    slimt::Package<std::string> package{
++        /* .model = */ model_path,
++        /* .vocabulary = */ vocab_path,
++        /* .shortlist = */ "",
++        /* .ssplit = */ "",
++    };
++    auto model = std::make_shared<slimt::Model>(model_config, package);
++
++    slimt::Config service_config;  // defaults (1 worker) — o Dart chama de um isolate próprio.
++    auto *handle = new OtTranslator{model, slimt::Blocking(service_config)};
++    return handle;
++  } catch (const std::exception &e) {
++    SetError(error_utf8, std::string("ot_translator_create: ") + e.what());
++    return nullptr;
++  } catch (...) {
++    SetError(error_utf8, "ot_translator_create: erro desconhecido");
++    return nullptr;
++  }
++}
++
++OT_API char *ot_translator_translate(void *handle, const char *source_utf8, char **error_utf8) {
++  if (error_utf8 != nullptr) *error_utf8 = nullptr;
++  if (handle == nullptr) {
++    SetError(error_utf8, "handle nulo");
++    return nullptr;
++  }
++  auto *translator = static_cast<OtTranslator *>(handle);
++  try {
++    slimt::Options opts{/* .alignment = */ false, /* .html = */ false};
++    auto responses =
++        translator->service.translate(translator->model, {std::string(source_utf8)}, opts);
++    if (responses.empty()) {
++      SetError(error_utf8, "slimt não retornou nenhuma resposta");
++      return nullptr;
++    }
++    return DupCstr(responses[0].target.text);
++  } catch (const std::exception &e) {
++    SetError(error_utf8, std::string("ot_translator_translate: ") + e.what());
++    return nullptr;
++  } catch (...) {
++    SetError(error_utf8, "ot_translator_translate: erro desconhecido");
++    return nullptr;
++  }
++}
++
++OT_API void ot_string_free(char *value) { std::free(value); }
++
++OT_API void ot_translator_free(void *handle) { delete static_cast<OtTranslator *>(handle); }

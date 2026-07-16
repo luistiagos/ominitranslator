@@ -1,0 +1,14 @@
+diff --git a/slimt/CMakeLists.txt b/slimt/CMakeLists.txt
+index 6ab54b2..1f19b2f 100644
+--- a/slimt/CMakeLists.txt
++++ b/slimt/CMakeLists.txt
+@@ -58,7 +58,8 @@ set(SLIMT_SOURCES
+     Transformer.cc
+     Utils.cc
+     Vocabulary.cc
+-    XHScanner.cc)
++    XHScanner.cc
++    OtTranslatorCapi.cc)
+ 
+ if(WITH_GEMMOLOGY)
+   list(APPEND SLIMT_SOURCES qmm/Gemmology.cc)

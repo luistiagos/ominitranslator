@@ -10,6 +10,13 @@
 # usuário: prosseguir mesmo assim, linkando in-process como a §10.3 já
 # especifica. Isto precisa ser revisitado antes do release (checklist de D4).
 #
+# Os patches 0003/0004 adicionam a C-API do §10.3 (ot_translator_create/
+# translate/free, ot_string_free) direto no SLIMT_SOURCES — compila pro
+# libslimt.so já existente, sem precisar de uma .so nova. Compilado e
+# linkado localmente contra o build do SA-1 antes de subir (símbolos
+# confirmados na tabela dinâmica via llvm-nm); o Gate 5 abaixo reconfirma
+# isso na CI a cada build.
+#
 # Configuração combinada de duas fontes verificadas (não inferida):
 # - SA1.md §5: a configuração que rodou de verdade no moto g86 e traduziu
 #   corretamente (BUILD_JNI=OFF — usamos dart:ffi direto no libslimt.so, não
@@ -67,11 +74,13 @@ jobs:
           git rev-parse HEAD | tee ../evidence/upstream-commit.txt
           cp LICENSE ../evidence/LICENSE-slimt.txt
 
-      - name: Aplicar patches (SA1.md §4 — remover -Werror; PCRE2 + Ninja)
+      - name: Aplicar patches (SA1.md §4 — remover -Werror; PCRE2 + Ninja; C-API §10.3)
         working-directory: src
         run: |
           git apply --verbose ../tool/android/slimt-patches/0001-remove-werror.patch
           git apply --verbose ../tool/android/slimt-patches/0002-pcre2-ninja-generator.patch
+          git apply --verbose ../tool/android/slimt-patches/0003-ot-translator-capi.patch
+          git apply --verbose ../tool/android/slimt-patches/0004-ot-translator-capi-cmake.patch
 
       - name: Configurar (CMake + NDK toolchain, arm64-v8a, API 28)
         working-directory: src
@@ -138,6 +147,18 @@ jobs:
               | grep -E '^\s*LOAD' | tee ../evidence/alignment.txt
             "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -dW ../evidence/libslimt.so \
               | grep NEEDED | tee ../evidence/needed.txt
+            # C-API do §10.3 (ot_translator_capi.patch) precisa estar
+            # exportada na tabela de símbolos dinâmicos — sem isso o
+            # dart:ffi do AndroidTranslator falha só em runtime no device,
+            # não em tempo de build (achado ao testar localmente antes de
+            # subir este patch: o link passa mesmo se um símbolo não ficar
+            # visível, só o dlsym no device é que reprovaria).
+            # Checa a .so STRIPADA — é a que de fato embarca no APK; dlsym no
+            # device usa a tabela de símbolos dinâmicos, que o strip padrão
+            # preserva (só remove .symtab), mas é a artefato real, não a
+            # unstripped, que precisa provar isso.
+            "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm -D --defined-only ../evidence/libslimt.so \
+              | grep -E 'ot_translator_|ot_string_' | tee ../evidence/capi-symbols.txt
           fi
           CLI=$(find build -name 'slimt-cli' | head -1)
           echo "CLI=$CLI" | tee ../evidence/cli-path.txt
@@ -165,6 +186,7 @@ jobs:
             echo "### so-inventory"; echo '```'; cat so-inventory.txt 2>/dev/null; echo '```'
             echo "### alignment"; echo '```'; cat alignment.txt 2>/dev/null; echo '```'
             echo "### needed"; echo '```'; cat needed.txt 2>/dev/null; echo '```'
+            echo "### capi-symbols"; echo '```'; cat capi-symbols.txt 2>/dev/null; echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 'Gate 1 — libslimt.so produzida'
@@ -227,3 +249,14 @@ jobs:
             echo "::error::Gate4 dependência dinâmica inesperada: $UNEXPECTED (needed.txt: $(cat needed.txt | tr '\n' '|'))"
             exit 1
           fi
+
+      - name: 'Gate 5 — C-API do §10.3 exportada (ot_translator_create/translate/free, ot_string_free)'
+        if: always()
+        working-directory: evidence
+        run: |
+          for sym in ot_translator_create ot_translator_translate ot_translator_free ot_string_free; do
+            if ! grep -qE " T ${sym}\$" capi-symbols.txt 2>/dev/null; then
+              echo "::error::Gate5 símbolo ausente ou não exportado (esperado ' T $sym'): $(cat capi-symbols.txt 2>/dev/null | tr '\n' '|')"
+              exit 1
+            fi
+          done
