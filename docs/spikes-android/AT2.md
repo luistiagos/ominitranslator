@@ -101,11 +101,11 @@ O **device** acerta 99% em `es/best` — idêntico aos outros 5 combos, com erro
 | `tiny-encoder.int8.onnx` | `d24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434` |
 | `tiny-decoder.int8.onnx` | `d2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925` |
 | `tiny-tokens.txt` | `b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126` |
-| `base-encoder.int8.onnx` | `0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11` |
+| `base-encoder.int8.onnx` | ~~`0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11`~~ **`56e6b942b5a72a8f64b826e3840493ebf961fa9f4eaa4a7ce0807a37d5532e55`** (corrigido 2026-07-15 — ver nota) |
 | `base-decoder.int8.onnx` | `9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d` |
 | `base-tokens.txt` | `b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126` |
 
-Os arquivos vieram empacotados como `sherpa-onnx-whisper-tiny.tar.bz2` / `sherpa-onnx-whisper-base.tar.bz2` (nomenclatura padrão dos releases oficiais `k2-fsa/sherpa-onnx`) e `silero_vad.onnx` (modelo VAD padrão do mesmo projeto). **Pendência não bloqueante:** fixar a URL exata do release/tag e registrar os hashes acima no `ModelCatalog.android()` antes da D3 (mesmo padrão do AT-1 — "não inferir nomes"; os hashes acima são medidos, não inferidos, mas a URL de origem exata deve ser reconfirmada no momento do `mirror_models.dart`, D-c).
+Os arquivos vieram empacotados como `sherpa-onnx-whisper-tiny.tar.bz2` / `sherpa-onnx-whisper-base.tar.bz2` (nomenclatura padrão dos releases oficiais `k2-fsa/sherpa-onnx`) e `silero_vad.onnx` (modelo VAD padrão do mesmo projeto). **Pendência FECHADA em 2026-07-15** (verificação para o `mirror_models.dart`/`ModelCatalog.android()` da D3.2): URLs confirmadas contra a API pública do GitHub — tag `asr-models` do `k2-fsa/sherpa-onnx`, arquivos `sherpa-onnx-whisper-tiny.tar.bz2`/`sherpa-onnx-whisper-base.tar.bz2`/`silero_vad.onnx`. **Achado:** o hash de `base-encoder.int8.onnx` registrado acima estava **errado** — `silero_vad.onnx`, `tiny-encoder.int8.onnx`, `tiny-decoder.int8.onnx` e `base-decoder.int8.onnx` bateram exatos contra um download fresco do asset (`created_at`/`updated_at` do asset no GitHub são de 2024-10-02, sem revisão desde então — não é mudança do upstream, foi erro de medição/transcrição no AT-2 original). Corrigido com o valor real, reverificado.
 
 ## 7. Pendências que não bloqueiam o gate
 

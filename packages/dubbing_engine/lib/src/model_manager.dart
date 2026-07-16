@@ -115,8 +115,29 @@ class ModelCatalog {
         separatorModelId: spleeterModelId,
       );
 
-  // ModelCatalog.android() entra quando o AT-2 fixar os nomes e URLs reais dos
-  // assets ONNX do sherpa. A spec proíbe inferi-los (§6.1).
+  /// IDs reservados do §6.1 da spec Android. Todo asset é espelhado como
+  /// `.tar.gz` (ou arquivo cru, pro `silero-vad`) na Release
+  /// `android-models-v1` do próprio repositório (§6.1.1/D-c) — nunca aponta
+  /// direto pro k2-fsa/sherpa-onnx ou pro Remote Settings da Mozilla.
+  /// Gerado por `tool/mirror_models.dart`; URLs/hashes verificados contra o
+  /// upstream ao vivo em 2026-07-15 (ver `docs/spikes-android/AT2.md` §6/§8
+  /// e `docs/decisoes.md`) — não inferidos.
+  static ModelCatalog android() => ModelCatalog(
+        platform: ModelPlatform.android,
+        entries: ModelManager._androidEntries,
+        asrModelIds: const {
+          Preset.fast: 'whisper-android-tiny',
+          Preset.best: 'whisper-android-base',
+        },
+        defaultVoiceIds: const {
+          Lang.en: 'piper-android-en',
+          Lang.pt: 'piper-android-pt-br',
+          Lang.es: 'piper-android-es',
+        },
+        // Android M1 é voice-over puro (regra do marco) — sem separação de
+        // voz/música, então nenhum modelo de separação entra no catálogo.
+        separatorModelId: null,
+      );
 
   ModelEntry? entryOf(String id) {
     for (final e in entries) {
@@ -748,6 +769,126 @@ class ModelManager {
     ),
   ];
 
+  static const _androidReleaseBase =
+      'https://github.com/luistiagos/ominitranslator/releases/download/android-models-v1/';
+
+  static List<ModelEntry> get _androidEntries => [
+        ModelEntry(
+          id: 'whisper-android-tiny',
+          kind: 'targz',
+          url: '${_androidReleaseBase}whisper-android-tiny.tar.gz',
+          sizeMb: 61,
+          expects: ['tiny-encoder.int8.onnx', 'tiny-decoder.int8.onnx', 'tiny-tokens.txt'],
+          displayName: 'Reconhecimento de fala — Rápido',
+          sha256: '708ba4dbd4b558855d30f22cfb7a6c087631e3217f04e76eba2136f216f4bc4d',
+        ),
+        ModelEntry(
+          id: 'whisper-android-base',
+          kind: 'targz',
+          url: '${_androidReleaseBase}whisper-android-base.tar.gz',
+          sizeMb: 95,
+          expects: ['base-encoder.int8.onnx', 'base-decoder.int8.onnx', 'base-tokens.txt'],
+          displayName: 'Reconhecimento de fala — Melhor',
+          sha256: '53a8ce1416b021681231ceb47a87ab8b1d453038d0963caf8c13c99dac5fecb6',
+        ),
+        ModelEntry(
+          id: 'silero-vad',
+          kind: 'file',
+          url: '${_androidReleaseBase}silero_vad.onnx',
+          sizeMb: 1,
+          expects: ['silero_vad.onnx'],
+          displayName: 'Segmentação de fala (VAD)',
+          sha256: '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6',
+        ),
+        // Empacotado sem diretório de embrulho (achado desta sessão: a
+        // extração genérica achata um único wrapper, então empacotar com
+        // `espeak-ng-data/` fazia os 355 arquivos caírem soltos no destDir
+        // em vez de dentro de um subdiretório — quebrava `expects`). O
+        // destDir desta própria entrada É o payload; `en_dict` é só o
+        // marcador de completude que `stateOf` confere.
+        ModelEntry(
+          id: 'espeak-ng-data',
+          kind: 'targz',
+          url: '${_androidReleaseBase}espeak-ng-data.tar.gz',
+          sizeMb: 9,
+          expects: ['en_dict'],
+          displayName: 'Dados de fonética (compartilhado entre vozes)',
+          sha256: '2c9f8637b5ab34659d38289d4fed674c787b060221b180e1955ef992792ae2a3',
+        ),
+        ModelEntry(
+          id: 'piper-android-en',
+          kind: 'targz',
+          url: '${_androidReleaseBase}piper-android-en.tar.gz',
+          sizeMb: 59,
+          expects: ['en_US-lessac-medium.onnx', 'tokens.txt'],
+          displayName: 'Voz — Inglês',
+          sha256: '4f6da04dc725adaf1d5a92fbc3f7029e96278769a10b62f777bd1edd3b54fb2d',
+          lang: Lang.en,
+          dependsOn: const ['espeak-ng-data'],
+        ),
+        ModelEntry(
+          id: 'piper-android-pt-br',
+          kind: 'targz',
+          url: '${_androidReleaseBase}piper-android-pt-br.tar.gz',
+          sizeMb: 59,
+          expects: ['pt_BR-faber-medium.onnx', 'tokens.txt'],
+          displayName: 'Voz — Português (BR)',
+          sha256: '11d221b098ace815b6d0169032c623621ca4ab20206b8b435058a5e0075ebfa8',
+          lang: Lang.pt,
+          dependsOn: const ['espeak-ng-data'],
+        ),
+        ModelEntry(
+          id: 'piper-android-es',
+          kind: 'targz',
+          url: '${_androidReleaseBase}piper-android-es.tar.gz',
+          sizeMb: 72,
+          expects: ['es_ES-sharvard-medium.onnx', 'tokens.txt'],
+          displayName: 'Voz — Espanhol',
+          sha256: '5eb07560a5ec03c99418c7c611e21af7586551b8289389984a471bd7bd66a029',
+          lang: Lang.es,
+          dependsOn: const ['espeak-ng-data'],
+        ),
+        // Tradução (§10) — só en<->pt e en<->es (Android M1). model+vocab; o
+        // AT-1 (§6.1) achou que `lex` degenera a saída do slimt, então o
+        // pacote Android não inclui os arquivos `lex.*.s2t.bin`.
+        ModelEntry(
+          id: 'mt-tiny-enpt',
+          kind: 'targz',
+          url: '${_androidReleaseBase}mt-tiny-enpt.tar.gz',
+          sizeMb: 13,
+          expects: ['model.enpt.intgemm.alphas.bin', 'vocab.enpt.spm'],
+          displayName: 'Tradução — Inglês → Português',
+          sha256: 'c66ebb6fdaf4d8eafa62adfff55fd70c57a1e4b6efb9234199c1ec15b376e008',
+        ),
+        ModelEntry(
+          id: 'mt-tiny-pten',
+          kind: 'targz',
+          url: '${_androidReleaseBase}mt-tiny-pten.tar.gz',
+          sizeMb: 13,
+          expects: ['model.pten.intgemm.alphas.bin', 'vocab.pten.spm'],
+          displayName: 'Tradução — Português → Inglês',
+          sha256: '447e46a529461d2274877eac6e16a4b01739d46e15ab55bfd27c6e0bcb36d411',
+        ),
+        ModelEntry(
+          id: 'mt-tiny-enes',
+          kind: 'targz',
+          url: '${_androidReleaseBase}mt-tiny-enes.tar.gz',
+          sizeMb: 13,
+          expects: ['model.enes.intgemm.alphas.bin', 'vocab.enes.spm'],
+          displayName: 'Tradução — Inglês → Espanhol',
+          sha256: '2a8d40519a9d3efd66ce0e1c37c0e6d58b4b91e9bf9c52aad82bd3bd31f69f83',
+        ),
+        ModelEntry(
+          id: 'mt-tiny-esen',
+          kind: 'targz',
+          url: '${_androidReleaseBase}mt-tiny-esen.tar.gz',
+          sizeMb: 13,
+          expects: ['model.esen.intgemm.alphas.bin', 'vocab.esen.spm'],
+          displayName: 'Tradução — Espanhol → Inglês',
+          sha256: '1c14a3f7ae2e59b27ed4a7dbc161b143e729a7ee5765023dfa60afd0c50cefec',
+        ),
+      ];
+
   String pathOf(String id, [String? file]) {
     final base = p.join(modelsRoot, id);
     if (file != null) return p.join(base, file);
@@ -804,6 +945,15 @@ class ModelManager {
       yield* downloadWithRetry(() => _downloadWithResume(entry.url, partFile),
           maxAttempts: maxAttempts, retryDelay: retryDelay);
       File(partFile).renameSync(archiveFile);
+      // Verifica o ARQUIVO BAIXADO (o pacote inteiro), não um extraído
+      // arbitrário: é o que o hash publicado (§6.1.1 — o mesmo "digest" que
+      // o GitHub Release mostra) realmente descreve, e verificar antes de
+      // extrair evita gastar tempo extraindo um download corrompido. Também
+      // é o único jeito correto quando `expects.first` é um diretório (ex.:
+      // `espeak-ng-data`) — hashear um diretório como se fosse arquivo
+      // quebra: achado ao rodar `ModelCatalog.android()` de verdade contra a
+      // Release publicada.
+      await _verifyAndWriteSha256(entry, destDir, archiveFile);
       // Extrai num subdiretório do próprio destino: mesmo volume (rename
       // não cruza volumes) e sem colisão com sobras de outros modelos.
       final extractDir = p.join(destDir, '.extract');
@@ -820,7 +970,6 @@ class ModelManager {
           throw StateError('Extraction failed for $id: ${result.stderrTail}');
         }
         _moveContentsUp(extractDir, destDir);
-        await _verifyAndWriteSha256(entry, destDir, p.join(destDir, entry.expects.first));
       } on ProcessException {
         throw StateError(
             'Não foi possível executar "tar" para extrair o modelo $id. '
@@ -844,6 +993,11 @@ class ModelManager {
       yield* downloadWithRetry(() => _downloadWithResume(entry.url, partFile),
           maxAttempts: maxAttempts, retryDelay: retryDelay);
       File(partFile).renameSync(archiveFile);
+      // Verifica o pacote baixado inteiro antes de extrair — mesmo raciocínio
+      // do ramo tarbz2 acima (o hash publicado descreve o arquivo, não um
+      // extraído arbitrário; e funciona quando `expects.first` é um
+      // diretório, como `espeak-ng-data`).
+      await _verifyAndWriteSha256(entry, destDir, archiveFile);
       final extractDir = p.join(destDir, '.extract');
       if (Directory(extractDir).existsSync()) {
         Directory(extractDir).deleteSync(recursive: true);
@@ -852,7 +1006,6 @@ class ModelManager {
       try {
         await extractFileToDisk(archiveFile, extractDir);
         _moveContentsUp(extractDir, destDir);
-        await _verifyAndWriteSha256(entry, destDir, p.join(destDir, entry.expects.first));
       } finally {
         if (Directory(extractDir).existsSync()) {
           Directory(extractDir).deleteSync(recursive: true);

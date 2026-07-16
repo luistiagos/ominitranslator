@@ -28,7 +28,8 @@
 | **D3** | **D3.0 — scaffold `app/android`** | ✅ **feito** — build sobe no moto g86 (ver §3.3f) |
 | D3 | **D3.1 — armazenamento/SAF** (AT-5) | ✅ **PASSOU** no moto g86 (ver §3.3g) |
 | D3 | Pré-req D3.2 — build versionado da `libslimt.so` | ✅ **feito** (ver §3.3h) |
-| D3 | D3.2 backends+runtime · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
+| D3 | **D3.2 — `ModelCatalog.android()` + mirror publicado** | ✅ **feito** (ver §3.3i) |
+| D3 | D3.2 backends (transcriber/synthesizer/translator/ffmpeg-kit runner) + `androidRuntime()` · D3.3 foreground service (AT-4) · D3.4 e2e | ⬜ em andamento |
 | D4 | Aceite e release | ⬜ pendente |
 
 **A fase D1 está concluída**, **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**, e **a D3 (casca Android M1) está em andamento**: o scaffold `app/android` existe e builda no device (D3.0), e **AT-5 (StatFs + SAF) passou** dentro da D3.1 (ver §3.3g) — código de produção real (`MainActivity.kt`, `AndroidDiskSpaceProbe`, `android_storage.dart`), não spike descartável. O engine continua passando **323 testes**, com o pipeline real dublando ponta a ponta a 100% de sincronia. Decisão do usuário (2026-07-15): AT-4 (foreground service) e AT-5 (SAF/StatFs) deixam de ser spikes isolados e passam a ser validados dentro da própria D3, já que dependem da casca Android existir de verdade. Ordem da D3: D3.1 armazenamento/SAF (=AT-5, ✅) → D3.2 backends Android + `AndroidRuntime` → D3.3 foreground service (=AT-4) → D3.4 liga a UI e roda end-to-end nos três idiomas. Pré-requisito antes da D3.2: versionar o build da `libslimt.so` (dívida do SA-1/AT-1).
@@ -151,6 +152,13 @@ Início da fase D3 (casca Android M1), decisão do usuário 2026-07-15: iniciar 
 - Segunda tentativa passou os 4 gates automatizados; artifact baixado manualmente e **reverificado de forma independente** (`llvm-readelf`/hash locais reproduzem exatamente o que a CI reportou — mesmo padrão de rigor do AT-3, não confiar só no self-report).
 - Smoke test funcional no device (comparar tradução contra a saída original do SA-1) ficou pendente — o moto g86 não respondeu ao adb no momento (sem prompt de autorização, provável cabo/porta só-carga). Não bloqueia o pré-requisito: a evidência estrutural (hash, alinhamento, dependências dinâmicas idênticas ao SA-1) já é suficiente.
 - Relatório completo: [spikes-android/slimt-build.md](spikes-android/slimt-build.md).
+
+### 3.3i D3.2 — `ModelCatalog.android()` escrito e publicado (Release `android-models-v1`)
+
+- `tool/mirror_models.dart` (novo): baixa cada asset upstream (k2-fsa/sherpa-onnx tag `asr-models`; Remote Settings da Mozilla para os 4 pares de tradução), reempacota em `.tar.gz`, calcula SHA-256 e publica como asset da Release `android-models-v1` do próprio repositório (§6.1.1/D-c) — nunca aponta direto pro upstream. 11 entradas: `whisper-android-{tiny,base}`, `silero-vad`, `espeak-ng-data` (compartilhado via `dependsOn` — confirmado byte-idêntico entre as 3 vozes com `diff -rq`), `piper-android-{en,pt-br,es}`, `mt-tiny-{enpt,pten,enes,esen}`.
+- Todas as URLs upstream verificadas contra a API/índice ao vivo antes de usar, nenhuma inferida. **Achado no processo**: o hash de `base-encoder.int8.onnx` no AT2.md estava errado (erro de medição do AT-2 original — o asset no GitHub segue intocado desde 2024-10-02); corrigido, ver AT2.md.
+- **Dois bugs reais de produção achados e corrigidos** rodando `ModelManager.download()` de verdade contra a Release publicada (não só confiando nos hashes impressos pelo script): (1) `tar -czf` não é determinístico — corrigido zerando o timestamp do gzip e normalizando mtimes antes de empacotar (o hash que vai pro catálogo é sempre medido no arquivo realmente publicado); (2) **`_verifyAndWriteSha256` hasheava o primeiro arquivo extraído em vez do pacote baixado** — inofensivo no catálogo desktop (nenhuma entrada legada tem `sha256` não-nulo) mas quebrava toda entrada Android nova (hash comparado contra o arquivo errado, `espeak-ng-data` — cujo `expects` é um diretório — lançava `PathNotFoundException`). Corrigido: a verificação agora roda no arquivo baixado, antes de extrair (mais correto — é o que o "digest" do GitHub realmente descreve — e não muda o comportamento das 64 entradas legadas).
+- Todos os 11 assets confirmados com download real ponta a ponta (`ModelManager.download()` completo, `stateOf == ModelState.ready`) contra a Release ao vivo antes do commit. `tool/verify.ps1` verde (334 testes, +9 novos pro `ModelCatalog.android()`).
 
 ### 3.4 D1 (parcial) — correções de qualidade no engine
 

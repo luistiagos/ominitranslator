@@ -140,6 +140,69 @@ void main() {
     });
   });
 
+  group('ModelCatalog.android()', () {
+    final catalog = ModelCatalog.android();
+
+    test('contains exactly 11 entries', () {
+      expect(catalog.entries.length, 11);
+    });
+
+    test('ids are unique', () {
+      final ids = catalog.entries.map((e) => e.id).toList();
+      expect(ids.toSet().length, ids.length);
+    });
+
+    test('every entry has a non-empty sha256 (§6.1.1: obrigatório em toda entrada nova)', () {
+      for (final e in catalog.entries) {
+        expect(e.sha256, isNotNull, reason: e.id);
+        expect(e.sha256, isNotEmpty, reason: e.id);
+      }
+    });
+
+    test('every URL points at the self-hosted android-models-v1 release, not upstream', () {
+      for (final e in catalog.entries) {
+        expect(
+          e.url,
+          startsWith('https://github.com/luistiagos/ominitranslator/releases/download/android-models-v1/'),
+          reason: e.id,
+        );
+      }
+    });
+
+    test('asrModelIds maps both presets to entries in the catalog', () {
+      expect(catalog.asrModelIds[Preset.fast], 'whisper-android-tiny');
+      expect(catalog.asrModelIds[Preset.best], 'whisper-android-base');
+      for (final id in catalog.asrModelIds.values) {
+        expect(catalog.entryOf(id), isNotNull, reason: id);
+      }
+    });
+
+    test('defaultVoiceIds covers en/pt/es, each resolving to an entry', () {
+      for (final lang in [Lang.en, Lang.pt, Lang.es]) {
+        final id = catalog.defaultVoiceIds[lang];
+        expect(id, isNotNull, reason: lang.code);
+        expect(catalog.entryOf(id!), isNotNull, reason: id);
+      }
+    });
+
+    test('no separation model (Android M1 é voice-over puro)', () {
+      expect(catalog.separatorModelId, isNull);
+    });
+
+    test('piper voices depend on espeak-ng-data, and resolveRequiredIds expands it', () {
+      for (final id in ['piper-android-en', 'piper-android-pt-br', 'piper-android-es']) {
+        expect(catalog.entryOf(id)!.dependsOn, contains('espeak-ng-data'));
+      }
+      expect(catalog.resolveRequiredIds(['piper-android-en']),
+          containsAll(['piper-android-en', 'espeak-ng-data']));
+    });
+
+    test('mt-tiny-* ids exist for en<->pt and en<->es (Android M1 scope)', () {
+      final ids = catalog.entries.map((e) => e.id).toSet();
+      expect(ids, containsAll(['mt-tiny-enpt', 'mt-tiny-pten', 'mt-tiny-enes', 'mt-tiny-esen']));
+    });
+  });
+
   group('pathOf', () {
     test('returns base path when file is null', () {
       final mgr = ModelManager('C:\\models', _dummyTools);
