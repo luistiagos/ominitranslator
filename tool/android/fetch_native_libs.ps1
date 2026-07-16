@@ -10,8 +10,12 @@
 # (model_manager.dart): sem ele, uma Release comprometida ou um MITM
 # entregaria uma .so arbitraria pro APK sem ninguem perceber.
 #
-# Extensivel: quando a D3.3 empacotar o AAR do FFmpegKitNext (AT-3), ele
-# entra como uma nova entrada em $nativeLibs, nao um script novo.
+# Extensivel: destino difere por tipo. .so vai pra jniLibs/<abi>/ (auto-
+# empacotado pelo Android Gradle Plugin, sem mudanca de build.gradle.kts).
+# .aar vai pra app/libs/ (referenciado explicitamente por
+# `implementation(files("libs/..."))` em app/build.gradle.kts -- e o caso do
+# FFmpegKitNext (AT-3/F2, revisao de 2026-07-16): AAR nao e auto-empacotado
+# como .so solto, precisa da declaracao de dependencia).
 #
 # Uso:
 #   powershell -ExecutionPolicy Bypass -File tool/android/fetch_native_libs.ps1
@@ -21,6 +25,22 @@
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+
+function Get-VerifiedFile {
+    param($Name, $Url, $Sha256, $DestFile, $DestDir)
+    New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
+
+    Write-Host "Baixando $Name de $Url ..."
+    Invoke-WebRequest -Uri $Url -OutFile $DestFile -UseBasicParsing
+
+    $actual = (Get-FileHash -Path $DestFile -Algorithm SHA256).Hash.ToLower()
+    if ($actual -ne $Sha256) {
+        Remove-Item $DestFile -Force
+        Write-Error "${Name}: SHA-256 nao bate. esperado=$Sha256 obtido=$actual"
+        exit 1
+    }
+    Write-Host "OK: $Name verificado (sha256=$actual) em $DestFile"
+}
 
 $nativeLibs = @(
     @{
@@ -38,16 +58,23 @@ $nativeLibs = @(
 foreach ($lib in $nativeLibs) {
     $destDir = Join-Path $repo "app\android\app\src\main\jniLibs\$($lib.Abi)"
     $destFile = Join-Path $destDir $lib.Name
-    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+    Get-VerifiedFile -Name $lib.Name -Url $lib.Url -Sha256 $lib.Sha256 -DestFile $destFile -DestDir $destDir
+}
 
-    Write-Host "Baixando $($lib.Name) de $($lib.Url) ..."
-    Invoke-WebRequest -Uri $lib.Url -OutFile $destFile -UseBasicParsing
-
-    $actual = (Get-FileHash -Path $destFile -Algorithm SHA256).Hash.ToLower()
-    if ($actual -ne $lib.Sha256) {
-        Remove-Item $destFile -Force
-        Write-Error "$($lib.Name): SHA-256 nao bate. esperado=$($lib.Sha256) obtido=$actual"
-        exit 1
+$aars = @(
+    @{
+        Name = 'ffmpeg-kit-next.aar'
+        # Publicado por .github/workflows/build-ffmpeg-kit-next.yml (Release
+        # permanente na propria tag, F1 da revisao de 2026-07-16 -- mesmo
+        # padrao do build-slimt.yml). Atualizar os dois campos abaixo juntos
+        # quando rodar um novo build (nova tag at3-ffmpeg-build-N).
+        Url = 'https://github.com/luistiagos/ominitranslator/releases/download/at3-ffmpeg-build-7/ffmpeg-kit.aar'
+        Sha256 = '0f2f65c8a2ef1306337aa120880766910dc008ab7363e8a637b3e42d57131055'
     }
-    Write-Host "OK: $($lib.Name) verificado (sha256=$actual) em $destFile"
+)
+
+foreach ($aar in $aars) {
+    $destDir = Join-Path $repo "app\android\app\libs"
+    $destFile = Join-Path $destDir $aar.Name
+    Get-VerifiedFile -Name $aar.Name -Url $aar.Url -Sha256 $aar.Sha256 -DestFile $destFile -DestDir $destDir
 }

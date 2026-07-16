@@ -10,18 +10,29 @@
 // nomes de metodo/argumento que app/lib/src/platform/android_ffmpeg.dart
 // (Dart) ja espera.
 //
-// GAP AINDA NAO FECHADO (achado ao escrever este snippet, 2026-07-16): o AAR
-// do FFmpegKitNext (com.arthenica.ffmpegkit.*) NAO esta declarado em
-// app/android/app/build.gradle.kts -- mesma classe de lacuna que o P2 fechou
-// pra libslimt.so, so que pro FFmpegKit ainda esta aberta. Sem isso, os
-// imports com.arthenica.ffmpegkit.* abaixo nem compilam. Ou (a) baixar o AAR
-// da run do AT-3/build-ffmpeg-kit-next.yml, hospedar como fez o P1 pro
-// slimt, e declarar como dependencia local (`implementation(files(...))`),
-// ou (b) esperar a D3.3, que vai precisar resolver isto de qualquer forma
-// pro MediaProcessingService de verdade. Botoes 1/2/4 do smoke_main.dart
-// nao dependem disto.
+// GAP FECHADO (F1-F4, revisao de 2026-07-16): o AAR do FFmpegKitNext ja esta
+// declarado em app/android/app/build.gradle.kts
+// (`implementation(files("libs/ffmpeg-kit-next.aar"))`) e
+// tool/android/fetch_native_libs.ps1 baixa e verifica o AAR (Release
+// permanente em .github/workflows/build-ffmpeg-kit-next.yml, tag
+// at3-ffmpeg-build-7). Rodar o script antes de usar este snippet.
 //
-// COMO USAR (depois do gap acima resolvido):
+// API REAL testada compilando contra o AAR de verdade (F4, 2026-07-16) --
+// DIFERENTE do que a doc do AT-3 sugeria antes de testar:
+//   - Session/FFprobeSession/ReturnCode sao classes/interfaces Kotlin
+//     (nao Java), mas os membros de Session (sessionId, returnCode, output,
+//     allLogsAsString...) sao FUNCOES Kotlin explicitas (`fun getSessionId()`),
+//     nao properties -- Kotlin so mapeia getX()->.x automaticamente pra
+//     codigo declarado em JAVA. Chamar `.getSessionId()`, `.getReturnCode()`,
+//     `.getOutput()` etc., nunca `.sessionId`/`.returnCode`/`.output`.
+//   - ReturnCode.value e Statistics.time SAO properties Kotlin de verdade
+//     (val com backing field) -- `.value`/`.time` funcionam normalmente.
+//   - FFmpegSessionCompleteCallback/LogCallback/StatisticsCallback/
+//     FFprobeSessionCompleteCallback sao interfaces Kotlin comuns, NAO
+//     `fun interface` -- lambda solta (`{ }`) NAO faz SAM conversion. Precisa
+//     de `object : Interface { override fun apply(...) { } }` explicito.
+//
+// COMO USAR:
 //   1. Colar o bloco MethodChannel(...) abaixo dentro de
 //      MainActivity.configureFlutterEngine(), depois do bloco que ja
 //      registra 'omnitranslator/storage'.
@@ -35,7 +46,7 @@
 // --- imports a adicionar no topo de MainActivity.kt (temporario) ---
 // import com.arthenica.ffmpegkit.FFmpegKit
 // import com.arthenica.ffmpegkit.FFmpegKitConfig
-// import com.arthenica.ffmpegkit.ReturnCode
+// import com.arthenica.ffmpegkit.FFprobeKit
 // import com.arthenica.ffmpegkit.Session
 
 // --- colar dentro de configureFlutterEngine(), apos o bloco do storage ---
@@ -51,20 +62,28 @@ MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/ffmpeg
                 lastStatTimeMs = -1.0
                 val session: Session = FFmpegKit.executeWithArgumentsAsync(
                     args,
-                    { /* complete: nada, o Dart faz poll */ },
-                    { /* log: ignorado */ },
-                    { stat -> lastStatTimeMs = stat.time },
+                    object : com.arthenica.ffmpegkit.FFmpegSessionCompleteCallback {
+                        override fun apply(session: com.arthenica.ffmpegkit.FFmpegSession) {}
+                    },
+                    object : com.arthenica.ffmpegkit.LogCallback {
+                        override fun apply(log: com.arthenica.ffmpegkit.Log) {}
+                    },
+                    object : com.arthenica.ffmpegkit.StatisticsCallback {
+                        override fun apply(statistics: com.arthenica.ffmpegkit.Statistics) {
+                            lastStatTimeMs = statistics.time
+                        }
+                    }
                 )
-                result.success(mapOf("sessionId" to session.sessionId))
+                result.success(mapOf("sessionId" to session.getSessionId()))
             }
             "ffmpegPoll" -> {
                 val id = (call.argument<Number>("sessionId"))!!.toLong()
                 val s: Session? = FFmpegKitConfig.getSession(id)
-                val rc = s?.returnCode
+                val rc = s?.getReturnCode()
                 result.success(
                     mapOf(
                         "returnCode" to rc?.value,
-                        "logsTail" to (s?.allLogsAsString?.takeLast(4000) ?: ""),
+                        "logsTail" to (s?.getAllLogsAsString()?.takeLast(4000) ?: ""),
                         "statTimeMs" to lastStatTimeMs,
                     )
                 )
@@ -77,11 +96,11 @@ MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/ffmpeg
             "ffprobe" -> {
                 @Suppress("UNCHECKED_CAST")
                 val args = (call.argument<List<String>>("args") as List<String>).toTypedArray()
-                val s: Session = com.arthenica.ffmpegkit.FFprobeKit.executeWithArguments(args)
+                val s: Session = FFprobeKit.executeWithArguments(args)
                 result.success(
                     mapOf(
-                        "returnCode" to s.returnCode?.value,
-                        "output" to (s.output ?: ""),
+                        "returnCode" to s.getReturnCode()?.value,
+                        "output" to (s.getOutput() ?: ""),
                     )
                 )
             }

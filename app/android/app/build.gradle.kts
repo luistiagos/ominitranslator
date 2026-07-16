@@ -57,3 +57,11 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // FFmpegKitNext (AT-3, build LGPL próprio arm64-v8a) — AAR local, não um
+    // artefato Maven: baixado por tool/android/fetch_native_libs.ps1 (F2,
+    // revisão de 2026-07-16) com SHA-256 pinado no script, igual à
+    // libslimt.so (P2). O AAR não entra no git (ver .gitignore).
+    implementation(files("libs/ffmpeg-kit-next.aar"))
+}

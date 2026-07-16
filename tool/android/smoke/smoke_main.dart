@@ -5,13 +5,15 @@
 // registradas em decisoes.md/progresso-android.md desde a D3.1.
 //
 // COMO RODAR (mesmo padrao da D3.1 -- swap temporario, nunca comitado):
-//   1. Rodar tool/android/fetch_native_libs.ps1 (P2) se ainda nao rodou.
-//   2. Para o botao "Transcrever": alem do handler Kotlin (ver
-//      smoke_ffmpeg_handler.kt.snippet), o AAR do FFmpegKitNext ainda NAO
-//      esta declarado em app/android/app/build.gradle.kts (gap encontrado
-//      ao escrever este harness, mesma classe do que o P2 fechou pra
-//      libslimt.so -- ver o cabecalho do .snippet). Sem isso o botao 3 nem
-//      compila. Os botoes 1/2/4 nao dependem disto nem do handler.
+//   1. Rodar tool/android/fetch_native_libs.ps1 (P2 + F2) se ainda nao
+//      rodou -- baixa libslimt.so E o AAR do FFmpegKitNext, ambos com
+//      SHA-256 verificado.
+//   2. Para o botao "Transcrever": o AAR do FFmpegKitNext ja esta
+//      declarado em app/android/app/build.gradle.kts (F1-F4, revisao de
+//      2026-07-16 -- gap fechado, compilacao confirmada contra o AAR real).
+//      Falta so o handler Kotlin temporario (ver smoke_ffmpeg_handler.kt.snippet,
+//      que ja documenta a API real testada -- getters explicitos, nao
+//      properties). Os botoes 1/2/4 nao dependem do handler.
 //   3. cp app/lib/main.dart /tmp/main.dart.backup
 //   4. cp tool/android/smoke/smoke_main.dart app/lib/main.dart
 //   5. flutter build apk --debug --target-platform android-arm64
