@@ -38,6 +38,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    # contents:write só pro passo final (publicar a Release na própria tag) —
+    # mesmo padrão do build-slimt.yml (P1, 2026-07-16): o artifact do
+    # upload-artifact expira em ~90 dias e exige login pra baixar; a Release
+    # é permanente e pública.
+    permissions:
+      contents: write
     env:
       # No disparo por tag, inputs é vazio — caem os defaults.
       UPSTREAM_TAG: ${{ inputs.upstream_tag || 'v8.1.0' }}
@@ -197,3 +203,21 @@ jobs:
             echo "::error::Gate5 alignment.txt completo: $(cat alignment.txt | tr '\n' '|' | cut -c1-1500)"
             exit 1
           fi
+
+      # Só roda se os 5 gates acima passaram e é push de tag real — mesmo
+      # padrão do build-slimt.yml (P1). Publica o AAR como Release
+      # PERMANENTE: tool/android/fetch_native_libs.ps1 (F2, revisão de
+      # 2026-07-16, lacuna encontrada ao escrever o harness de smoke test da
+      # D3.2 — nada empacotava o AAR do FFmpegKit no APK) baixa daqui.
+      - name: 'Publicar Release permanente (github.com/.../releases/tag/<tag>)'
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        working-directory: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum ffmpeg-kit.aar > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "ffmpeg-kit-next arm64 LGPL ($GITHUB_REF_NAME)" \
+            --notes "Build LGPL do FFmpegKitNext (arm64-v8a, sem --enable-gpl) — script versionado em .github/workflows/build-ffmpeg-kit-next.yml. Upstream tag: $UPSTREAM_TAG. Licenças embutidas no AAR (res/raw/): LGPL v3 (FFmpeg) + BSD (openh264) + BSD (cpu_features)." \
+            ffmpeg-kit.aar SHA256SUMS.txt
