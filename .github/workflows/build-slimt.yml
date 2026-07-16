@@ -44,6 +44,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # contents:write só pro passo final (publicar a Release na própria tag) —
+    # os artifacts de actions/upload-artifact expiram em ~90 dias e exigem
+    # login pra baixar; uma Release é permanente e pública, mesmo motivo que
+    # levou os modelos pra android-models-v1 (achado da revisão de 2026-07-16).
+    permissions:
+      contents: write
     env:
       UPSTREAM_COMMIT: ${{ inputs.upstream_commit || '9f0b1a20d14871cc94dbe65b7a3df128e5e81f55' }}
       NDK_VERSION: r27
@@ -260,3 +266,23 @@ jobs:
               exit 1
             fi
           done
+
+      # Só roda se os 5 gates acima passaram (sem if: always() — default é
+      # "só se os steps anteriores tiveram sucesso") e só em push de tag real
+      # (não workflow_dispatch manual sem tag). Publica uma Release
+      # PERMANENTE — diferente do artifact do upload-artifact (expira em ~90
+      # dias e exige login pra baixar), assets de Release são públicos e sem
+      # expiração. `tool/android/fetch_native_libs.ps1` (D3.2, pendência P2)
+      # baixa daqui pra empacotar no APK.
+      - name: 'Publicar Release permanente (github.com/.../releases/tag/<tag>)'
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        working-directory: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum libslimt.so slimt-cli LICENSE-slimt.txt > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "slimt arm64 ($GITHUB_REF_NAME)" \
+            --notes "Build reproduzível do libslimt.so (com a C-API do §10.3, ot_translator_*) — script versionado em .github/workflows/build-slimt.yml. Commit jerinphilip/slimt: $(cat upstream-commit.txt). RISCO DE LICENÇA ACEITO: slimt é GPLv2 (ver docs/decisoes.md, 2026-07-15)." \
+            libslimt.so slimt-cli LICENSE-slimt.txt SHA256SUMS.txt
