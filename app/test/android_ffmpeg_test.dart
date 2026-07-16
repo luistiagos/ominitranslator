@@ -5,8 +5,9 @@ import 'package:omnitranslator_app/src/platform/android_ffmpeg.dart';
 
 // Trava o contrato Dart<->Kotlin (nomes de método e chaves de argumento) —
 // mesmo padrão de android_storage_test.dart. O handler Kotlin real mora no
-// MediaProcessingService (D3.3), ainda não escrito; isto só garante que o
-// lado Dart chama exatamente o que o AT-3 provou no device.
+// MediaProcessingService (D3.3); isto garante que o lado Dart chama
+// exatamente o que o AT-3 provou no device e o que MediaProcessingService.kt
+// implementa.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('omnitranslator/ffmpeg');

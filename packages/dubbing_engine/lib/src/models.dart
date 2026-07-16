@@ -170,6 +170,46 @@ class DubbingJobConfig {
     this.voiceModelId,
     this.voiceSid = 0,
   });
+
+  /// Serialização para cruzar o MethodChannel do foreground service (D3.3,
+  /// §14.3) — a config precisa viajar Activity-Dart -> Kotlin -> Dart do
+  /// isolate/engine do serviço, que não compartilha memória com a Activity.
+  Map<String, dynamic> toJson() => {
+        'inputVideo': inputVideo,
+        'sourceLang': sourceLang.code,
+        'targetLang': targetLang.code,
+        'preset': preset.name,
+        'keepOriginalTrack': keepOriginalTrack,
+        'generateSrt': generateSrt,
+        'workDir': workDir,
+        'outputPath': outputPath,
+        'youtubeUrl': youtubeUrl,
+        'ytDlpCookiesFromBrowser': ytDlpCookiesFromBrowser,
+        'ytDlpCookiesFile': ytDlpCookiesFile,
+        'speakerCount': speakerCount,
+        'voiceModelId': voiceModelId,
+        'voiceSid': voiceSid,
+      };
+
+  /// Busca por [Lang.code], não [Lang.name]: divergem para o islandês (`is`
+  /// é palavra reservada em Dart, o identificador do enum é `isl`) — usar
+  /// `Lang.values.byName` aqui perderia esse idioma silenciosamente.
+  static DubbingJobConfig fromJson(Map<String, dynamic> j) => DubbingJobConfig(
+        inputVideo: j['inputVideo'] as String,
+        sourceLang: Lang.values.firstWhere((l) => l.code == j['sourceLang']),
+        targetLang: Lang.values.firstWhere((l) => l.code == j['targetLang']),
+        preset: Preset.values.byName(j['preset'] as String),
+        keepOriginalTrack: j['keepOriginalTrack'] as bool? ?? true,
+        generateSrt: j['generateSrt'] as bool? ?? true,
+        workDir: j['workDir'] as String,
+        outputPath: j['outputPath'] as String,
+        youtubeUrl: j['youtubeUrl'] as String?,
+        ytDlpCookiesFromBrowser: j['ytDlpCookiesFromBrowser'] as String?,
+        ytDlpCookiesFile: j['ytDlpCookiesFile'] as String?,
+        speakerCount: j['speakerCount'] as int?,
+        voiceModelId: j['voiceModelId'] as String?,
+        voiceSid: j['voiceSid'] as int? ?? 0,
+      );
 }
 
 enum PipelineStage { prepare, download, demux, separate, diarize, transcribe, segment, translate, synthesize, fit, mix, mux }

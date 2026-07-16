@@ -53,6 +53,13 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
+  # Só pra testes (media_processing_service_test.dart, D3.3): mockar
+  # PathProviderPlatform.instance é o jeito documentado de testar código que
+  # usa getApplicationSupportDirectory() sem um device real. path_provider já
+  # traz isto transitivamente — precisa da entrada explícita só pra poder
+  # importar o pacote.
+  path_provider_platform_interface: ^2.1.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

@@ -228,6 +228,58 @@ String computeConfigFingerprint(
   return sha256.convert(utf8.encode(parts.join('|'))).toString();
 }
 
+/// Mapeia o estágio do pipeline (`PipelineEvent.stage`) para o `JobState`
+/// normativo (§9.1) que o foreground service grava no checkpoint (D3.3).
+/// `separate`/`diarize` caem no mesmo estado que `demux`: nenhum dos dois
+/// backends existe no M1 Android (`androidRuntime()` usa `createSeparator`/
+/// `createDiarizer: null`), então nunca progridem o estado sozinhos.
+JobState jobStateForStage(PipelineStage stage) => switch (stage) {
+      PipelineStage.prepare => JobState.importing,
+      PipelineStage.download => JobState.imported,
+      PipelineStage.demux || PipelineStage.separate || PipelineStage.diarize =>
+        JobState.demuxed,
+      PipelineStage.transcribe => JobState.transcribed,
+      PipelineStage.segment => JobState.segmented,
+      PipelineStage.translate => JobState.translated,
+      PipelineStage.synthesize => JobState.synthesized,
+      PipelineStage.fit => JobState.fitted,
+      PipelineStage.mix || PipelineStage.mux => JobState.mixed,
+    };
+
+/// Aplica um [PipelineEvent] a um [JobCheckpoint] em memória — usado pelo
+/// foreground service (D3.3) para decidir quando gravar em disco.
+///
+/// Escopo do MVP (revisão de 2026-07-16, decisão do usuário): o serviço só
+/// REGISTRA em que estágio o job está, não pula estágios já concluídos — por
+/// isso [artifacts] nunca é populado aqui (`PipelineEvent` não carrega paths
+/// de artefato; adicionar isso exigiria mexer em `pipeline.dart`, comum ao
+/// desktop, fora do escopo desta fase). `resolveResumeState` continua correto
+/// como está: sem artefatos registrados, ele sempre recua para
+/// [JobState.created] — é exatamente essa a lacuna documentada de retomada
+/// completa, deixada como pendência explícita.
+///
+/// [didTransition] diz se [JobState] mudou — é o sinal que o chamador usa
+/// para decidir se vale a pena gravar em disco a cada evento (o pipeline
+/// emite progresso many vezes por estágio; só a transição de estado precisa
+/// de um `save()`, o resto é só o evento ao vivo do EventChannel).
+({JobCheckpoint checkpoint, bool didTransition}) applyPipelineEvent(
+  JobCheckpoint checkpoint,
+  PipelineEvent event,
+) {
+  final newState = jobStateForStage(event.stage);
+  return (
+    checkpoint: checkpoint.copyWith(
+      state: newState,
+      progress: event.progress,
+      warnings: event.isWarning
+          ? [...checkpoint.warnings, event.message]
+          : null,
+      updatedAt: DateTime.now(),
+    ),
+    didTransition: newState != checkpoint.state,
+  );
+}
+
 /// Um estágio retomável e os artefatos (nomes lógicos) que precisam existir e
 /// validar para considerá-lo concluído.
 typedef ResumeStage = ({JobState state, List<String> artifacts});

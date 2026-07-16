@@ -1,21 +1,30 @@
 package com.luistiagos.omnitranslator
 
 import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
-import android.os.StatFs
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-/// Ponte MethodChannel para as duas capacidades que o engine (Dart puro, sem
+/// Ponte MethodChannel para as capacidades que o engine (Dart puro, sem
 /// `package:flutter`) não pode implementar sozinho no Android: espaço livre
-/// via `StatFs` (§5.4) e entrada/saída de arquivo via SAF (§13.3 — regra #8
+/// via `StatFs` (§5.4), entrada/saída de arquivo via SAF (§13.3 — regra #8
 /// do engine é "só paths locais", então o SAF fica inteiramente na borda
-/// Kotlin/Dart; o engine nunca vê uma content:// URI).
+/// Kotlin/Dart; o engine nunca vê uma content:// URI) e o ciclo de vida do
+/// `MediaProcessingService` (§14.2/§14.3, D3.3) — `startJob`/`cancelJob`
+/// falam com o serviço vivo; `getJob`/`listRecoverableJobs`/`exportJob`
+/// (§14.3) NÃO passam por canal nenhum: leem/escrevem `job.json` direto do
+/// lado Dart (`media_processing_service.dart`), pra funcionar mesmo com o
+/// serviço morto.
 ///
 /// `FlutterActivity` estende `Activity` puro (não `ComponentActivity`), então
 /// os contratos modernos (`registerForActivityResult`) não estão disponíveis
@@ -23,6 +32,43 @@ import java.io.File
 /// a base real oferece.
 class MainActivity : FlutterActivity() {
     private var pendingPickResult: MethodChannel.Result? = null
+
+    private var mediaService: MediaProcessingService? = null
+    private var serviceBound = false
+    private var activeEventSink: EventChannel.EventSink? = null
+
+    /// `bindService` é assíncrono — se `startJob` chegar antes de
+    /// `onServiceConnected` rodar, o pedido fica aqui e é despachado assim
+    /// que a conexão completar (determinístico; nada de delay arbitrário).
+    private var pendingStart: Triple<String, String, Map<String, Any?>>? = null
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            mediaService = (binder as MediaProcessingService.LocalBinder).getService()
+            mediaService?.attachEventSink(activeEventSink)
+            pendingStart?.let { (jobId, displayName, config) ->
+                mediaService?.startJob(jobId, displayName, config)
+                pendingStart = null
+            }
+        }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            mediaService = null
+        }
+    }
+
+    /// Cria (se preciso) e conecta ao `MediaProcessingService`. Chamado só
+    /// por `startJob` — abrir o app não deve, sozinho, acordar o serviço.
+    /// (Reconectar automaticamente a um job já em andamento quando a Activity
+    /// reabre é wiring de UI da D3.4, fora do escopo do D3.3.)
+    private fun bindMediaService() {
+        if (serviceBound) return
+        bindService(
+            Intent(this, MediaProcessingService::class.java),
+            serviceConnection,
+            Context.BIND_AUTO_CREATE
+        )
+        serviceBound = true
+    }
 
     companion object {
         private const val REQUEST_OPEN_DOCUMENT = 4001
@@ -39,6 +85,16 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+    override fun onDestroy() {
+        if (serviceBound) {
+            mediaService?.attachEventSink(null)
+            unbindService(serviceConnection)
+            serviceBound = false
+            mediaService = null
+        }
+        super.onDestroy()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/storage")
@@ -46,7 +102,7 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "getFreeBytes" -> {
                         val path = call.argument<String>("path")!!
-                        result.success(freeBytesOf(path))
+                        result.success(DiskSpace.freeBytesOf(path))
                     }
                     "pickImportDocument" -> {
                         // §15.1/AT-5: importar por SAF em vez de path de arquivo
@@ -94,6 +150,56 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/service")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startJob" -> {
+                        if (mediaService?.hasActiveJob() == true) {
+                            // Mesmo idioma de erro do "pick_in_progress" acima —
+                            // um segundo job pisaria no primeiro dentro do
+                            // mesmo serviço (só roda um job por vez).
+                            result.error("job_in_progress", "Já existe uma dublagem em andamento.", null)
+                            return@setMethodCallHandler
+                        }
+                        val jobId = call.argument<String>("jobId")!!
+                        val displayName = call.argument<String>("displayName") ?: jobId
+                        @Suppress("UNCHECKED_CAST")
+                        val config = call.argument<Map<String, Any?>>("config")!!
+                        // §14.5: startForegroundService PRIMEIRO — é o que dispara
+                        // onStartCommand -> startForeground dentro da janela que o
+                        // SO exige, antes mesmo do bind terminar. minSdk=28 já
+                        // cobre a API 26 do método puro (sem precisar de
+                        // ContextCompat).
+                        startForegroundService(Intent(this, MediaProcessingService::class.java))
+                        if (mediaService != null) {
+                            mediaService!!.startJob(jobId, displayName, config)
+                        } else {
+                            pendingStart = Triple(jobId, displayName, config)
+                            bindMediaService()
+                        }
+                        result.success(null)
+                    }
+                    "cancelJob" -> {
+                        val jobId = call.argument<String>("jobId")!!
+                        mediaService?.cancelJob(jobId)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "omnitranslator/service/events")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    activeEventSink = events
+                    mediaService?.attachEventSink(events)
+                }
+                override fun onCancel(arguments: Any?) {
+                    activeEventSink = null
+                    mediaService?.attachEventSink(null)
+                }
+            })
     }
 
     /// Copia em thread própria: handlers de MethodChannel rodam no MAIN
@@ -110,23 +216,6 @@ class MainActivity : FlutterActivity() {
                 mainHandler.post { result.error("copy_failed", e.message, null) }
             }
         }.start()
-    }
-
-    /// Espaço livre no volume do path, ou null se o `StatFs` falhar (path
-    /// inexistente, sem permissão etc.) — o mesmo contrato do
-    /// [WindowsDiskSpaceProbe] no lado Dart: null é "não dá para saber", não
-    /// erro.
-    private fun freeBytesOf(path: String): Long? {
-        return try {
-            var f = File(path)
-            // StatFs exige um path que já existe; sobe até achar um ancestral.
-            while (!f.exists()) {
-                f = f.parentFile ?: return null
-            }
-            StatFs(f.absolutePath).availableBytes
-        } catch (e: Exception) {
-            null
-        }
     }
 
     private fun copyUriToFile(uri: Uri, destPath: String): Long {

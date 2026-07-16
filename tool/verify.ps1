@@ -16,7 +16,7 @@ $flutter = 'C:\tools\flutter\bin\flutter.bat'
 
 # Engine test floor: the gate fails below this. Raise it as tests are added,
 # to lock coverage against regressions.
-$minEngineTests = 284
+$minEngineTests = 368
 
 $failures = @()
 

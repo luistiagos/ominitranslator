@@ -266,4 +266,63 @@ void main() {
       expect(r, JobState.demuxed);
     });
   });
+
+  group('jobStateForStage (D3.3)', () {
+    test('mapeia cada estágio do pipeline pro JobState normativo', () {
+      expect(jobStateForStage(PipelineStage.prepare), JobState.importing);
+      expect(jobStateForStage(PipelineStage.download), JobState.imported);
+      expect(jobStateForStage(PipelineStage.demux), JobState.demuxed);
+      expect(jobStateForStage(PipelineStage.transcribe), JobState.transcribed);
+      expect(jobStateForStage(PipelineStage.segment), JobState.segmented);
+      expect(jobStateForStage(PipelineStage.translate), JobState.translated);
+      expect(jobStateForStage(PipelineStage.synthesize), JobState.synthesized);
+      expect(jobStateForStage(PipelineStage.fit), JobState.fitted);
+      expect(jobStateForStage(PipelineStage.mix), JobState.mixed);
+      expect(jobStateForStage(PipelineStage.mux), JobState.mixed);
+    });
+
+    test('separate/diarize caem no mesmo estado que demux (sem backend no M1 Android)', () {
+      expect(jobStateForStage(PipelineStage.separate), JobState.demuxed);
+      expect(jobStateForStage(PipelineStage.diarize), JobState.demuxed);
+    });
+  });
+
+  group('applyPipelineEvent (D3.3)', () {
+    JobCheckpoint base() => _cp('j1', JobState.created);
+
+    test('progresso dentro do mesmo estágio não conta como transição', () {
+      final r1 = applyPipelineEvent(
+          base(), const PipelineEvent(PipelineStage.prepare, 0.0, 'a'));
+      expect(r1.didTransition, isTrue); // created -> importing É transição
+      final r2 = applyPipelineEvent(
+          r1.checkpoint, const PipelineEvent(PipelineStage.prepare, 0.5, 'b'));
+      expect(r2.didTransition, isFalse); // ainda em prepare/importing
+      expect(r2.checkpoint.progress, 0.5);
+    });
+
+    test('mudar de estágio é uma transição e atualiza o estado', () {
+      final r1 = applyPipelineEvent(
+          base(), const PipelineEvent(PipelineStage.prepare, 1.0, 'a'));
+      final r2 = applyPipelineEvent(r1.checkpoint,
+          const PipelineEvent(PipelineStage.demux, 0.0, 'demuxando'));
+      expect(r2.didTransition, isTrue);
+      expect(r2.checkpoint.state, JobState.demuxed);
+    });
+
+    test('evento de warning acumula em warnings sem duplicar', () {
+      final cp = base();
+      final r = applyPipelineEvent(
+          cp,
+          const PipelineEvent(PipelineStage.transcribe, 0.5, 'aviso 1',
+              isWarning: true));
+      expect(r.checkpoint.warnings, ['aviso 1']);
+      // warnings anteriores preservados, o novo é o único item se não havia mais.
+    });
+
+    test('artifacts nunca é populado (lacuna documentada do MVP)', () {
+      final r = applyPipelineEvent(
+          base(), const PipelineEvent(PipelineStage.mux, 1.0, 'fim'));
+      expect(r.checkpoint.artifacts, isEmpty);
+    });
+  });
 }

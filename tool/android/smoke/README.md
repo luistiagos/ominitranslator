@@ -1,4 +1,4 @@
-# Smoke test on-device — D3.2 (backends Android)
+# Smoke test on-device — D3.2 (backends Android) + D3.3 (foreground service)
 
 Fecha a pendência "smoke test funcional no device" registrada desde a D3.1
 (bloqueada pelo USB do moto g86 não autenticando — ver `decisoes.md`,
@@ -6,8 +6,9 @@ Fecha a pendência "smoke test funcional no device" registrada desde a D3.1
 
 ## Pré-requisitos
 
-1. `tool/android/fetch_native_libs.ps1` (P2) já rodado — sem isso o
-   `AndroidTranslator` não encontra `libslimt.so`.
+1. `tool/android/fetch_native_libs.ps1` (P2 + F2) já rodado — sem isso o
+   `AndroidTranslator` não encontra `libslimt.so`, nem o `MediaProcessingService`
+   encontra o AAR do FFmpegKitNext.
 2. Device conectado e autorizado (`adb devices` mostra `device`, não vazio).
 
 ## Itens 1–4 — harness Flutter (`smoke_main.dart`)
@@ -29,11 +30,11 @@ e revertido na D3.1). Cobre:
    **44,1kHz estéreo** empurrada via `adb push` (ver comentário no código —
    gerar com `tool/at2_gen_fixture.dart` + um passo de ffmpeg pra
    upsample/estéreo) e (b) o handler Kotlin temporário de
-   `smoke_ffmpeg_handler.kt.snippet` — que por sua vez precisa do AAR do
-   FFmpegKitNext estar declarado no `build.gradle.kts` (gap ainda aberto,
-   ver o cabeçalho do `.snippet`). Valida especificamente o fix do bug B1
-   (revisão de 2026-07-16): confirma que o `asr_in.wav` é gerado e que os
-   timestamps saem plausíveis.
+   `smoke_ffmpeg_handler.kt.snippet` — colado em `MainActivity.kt` (splice
+   temporário, revertido depois). O AAR do FFmpegKitNext já está declarado
+   no `build.gradle.kts` desde F1-F4 (revisão de 2026-07-16). Valida
+   especificamente o fix do bug B1 (revisão de 2026-07-16): confirma que o
+   `asr_in.wav` é gerado e que os timestamps saem plausíveis.
 4. **`AndroidSynthesizer` (FFI real)**: sintetiza 1 frase em pt, salva WAV
    em armazenamento externo pra `adb pull` e conferir no desktop (duração >
    0, reabre em 22050Hz — taxa nativa do Piper medium).
@@ -71,8 +72,33 @@ Repetir para as 5 frases do SA1.md §7.1 en→de. Critério: saída idêntica
 (remoção do `-Werror`, fix do PCRE2, e a C-API nova) não mudaram o
 comportamento de tradução do `slimt-cli` em si.
 
+## D3.3 — `MediaProcessingService` (foreground service, §14/AT-4)
+
+Harness separado (`smoke_service_main.dart`), mesmo padrão de swap
+temporário. Ver o cabeçalho do arquivo para o procedimento completo
+(inclui `adb shell pm grant ... POST_NOTIFICATIONS`, já que a UI de
+produção ainda não pede essa permissão em runtime — isso é D3.4). Cobre:
+
+1. **`startJob`/`cancelJob`/`listRecoverableJobs`** (§14.3) contra o
+   serviço de verdade — não mocks.
+2. **Notificação** (§14.5): canal "Processamento de vídeo", estágio +
+   percentual, ação Cancelar, toque abre o app.
+3. **Os 5 cenários de ciclo de vida do §14.6** — roteiro manual completo no
+   cabeçalho do arquivo (tela apaga, troca de app, rotação, Activity morta
+   com o serviço vivo, e morte forçada do processo via
+   `adb shell am force-stop`).
+
+**Escopo do MVP (decisão do usuário, revisão de 2026-07-16):** o serviço só
+*grava* checkpoints a cada transição de estágio — não pula estágios já
+concluídos ao retomar. Os primeiros 4 cenários do §14.6 são cobertos de
+verdade pela arquitetura do serviço (não dependem de retomada). O 5º
+(morte forçada do processo) tem crédito parcial: `listRecoverableJobs()`
+mostra o job depois do `force-stop`, mas "retomar" hoje significa rodar
+`runDubbingJob` do zero de novo (reaproveitando modelos já baixados, não
+computação já feita) — lacuna documentada, não um bug.
+
 ## Ao terminar
 
 Preencher os campos pendentes em `docs/spikes-android/slimt-build.md` §6,
-`docs/progresso-android.md` §3.3h/§3.3j e `docs/decisoes.md` com os
+`docs/progresso-android.md` §3.3h/§3.3j/§3.3m e `docs/decisoes.md` com os
 resultados reais.

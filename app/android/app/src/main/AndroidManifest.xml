@@ -32,6 +32,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- §14 (D3.3/AT-4): foreground service dono do FlutterEngine headless
+             que roda o job de dublagem — sobrevive à Activity morrer/
+             rotacionar/trocar de app (§14.6). Não exportado: só a própria
+             app o inicia/liga. -->
+        <service
+            android:name=".MediaProcessingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProcessing" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

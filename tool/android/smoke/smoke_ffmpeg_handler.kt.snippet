@@ -1,9 +1,16 @@
+// PRODUCAO SUPERADA (D3.3, revisao de 2026-07-16): o handler REAL de
+// 'omnitranslator/ffmpeg' que o app de verdade usa agora vive em
+// MediaProcessingService.kt (registerFFmpegChannel), no engine headless do
+// foreground service. Este snippet continua valido e em uso, mas só como
+// splice temporario pro harness smoke_main.dart (D3.2) -- que testa o
+// AndroidTranscriber direto no isolate da Activity, sem passar pelo
+// servico, e por isso precisa da sua PRÓPRIA cópia do handler nesse
+// contexto. As descobertas de API abaixo (getters explicitos vs.
+// properties, callbacks que nao sao `fun interface`) sao as mesmas usadas
+// em MediaProcessingService.kt.
+//
 // Handler TEMPORARIO do canal 'omnitranslator/ffmpeg', so para o botao
-// "3. Transcrever" do smoke_main.dart. O handler REAL mora no
-// MediaProcessingService (D3.3, ainda nao escrito) -- o job de dublagem
-// roda em foreground service, nao na Activity, exatamente pra sobreviver a
-// troca de app/tela apagada/rotacao (AT-4). Este snippet e so pra provar o
-// AndroidTranscriber isoladamente ANTES da D3.3 existir.
+// "3. Transcrever" do smoke_main.dart.
 //
 // API identica ao AT-3 ja provado no device
 // (docs/spikes-android/at3-evidence/at3-bench-MainActivity.kt) -- mesmos

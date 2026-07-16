@@ -4,6 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:dubbing_engine/dubbing_engine.dart';
 import 'src/state/app_state.dart';
 import 'src/screens/home_screen.dart';
+// Mantém `serviceMain` (o entrypoint headless do MediaProcessingService,
+// D3.3) alcançável a partir da entry library — sem este import o AOT/
+// tree-shaking remove o símbolo mesmo com @pragma('vm:entry-point'), e
+// `executeDartEntrypoint(..., "serviceMain")` falha em runtime com
+// "entrypoint not found". Não chama nada daqui; main() continua só desktop.
+// ignore: unused_import
+import 'src/service_entrypoint.dart' show serviceMain;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
