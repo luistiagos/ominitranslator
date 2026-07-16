@@ -215,11 +215,17 @@ Stream<PipelineEvent> runDubbingJob(
     if (token.isCancelled) throw PipelineException(PipelineStage.translate, 'Cancelado pelo usuário');
 
     final translator = runtime.createTranslator();
-    final sentences = segments.map((s) => s.sourceText).toList();
-    final translated = await translator.translate(
-        sentences, config.sourceLang, config.targetLang, token);
-    for (int i = 0; i < segments.length; i++) {
-      segments[i].translatedText = translated[i].isNotEmpty ? translated[i] : segments[i].sourceText;
+    try {
+      final sentences = segments.map((s) => s.sourceText).toList();
+      final translated = await translator.translate(
+          sentences, config.sourceLang, config.targetLang, token);
+      for (int i = 0; i < segments.length; i++) {
+        segments[i].translatedText = translated[i].isNotEmpty ? translated[i] : segments[i].sourceText;
+      }
+    } finally {
+      // Como o synthesizer abaixo: no Android o translator retém handles
+      // nativos do slimt que vazariam a cada job num serviço de longa vida.
+      translator.dispose();
     }
 
     yield PipelineEvent(PipelineStage.translate, 1.0, 'Tradução concluída');

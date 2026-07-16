@@ -1,8 +1,10 @@
+import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'package:dubbing_engine/src/backends/interfaces.dart';
 import 'package:dubbing_engine/src/backends/sherpa_bindings.dart';
 import 'package:dubbing_engine/src/model_manager.dart';
 import 'package:dubbing_engine/src/models.dart';
+import 'package:dubbing_engine/src/runtime/media_tool_runner.dart';
 
 /// Whisper ONNX (sherpa-onnx) + Silero VAD, in-process via FFI — mesma API
 /// provada no device pelo AT-2 (`docs/spikes-android/at2-evidence/
@@ -14,12 +16,35 @@ import 'package:dubbing_engine/src/models.dart';
 class AndroidTranscriber implements Transcriber {
   final ModelManager models;
   final Preset preset;
+  final MediaToolRunner media;
 
-  AndroidTranscriber(this.models, this.preset);
+  AndroidTranscriber(this.models, this.preset, this.media);
 
   @override
   Future<List<TranscriptSegment>> transcribe(
-      String wav16kMono, Lang sourceLang, CancellationToken token) async {
+      String inputWav, Lang sourceLang, CancellationToken token) async {
+    // O pipeline passa o `audio_full.wav` do demux (44,1kHz ESTÉREO) — o
+    // Silero VAD (windowSize 512) e o Whisper esperam 16kHz mono. Converte
+    // primeiro, como o WhisperTranscriber do desktop faz; o `asr_in.wav`
+    // resultante também é o que o pipeline usa depois para reaparar os
+    // segmentos por energia (`trimDubbingSegmentsToSpeechFromFile`). No
+    // bench do AT-2 isso não aparecia porque os WAVs eram pré-convertidos
+    // no desktop antes do adb push.
+    final workDir = p.dirname(inputWav);
+    final wav16kMono = p.join(workDir, 'asr_in.wav');
+    final rConv = await media.run(MediaTool.ffmpeg, [
+      '-y', '-i', inputWav,
+      '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le',
+      wav16kMono,
+    ], workingDirectory: workDir, token: token);
+    if (rConv.exitCode != 0) {
+      throw PipelineException(PipelineStage.transcribe,
+          'Erro ao preparar áudio para ASR: ${rConv.stderrTail}');
+    }
+
+    // Só depois da conversão: falha de ffmpeg é o erro mais provável e não
+    // deve depender de o FFI do sherpa carregar (também é o que permite
+    // testar a conversão em unidade, sem o .so).
     ensureSherpaBindings();
 
     final whisperId = models.catalog.asrModelIds[preset]!;

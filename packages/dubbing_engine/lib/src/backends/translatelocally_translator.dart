@@ -39,6 +39,10 @@ class TranslateLocallyTranslator implements Translator {
   final ModelManager models;
   TranslateLocallyTranslator(this.tools, this.models);
 
+  // Subprocesso por chamada — nenhum estado nativo retido entre traduções.
+  @override
+  void dispose() {}
+
   @override
   Future<List<String>> translate(
       List<String> sentences, Lang from, Lang to, CancellationToken token,

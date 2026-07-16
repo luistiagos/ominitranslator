@@ -176,6 +176,14 @@ class AndroidTranslator implements Translator {
     final cached = _handles[key];
     if (cached != null) return cached;
     final id = _androidDirectModelId[(from, to)]!;
+    // Guard antes do FFI: sem ele, um modelo faltando viraria um erro
+    // críptico de open() vindo do C++. (Sem download automático aqui — a UI
+    // usa resolveRequiredIds pra garantir prontidão antes do job.)
+    if (models.stateOf(id) != ModelState.ready) {
+      throw StateError(
+          'Modelo de tradução $id (${from.code}→${to.code}) não está pronto — '
+          'baixe-o antes de dublar.');
+    }
     final entry = models.catalog.entryOf(id)!;
     final modelPath = models.pathOf(id, entry.expects[0]);
     final vocabPath = models.pathOf(id, entry.expects[1]);
@@ -199,6 +207,7 @@ class AndroidTranslator implements Translator {
 
   /// Libera os handles nativos. Chamado ao fim do job — sem isto, cada
   /// modelo carregado (tiny ≈ 17 MB) vaza até o processo do serviço morrer.
+  @override
   void dispose() {
     for (final handle in _handles.values) {
       bindings.free(handle);

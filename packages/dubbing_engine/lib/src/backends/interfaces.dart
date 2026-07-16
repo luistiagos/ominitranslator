@@ -87,6 +87,13 @@ abstract class Diarizer {
 abstract class Translator {
   Future<List<String>> translate(
       List<String> sentences, Lang from, Lang to, CancellationToken token);
+
+  /// Libera recursos do backend ao fim do job. No-op no desktop (subprocesso
+  /// sem estado retido); obrigatório no Android, onde o slimt mantém handles
+  /// nativos (~17 MB por par de idiomas) que sobreviveriam ao job num
+  /// serviço de longa vida. O pipeline chama em `try/finally`, como já faz
+  /// com [Synthesizer.dispose].
+  void dispose() {}
 }
 
 abstract class Synthesizer {

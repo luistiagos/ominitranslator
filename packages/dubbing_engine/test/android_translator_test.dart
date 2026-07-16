@@ -74,6 +74,17 @@ void main() {
     setUp(() {
       tempDir = Directory.systemTemp.createTempSync('android_translator_test_');
       models = ModelManager(tempDir.path, _tools, catalog: ModelCatalog.android());
+      // Materializa os modelos mt-tiny-* como "prontos" (expects + .sha256):
+      // o guard de prontidão do _handleFor roda ANTES do FFI e barraria
+      // qualquer tradução com os modelos ausentes.
+      for (final id in ['mt-tiny-enpt', 'mt-tiny-pten', 'mt-tiny-enes', 'mt-tiny-esen']) {
+        final entry = models.catalog.entryOf(id)!;
+        final dir = Directory(models.pathOf(id))..createSync(recursive: true);
+        for (final f in entry.expects) {
+          File(models.pathOf(id, f)).writeAsStringSync('fake');
+        }
+        File('${dir.path}${Platform.pathSeparator}.sha256').writeAsStringSync('fake');
+      }
       bindings = FakeSlimtBindings();
       translator = AndroidTranslator(models, bindings: bindings);
     });
@@ -145,6 +156,16 @@ void main() {
         () => translator.translate(['Hello'], Lang.en, Lang.pt, CancellationToken()),
         throwsStateError,
       );
+    });
+
+    test('throws a clear StateError when the model is not ready (guard before FFI)', () async {
+      Directory(models.pathOf('mt-tiny-enpt')).deleteSync(recursive: true);
+      expect(
+        () => translator.translate(['Hello'], Lang.en, Lang.pt, CancellationToken()),
+        throwsA(isA<StateError>()
+            .having((e) => e.message, 'message', contains('mt-tiny-enpt'))),
+      );
+      expect(bindings.createdConfigPaths, isEmpty); // nunca chegou no FFI
     });
 
     test('dispose() frees every cached handle', () async {

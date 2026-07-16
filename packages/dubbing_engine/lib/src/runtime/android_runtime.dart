@@ -41,18 +41,22 @@ DubbingRuntime androidRuntime({
   required FFmpegCancelFn ffmpegCancel,
   required FfprobeFn ffprobe,
 }) {
+  // Uma única instância: o AndroidTranscriber precisa do runner (converte o
+  // áudio pra 16kHz mono via ffmpeg antes do ASR, como o desktop faz) e o
+  // DubbingRuntime também.
+  final mediaTools = FFmpegKitNextRunner(
+    start: ffmpegStart,
+    poll: ffmpegPoll,
+    cancel: ffmpegCancel,
+    ffprobe: ffprobe,
+  );
   return DubbingRuntime(
     models: models,
     diskSpace: diskSpace,
-    mediaTools: FFmpegKitNextRunner(
-      start: ffmpegStart,
-      poll: ffmpegPoll,
-      cancel: ffmpegCancel,
-      ffprobe: ffprobe,
-    ),
+    mediaTools: mediaTools,
     createSeparator: () => const _NoSeparator(),
     createDiarizer: null,
-    createTranscriber: (preset) => AndroidTranscriber(models, preset),
+    createTranscriber: (preset) => AndroidTranscriber(models, preset, mediaTools),
     createTranslator: () => AndroidTranslator(models),
     createSynthesizer: (targetLang, {voiceModelId, voiceSid = 0}) =>
         AndroidSynthesizer(targetLang, models, voiceModelId: voiceModelId, voiceSid: voiceSid),

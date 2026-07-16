@@ -54,6 +54,7 @@ class _MockTranscriber implements Transcriber {
 }
 
 class _MockTranslator implements Translator {
+  bool disposed = false;
   @override
   Future<List<String>> translate(List<String> sentences, Lang from, Lang to,
       CancellationToken token) async {
@@ -61,6 +62,9 @@ class _MockTranslator implements Translator {
         .map((s) => s == 'Hello world.' ? 'Olá mundo.' : 'Como vai você?')
         .toList();
   }
+
+  @override
+  void dispose() => disposed = true;
 }
 
 class _MockSynthesizer implements Synthesizer {

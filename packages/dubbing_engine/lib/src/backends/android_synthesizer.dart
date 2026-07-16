@@ -38,6 +38,12 @@ class AndroidSynthesizer implements Synthesizer {
     if (models.stateOf(id) != ModelState.ready) {
       throw StateError('Voz $id não está pronta — baixe o modelo antes de dublar.');
     }
+    // Dependência compartilhada (dependsOn no catálogo): sem ela o erro
+    // viria críptico do código nativo do sherpa ao carregar o dataDir.
+    if (models.stateOf('espeak-ng-data') != ModelState.ready) {
+      throw StateError(
+          'Dados de fonética (espeak-ng-data) não estão prontos — baixe-os antes de dublar.');
+    }
     final modelPath = models.pathOf(id);
     final onnxFile = entry.expects.firstWhere((f) => f.endsWith('.onnx'));
     final espeakDataDir = models.pathOf('espeak-ng-data');

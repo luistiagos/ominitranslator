@@ -120,8 +120,11 @@ class FFmpegKitNextRunner implements MediaToolRunner {
           onProgress(ratio);
         }
         if (poll.returnCode != null) {
+          final limit = timeout.inMinutes >= 1
+              ? '${timeout.inMinutes} min'
+              : '${timeout.inSeconds} s';
           final tail = timedOut
-              ? 'Sessão excedeu o tempo limite de ${timeout.inMinutes} min e foi cancelada.\n${poll.logsTail}'
+              ? 'Sessão excedeu o tempo limite de $limit e foi cancelada.\n${poll.logsTail}'
               : poll.logsTail;
           return ToolResult(poll.returnCode!, '', tail, timedOut: timedOut);
         }

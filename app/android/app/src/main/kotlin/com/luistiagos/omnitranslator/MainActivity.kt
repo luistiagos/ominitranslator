@@ -3,6 +3,8 @@ package com.luistiagos.omnitranslator
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.StatFs
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -50,6 +52,13 @@ class MainActivity : FlutterActivity() {
                         // §15.1/AT-5: importar por SAF em vez de path de arquivo
                         // cru — o Android não garante acesso a paths fora do SAF
                         // desde o scoped storage.
+                        if (pendingPickResult != null) {
+                            // Um segundo pick antes do primeiro resolver
+                            // sobrescreveria pendingPickResult e o Future Dart
+                            // original nunca completaria.
+                            result.error("pick_in_progress", "Já existe um seletor aberto.", null)
+                            return@setMethodCallHandler
+                        }
                         pendingPickResult = result
                         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
@@ -58,6 +67,10 @@ class MainActivity : FlutterActivity() {
                         startActivityForResult(intent, REQUEST_OPEN_DOCUMENT)
                     }
                     "pickExportLocation" -> {
+                        if (pendingPickResult != null) {
+                            result.error("pick_in_progress", "Já existe um seletor aberto.", null)
+                            return@setMethodCallHandler
+                        }
                         val suggestedName = call.argument<String>("suggestedName") ?: "dubbed.mp4"
                         val mimeType = call.argument<String>("mimeType") ?: "video/mp4"
                         pendingPickResult = result
@@ -71,26 +84,32 @@ class MainActivity : FlutterActivity() {
                     "copyUriToFile" -> {
                         val uri = Uri.parse(call.argument<String>("uri")!!)
                         val destPath = call.argument<String>("destPath")!!
-                        try {
-                            val bytes = copyUriToFile(uri, destPath)
-                            result.success(mapOf("bytesCopied" to bytes))
-                        } catch (e: Exception) {
-                            result.error("copy_failed", e.message, null)
-                        }
+                        runCopyOffMainThread(result) { copyUriToFile(uri, destPath) }
                     }
                     "copyFileToUri" -> {
                         val srcPath = call.argument<String>("srcPath")!!
                         val uri = Uri.parse(call.argument<String>("uri")!!)
-                        try {
-                            val bytes = copyFileToUri(srcPath, uri)
-                            result.success(mapOf("bytesCopied" to bytes))
-                        } catch (e: Exception) {
-                            result.error("copy_failed", e.message, null)
-                        }
+                        runCopyOffMainThread(result) { copyFileToUri(srcPath, uri) }
                     }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /// Copia em thread própria: handlers de MethodChannel rodam no MAIN
+    /// thread, e copiar um vídeo de centenas de MB nele dispara ANR (limite
+    /// ~5s). O resultado volta postado no main looper, como o Flutter exige
+    /// para `MethodChannel.Result`.
+    private fun runCopyOffMainThread(result: MethodChannel.Result, copy: () -> Long) {
+        val mainHandler = Handler(Looper.getMainLooper())
+        Thread {
+            try {
+                val bytes = copy()
+                mainHandler.post { result.success(mapOf("bytesCopied" to bytes)) }
+            } catch (e: Exception) {
+                mainHandler.post { result.error("copy_failed", e.message, null) }
+            }
+        }.start()
     }
 
     /// Espaço livre no volume do path, ou null se o `StatFs` falhar (path
