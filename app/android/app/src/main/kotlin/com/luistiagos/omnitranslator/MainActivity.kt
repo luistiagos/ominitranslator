@@ -56,10 +56,10 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /// Cria (se preciso) e conecta ao `MediaProcessingService`. Chamado só
-    /// por `startJob` — abrir o app não deve, sozinho, acordar o serviço.
-    /// (Reconectar automaticamente a um job já em andamento quando a Activity
-    /// reabre é wiring de UI da D3.4, fora do escopo do D3.3.)
+    /// Conecta ao `MediaProcessingService` (instanciando-o se preciso — o
+    /// engine headless pesado NÃO nasce aqui, só no onStartCommand). Chamado
+    /// por `startJob` e pelo onListen do EventChannel (reconexão a um job já
+    /// em andamento quando a Activity reabre, §14.6).
     private fun bindMediaService() {
         if (serviceBound) return
         bindService(
@@ -155,10 +155,14 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startJob" -> {
-                        if (mediaService?.hasActiveJob() == true) {
+                        if (mediaService?.hasActiveJob() == true || pendingStart != null) {
                             // Mesmo idioma de erro do "pick_in_progress" acima —
                             // um segundo job pisaria no primeiro dentro do
-                            // mesmo serviço (só roda um job por vez).
+                            // mesmo serviço (só roda um job por vez). O check
+                            // de pendingStart cobre a janela em que o bind
+                            // ainda não completou: sem ele, dois startJob
+                            // rápidos sobrescreveriam o primeiro em silêncio
+                            // DEPOIS de já ter respondido sucesso ao Dart.
                             result.error("job_in_progress", "Já existe uma dublagem em andamento.", null)
                             return@setMethodCallHandler
                         }
@@ -194,6 +198,21 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     activeEventSink = events
                     mediaService?.attachEventSink(events)
+                    // Religa a um serviço que JÁ esteja rodando (job iniciado
+                    // por uma instância anterior da Activity — §14.6, "UI é
+                    // reaberta e reconecta"): sem isto, a Activity recriada
+                    // nunca voltava a receber eventos ao vivo (auditoria de
+                    // 2026-07-16). BIND_AUTO_CREATE de propósito, não flags=0:
+                    // um binding sem AUTO_CREATE não mantém o serviço vivo
+                    // após o stopSelf() do fim do job, e um Binder LOCAL
+                    // (mesmo processo) nunca dispara onServiceDisconnected em
+                    // destruição graciosa — mediaService viraria referência
+                    // morta e o próximo startJob falharia em silêncio. O
+                    // custo do AUTO_CREATE é só instanciar o objeto Service
+                    // (canal de notificação); o engine headless pesado só
+                    // nasce no onStartCommand, que continua vindo apenas de
+                    // startJob.
+                    bindMediaService()
                 }
                 override fun onCancel(arguments: Any?) {
                     activeEventSink = null

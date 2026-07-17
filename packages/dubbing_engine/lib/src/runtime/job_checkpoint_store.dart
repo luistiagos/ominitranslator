@@ -230,20 +230,36 @@ String computeConfigFingerprint(
 
 /// Mapeia o estágio do pipeline (`PipelineEvent.stage`) para o `JobState`
 /// normativo (§9.1) que o foreground service grava no checkpoint (D3.3).
-/// `separate`/`diarize` caem no mesmo estado que `demux`: nenhum dos dois
-/// backends existe no M1 Android (`androidRuntime()` usa `createSeparator`/
-/// `createDiarizer: null`), então nunca progridem o estado sozinhos.
+///
+/// A REGRA (auditoria de 2026-07-16): um evento do estágio X prova que X
+/// COMEÇOU — logo o que está concluído é o estágio ANTERIOR, e é ISSO que
+/// o checkpoint grava. Os nomes de `JobState` são estados de conclusão
+/// (`transcribed` = "transcrição terminou", §9.1); gravar `transcribed` no
+/// primeiro evento de `transcribe` (o mapeamento original da D3.3) mentia
+/// o estado em `listRecoverableJobs()` e seria uma armadilha pro
+/// `resolveResumeState` quando a retomada real (§9.4) for implementada —
+/// ele retomaria DEPOIS de um estágio que nunca terminou.
+///
+/// `separate`/`diarize` caem no mesmo estado que `transcribe` (todos rodam
+/// após o demux): nenhum dos dois backends existe no M1 Android
+/// (`androidRuntime()` usa `createSeparator`/`createDiarizer: null`), então
+/// nunca progridem o estado sozinhos. `completedPendingExport` não sai
+/// daqui — é o chamador que o grava quando o stream termina sem erro.
 JobState jobStateForStage(PipelineStage stage) => switch (stage) {
-      PipelineStage.prepare => JobState.importing,
-      PipelineStage.download => JobState.imported,
-      PipelineStage.demux || PipelineStage.separate || PipelineStage.diarize =>
+      // Durante prepare/download ainda se está importando (§9.1: `importing`
+      // é o único estado progressivo do enum, os demais são conclusões).
+      PipelineStage.prepare || PipelineStage.download => JobState.importing,
+      PipelineStage.demux => JobState.imported,
+      PipelineStage.separate ||
+      PipelineStage.diarize ||
+      PipelineStage.transcribe =>
         JobState.demuxed,
-      PipelineStage.transcribe => JobState.transcribed,
-      PipelineStage.segment => JobState.segmented,
-      PipelineStage.translate => JobState.translated,
-      PipelineStage.synthesize => JobState.synthesized,
-      PipelineStage.fit => JobState.fitted,
-      PipelineStage.mix || PipelineStage.mux => JobState.mixed,
+      PipelineStage.segment => JobState.transcribed,
+      PipelineStage.translate => JobState.segmented,
+      PipelineStage.synthesize => JobState.translated,
+      PipelineStage.fit => JobState.synthesized,
+      PipelineStage.mix => JobState.fitted,
+      PipelineStage.mux => JobState.mixed,
     };
 
 /// Aplica um [PipelineEvent] a um [JobCheckpoint] em memória — usado pelo

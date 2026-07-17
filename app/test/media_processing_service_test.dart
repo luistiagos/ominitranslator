@@ -194,6 +194,24 @@ void main() {
     test('exportJob de job inexistente não lança', () async {
       await client.exportJob('fantasma');
     });
+
+    test('exportJob de job não-concluído não muda o estado (auditoria)', () async {
+      // `exported` é terminal — flipar um job em andamento o faria sumir de
+      // listRecoverableJobs() sem nunca ter produzido saída.
+      final jobsRoot = await jobsRootDir();
+      final store = FileJobCheckpointStore(jobsRoot);
+      final now = DateTime.utc(2026, 7, 16);
+      await store.save(JobCheckpoint(
+          jobId: 'j2',
+          state: JobState.transcribed,
+          configFingerprint: 'fp',
+          createdAt: now,
+          updatedAt: now));
+
+      await client.exportJob('j2');
+
+      expect((await store.load('j2'))!.state, JobState.transcribed);
+    });
   });
 
   test('jobsRootDir() é <applicationSupport>/jobs', () async {

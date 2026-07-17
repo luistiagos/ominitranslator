@@ -56,6 +56,22 @@ class MediaProcessingService : Service() {
     private var currentStage: String = ""
     private var currentPercent: Int = 0
 
+    /// Handshake com o isolate Dart (auditoria de 2026-07-16): o `serviceMain`
+    /// avisa `workerReady` DEPOIS de registrar seu handler. Sem isso, um
+    /// `runJob` enviado antes de o Dart terminar de bootar dependia do
+    /// ChannelBuffers do Flutter (capacidade 1, comportamento não
+    /// documentado como contrato) pra não se perder — funciona pra
+    /// exatamente 1 mensagem, quebra silenciosamente pra 2 (ex.: runJob +
+    /// cancelJob em sequência rápida). Com o handshake é determinístico.
+    private var workerReady = false
+    private var pendingStart: Triple<String, String, Map<String, Any?>>? = null
+
+    /// Último `Statistics.time` (ms de mídia processada) reportado pelo
+    /// FFmpegKit — alimenta o `statTimeMs` do `ffmpegPoll`, que o
+    /// `FFmpegKitNextRunner` converte em progresso quando o comando declara
+    /// `-t` explícito.
+    @Volatile private var lastStatTimeMs: Double = -1.0
+
     fun hasActiveJob(): Boolean = currentJobId != null
 
     /// Chamado pela Activity ao (re)conectar via `ServiceConnection` e ao
@@ -102,10 +118,11 @@ class MediaProcessingService : Service() {
         super.onDestroy()
     }
 
-    /// `Service.onTimeout` só existe a partir da API 34 — nunca é chamado
-    /// pelo SO abaixo disso, então declarar sem guard de versão é seguro
-    /// (padrão Android comum pra overrides de API alta com minSdk menor).
-    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    /// A sobrecarga (startId, fgsType) de `Service.onTimeout` só existe a
+    /// partir da API 35 (a de 1 argumento é da 34) — nunca é chamada pelo SO
+    /// abaixo disso, então declarar sem guard de versão é seguro (padrão
+    /// Android comum pra overrides de API alta com minSdk menor).
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     override fun onTimeout(startId: Int, fgsType: Int) {
         currentJobId?.let { cancelJob(it) }
     }
@@ -116,10 +133,24 @@ class MediaProcessingService : Service() {
         currentStage = "iniciando"
         currentPercent = 0
         updateNotification()
-        workerChannel?.invokeMethod("runJob", mapOf("jobId" to jobId, "config" to config))
+        if (workerReady) {
+            workerChannel?.invokeMethod("runJob", mapOf("jobId" to jobId, "config" to config))
+        } else {
+            pendingStart = Triple(jobId, displayName, config)
+        }
     }
 
     fun cancelJob(jobId: String) {
+        if (!workerReady && pendingStart?.first == jobId) {
+            // Cancelado antes de o Dart bootar: o job nunca começou e nenhum
+            // checkpoint foi criado — descartar e encerrar é suficiente (não
+            // há evento terminal a emitir porque não há estado a reportar).
+            pendingStart = null
+            currentJobId = null
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return
+        }
         workerChannel?.invokeMethod("cancelJob", mapOf("jobId" to jobId))
     }
 
@@ -140,15 +171,24 @@ class MediaProcessingService : Service() {
 
         val engine = FlutterEngine(applicationContext)
         GeneratedPluginRegistrant.registerWith(engine)
-        engine.dartExecutor.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint(loader.findAppBundlePath(), "serviceMain")
-        )
-        flutterEngine = engine
 
+        // TODOS os handlers Kotlin registrados ANTES do executeDartEntrypoint:
+        // o lado nativo não tem ChannelBuffers — um invokeMethod do Dart
+        // (ex.: o `workerReady` do handshake) que chegasse antes do
+        // setMethodCallHandler seria respondido com "not implemented" e
+        // perdido (auditoria de 2026-07-16).
         val messenger = engine.dartExecutor.binaryMessenger
         workerChannel = MethodChannel(messenger, "omnitranslator/service_worker").also { ch ->
             ch.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "workerReady" -> {
+                        workerReady = true
+                        pendingStart?.let { (jobId, _, config) ->
+                            ch.invokeMethod("runJob", mapOf("jobId" to jobId, "config" to config))
+                        }
+                        pendingStart = null
+                        result.success(null)
+                    }
                     "jobStateChanged", "jobProgress", "jobWarning", "jobCompleted", "jobFailed" -> {
                         @Suppress("UNCHECKED_CAST")
                         val payload = ((call.arguments as? Map<String, Any?>) ?: emptyMap())
@@ -177,6 +217,11 @@ class MediaProcessingService : Service() {
             }
         }
         registerFFmpegChannel(messenger)
+
+        engine.dartExecutor.executeDartEntrypoint(
+            DartExecutor.DartEntrypoint(loader.findAppBundlePath(), "serviceMain")
+        )
+        flutterEngine = engine
     }
 
     /// `omnitranslator/ffmpeg` -- movido de `MainActivity`/do smoke test pra
@@ -194,6 +239,7 @@ class MediaProcessingService : Service() {
                 "ffmpegStart" -> {
                     @Suppress("UNCHECKED_CAST")
                     val args = (call.argument<List<String>>("args") as List<String>).toTypedArray()
+                    lastStatTimeMs = -1.0
                     val session: Session = FFmpegKit.executeWithArgumentsAsync(
                         args,
                         object : com.arthenica.ffmpegkit.FFmpegSessionCompleteCallback {
@@ -203,7 +249,12 @@ class MediaProcessingService : Service() {
                             override fun apply(log: com.arthenica.ffmpegkit.Log) {}
                         },
                         object : com.arthenica.ffmpegkit.StatisticsCallback {
-                            override fun apply(statistics: com.arthenica.ffmpegkit.Statistics) {}
+                            // Statistics.time É property Kotlin de verdade
+                            // (var time: Double) -- confirmado via javap no
+                            // AAR real, diferente dos membros de Session.
+                            override fun apply(statistics: com.arthenica.ffmpegkit.Statistics) {
+                                lastStatTimeMs = statistics.time
+                            }
                         }
                     )
                     result.success(mapOf("sessionId" to session.getSessionId()))
@@ -211,7 +262,17 @@ class MediaProcessingService : Service() {
                 "ffmpegPoll" -> {
                     val id = (call.argument<Number>("sessionId"))!!.toLong()
                     val s: Session? = FFmpegKitConfig.getSession(id)
-                    result.success(mapOf("returnCode" to s?.getReturnCode()?.value, "logsTail" to ""))
+                    // logsTail alimenta o stderrTail do FFmpegKitNextRunner --
+                    // é o ÚNICO diagnóstico que sobra quando o ffmpeg falha no
+                    // device (a auditoria pegou uma regressão que devolvia ""
+                    // fixo, cegando qualquer erro de ffmpeg em produção).
+                    result.success(
+                        mapOf(
+                            "returnCode" to s?.getReturnCode()?.value,
+                            "logsTail" to (s?.getAllLogsAsString()?.takeLast(4000) ?: ""),
+                            "statTimeMs" to lastStatTimeMs,
+                        )
+                    )
                 }
                 "ffmpegCancel" -> {
                     val id = (call.argument<Number>("sessionId"))!!.toLong()
@@ -239,7 +300,12 @@ class MediaProcessingService : Service() {
     /// cancelamento, distinguível pelo `state` do checkpoint), encerra o
     /// serviço (§14.5: `stopForeground`+`stopSelf` incondicionais).
     private fun onWorkerEvent(kind: String, payload: Map<String, Any?>) {
-        currentStage = (payload["state"] as? String) ?: currentStage
+        // Preferir a mensagem humana do PipelineEvent ("Transcrevendo...")
+        // ao nome do estado do checkpoint — que, corrigido pela auditoria,
+        // é o estágio CONCLUÍDO anterior ("demuxed" durante a transcrição),
+        // verdadeiro pra máquina mas confuso como texto de notificação.
+        currentStage = (payload["message"] as? String)?.takeIf { it.isNotBlank() }
+            ?: (payload["state"] as? String) ?: currentStage
         val progress = (payload["progress"] as? Number)?.toDouble() ?: 0.0
         currentPercent = (progress * 100).toInt().coerceIn(0, 100)
         when (kind) {
@@ -252,13 +318,26 @@ class MediaProcessingService : Service() {
         }
     }
 
+    /// Tipo de FGS por versão (auditoria de 2026-07-16, decisão do usuário):
+    /// `mediaProcessing` (0x2000) só existe na API 35 — o Android 14 (API 34)
+    /// VALIDA o tipo contra a lista conhecida e lança exceção pra um tipo
+    /// desconhecido (9–13 só não validam por acaso). Com minSdk=28, devices
+    /// 29–34 usam `dataSync` (o tipo que o próprio Android documenta como o
+    /// usado pra isso antes do 15); o manifesto declara os dois e a permissão
+    /// FOREGROUND_SERVICE_DATA_SYNC (inócua fora da API 34+).
     private fun startForegroundWithPlaceholder() {
         val notification = buildNotification("Iniciando...", 0)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
@@ -284,6 +363,12 @@ class MediaProcessingService : Service() {
         )
         val openIntent = Intent(this, MainActivity::class.java).apply {
             putExtra("jobId", currentJobId)
+            // Exigência documentada de PendingIntent.getActivity: a Activity
+            // é iniciada FORA do contexto de outra Activity (é o sistema de
+            // notificações quem dispara), então NEW_TASK é obrigatório —
+            // sem ele o toque na notificação pode simplesmente não abrir
+            // nada (auditoria de 2026-07-16).
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val openPending = PendingIntent.getActivity(
             this, 0, openIntent,

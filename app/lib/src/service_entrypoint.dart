@@ -23,10 +23,16 @@ void serviceMain() {
 
   CancellationToken? activeToken;
   String? activeJobId;
+  var jobRunning = false;
 
   worker.setMethodCallHandler((call) async {
     switch (call.method) {
       case 'runJob':
+        // O Kotlin já barra job duplo (hasActiveJob/pendingStart), mas este
+        // guard é a última linha: dois pipelines simultâneos disputariam os
+        // mesmos backends FFI e o mesmo jobsRoot (auditoria de 2026-07-16).
+        if (jobRunning) return null;
+        jobRunning = true;
         final args = (call.arguments as Map).cast<String, dynamic>();
         final jobId = args['jobId'] as String;
         final config =
@@ -34,7 +40,8 @@ void serviceMain() {
         activeJobId = jobId;
         final token = CancellationToken();
         activeToken = token;
-        unawaited(_runJob(jobId, config, token, worker));
+        unawaited(_runJob(jobId, config, token, worker)
+            .whenComplete(() => jobRunning = false));
         return null;
       case 'cancelJob':
         final jobId = (call.arguments as Map)['jobId'] as String?;
@@ -44,6 +51,13 @@ void serviceMain() {
         throw MissingPluginException('Método desconhecido: ${call.method}');
     }
   });
+
+  // Handshake com o Kotlin (auditoria de 2026-07-16): só DEPOIS de o handler
+  // acima existir é seguro receber runJob. Sem isto, um runJob disparado
+  // durante o boot do isolate dependia do ChannelBuffers (capacidade 1) pra
+  // não se perder — o serviço agora segura o job em pendingStart até este
+  // aviso chegar.
+  unawaited(worker.invokeMethod<void>('workerReady'));
 }
 
 /// Tools.locate() procura `.exe` do Windows — nunca chamar no Android. O
@@ -92,76 +106,102 @@ Future<void> _runJob(
   CancellationToken token,
   MethodChannel worker,
 ) async {
-  final jobsRoot = await jobsRootDir();
-  final store = FileJobCheckpointStore(jobsRoot);
-  final modelsRoot = Directory(jobsRoot).parent.path;
-  final models =
-      ModelManager(modelsRoot, _dummyTools, catalog: ModelCatalog.android());
-  final ffmpeg = androidFFmpegCallbacks();
-  final runtime = androidRuntime(
-    models: models,
-    diskSpace: createAndroidDiskSpaceProbe(),
-    ffmpegStart: ffmpeg.start,
-    ffmpegPoll: ffmpeg.poll,
-    ffmpegCancel: ffmpeg.cancel,
-    ffprobe: ffmpeg.ffprobe,
-  );
-
-  // O input pode ainda não existir como arquivo local (job por URL do
-  // YouTube, fora do escopo M1 Android — `createDownloader: null` já recusa
-  // isso no `prepare`) — um fingerprint vazio nesse caso só degrada
-  // `resolveResumeState` (fora de escopo do MVP), nunca impede o job de rodar.
-  var fingerprint = '';
+  // O try envolve o corpo INTEIRO (auditoria de 2026-07-16): uma falha
+  // precoce — path_provider indisponível, disco cheio ao gravar o primeiro
+  // job.json — também precisa terminar em `jobFailed`, senão o serviço fica
+  // em foreground pra sempre com a notificação "Iniciando..." e nenhum
+  // caminho de saída.
+  FileJobCheckpointStore? store;
+  JobCheckpoint? checkpoint;
   try {
-    final stat = File(config.inputVideo).statSync();
-    fingerprint = computeConfigFingerprint(
-      config,
-      inputSizeBytes: stat.size,
-      inputLastModifiedMs: stat.modified.millisecondsSinceEpoch,
+    final jobsRoot = await jobsRootDir();
+    store = FileJobCheckpointStore(jobsRoot);
+    final modelsRoot = Directory(jobsRoot).parent.path;
+    final models =
+        ModelManager(modelsRoot, _dummyTools, catalog: ModelCatalog.android());
+    final ffmpeg = androidFFmpegCallbacks();
+    final runtime = androidRuntime(
+      models: models,
+      diskSpace: createAndroidDiskSpaceProbe(),
+      ffmpegStart: ffmpeg.start,
+      ffmpegPoll: ffmpeg.poll,
+      ffmpegCancel: ffmpeg.cancel,
+      ffprobe: ffmpeg.ffprobe,
     );
-  } catch (_) {}
 
-  final now = DateTime.now();
-  var checkpoint = JobCheckpoint(
-    jobId: jobId,
-    state: JobState.created,
-    configFingerprint: fingerprint,
-    createdAt: now,
-    updatedAt: now,
-  );
-  await store.save(checkpoint);
-  await _emit(worker, 'jobStateChanged', checkpoint);
+    // O input pode ainda não existir como arquivo local (job por URL do
+    // YouTube, fora do escopo M1 Android — `createDownloader: null` já recusa
+    // isso no `prepare`) — um fingerprint vazio nesse caso só degrada
+    // `resolveResumeState` (fora de escopo do MVP), nunca impede o job de rodar.
+    var fingerprint = '';
+    try {
+      final stat = File(config.inputVideo).statSync();
+      fingerprint = computeConfigFingerprint(
+        config,
+        inputSizeBytes: stat.size,
+        inputLastModifiedMs: stat.modified.millisecondsSinceEpoch,
+      );
+    } catch (_) {}
 
-  try {
+    final now = DateTime.now();
+    // `cp` (não-nulo) é a variável de trabalho; `checkpoint` espelha o último
+    // valor para o catch — a análise de fluxo do Dart não mantém a promoção
+    // de um local anulável reatribuído dentro de um await-for.
+    var cp = JobCheckpoint(
+      jobId: jobId,
+      state: JobState.created,
+      configFingerprint: fingerprint,
+      createdAt: now,
+      updatedAt: now,
+    );
+    checkpoint = cp;
+    await store.save(cp);
+    await _emit(worker, 'jobStateChanged', cp);
+
     final stream = runDubbingJob(config, token, runtime: runtime);
     await for (final event in stream) {
-      final applied = applyPipelineEvent(checkpoint, event);
-      checkpoint = applied.checkpoint;
+      final applied = applyPipelineEvent(cp, event);
+      cp = applied.checkpoint;
+      checkpoint = cp;
       await _emit(
         worker,
         event.isWarning ? 'jobWarning' : 'jobProgress',
-        checkpoint,
+        cp,
         message: event.message,
       );
       if (applied.didTransition) {
-        await store.save(checkpoint);
-        await _emit(worker, 'jobStateChanged', checkpoint);
+        await store.save(cp);
+        await _emit(worker, 'jobStateChanged', cp);
       }
     }
-    checkpoint = checkpoint.copyWith(
+    cp = cp.copyWith(
       state: JobState.completedPendingExport,
       progress: 1.0,
       updatedAt: DateTime.now(),
     );
-    await store.save(checkpoint);
-    await _emit(worker, 'jobCompleted', checkpoint);
+    checkpoint = cp;
+    await store.save(cp);
+    await _emit(worker, 'jobCompleted', cp);
   } catch (e) {
-    checkpoint = checkpoint.copyWith(
+    final now = DateTime.now();
+    final failed = (checkpoint ??
+            JobCheckpoint(
+              jobId: jobId,
+              state: JobState.created,
+              configFingerprint: '',
+              createdAt: now,
+              updatedAt: now,
+            ))
+        .copyWith(
       state: token.isCancelled ? JobState.cancelled : JobState.failed,
       lastError: e.toString(),
-      updatedAt: DateTime.now(),
+      updatedAt: now,
     );
-    await store.save(checkpoint);
-    await _emit(worker, 'jobFailed', checkpoint, message: e.toString());
+    // O save pode ser a PRÓPRIA causa da falha (disco cheio) — o evento
+    // jobFailed tem que sair mesmo assim, é ele que encerra o serviço.
+    try {
+      await store?.save(failed);
+    } catch (_) {}
+    await _emit(worker, 'jobFailed', failed, message: e.toString());
   }
 }

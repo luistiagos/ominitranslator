@@ -97,10 +97,15 @@ class MediaProcessingServiceClient {
   /// Activity quem faz, com `pickExportLocation`/`copyLocalFileToUri`
   /// (`android_storage.dart`, já existente) — `exportJob` não duplica esse
   /// fluxo, só fecha o estado depois que ele termina.
+  ///
+  /// Só flipa a partir de `completedPendingExport` (auditoria de
+  /// 2026-07-16): marcar `exported` num job que ainda roda (ou que falhou)
+  /// o faria sumir de `listRecoverableJobs()` — `exported` é terminal — sem
+  /// nunca ter produzido saída.
   Future<void> exportJob(String jobId) async {
     final store = FileJobCheckpointStore(await jobsRootDir());
     final cp = await store.load(jobId);
-    if (cp == null) return;
+    if (cp == null || cp.state != JobState.completedPendingExport) return;
     await store.save(
         cp.copyWith(state: JobState.exported, updatedAt: DateTime.now()));
   }

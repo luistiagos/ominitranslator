@@ -268,22 +268,36 @@ void main() {
   });
 
   group('jobStateForStage (D3.3)', () {
-    test('mapeia cada estágio do pipeline pro JobState normativo', () {
+    test('grava o estado CONCLUÍDO anterior, não o do estágio em curso (§9.1)', () {
+      // Um evento do estágio X prova que X COMEÇOU — o concluído é o anterior.
       expect(jobStateForStage(PipelineStage.prepare), JobState.importing);
-      expect(jobStateForStage(PipelineStage.download), JobState.imported);
-      expect(jobStateForStage(PipelineStage.demux), JobState.demuxed);
-      expect(jobStateForStage(PipelineStage.transcribe), JobState.transcribed);
-      expect(jobStateForStage(PipelineStage.segment), JobState.segmented);
-      expect(jobStateForStage(PipelineStage.translate), JobState.translated);
-      expect(jobStateForStage(PipelineStage.synthesize), JobState.synthesized);
-      expect(jobStateForStage(PipelineStage.fit), JobState.fitted);
-      expect(jobStateForStage(PipelineStage.mix), JobState.mixed);
+      expect(jobStateForStage(PipelineStage.download), JobState.importing);
+      expect(jobStateForStage(PipelineStage.demux), JobState.imported);
+      expect(jobStateForStage(PipelineStage.transcribe), JobState.demuxed);
+      expect(jobStateForStage(PipelineStage.segment), JobState.transcribed);
+      expect(jobStateForStage(PipelineStage.translate), JobState.segmented);
+      expect(jobStateForStage(PipelineStage.synthesize), JobState.translated);
+      expect(jobStateForStage(PipelineStage.fit), JobState.synthesized);
+      expect(jobStateForStage(PipelineStage.mix), JobState.fitted);
       expect(jobStateForStage(PipelineStage.mux), JobState.mixed);
     });
 
-    test('separate/diarize caem no mesmo estado que demux (sem backend no M1 Android)', () {
+    test('separate/diarize caem no mesmo estado que transcribe (sem backend no M1 Android)', () {
       expect(jobStateForStage(PipelineStage.separate), JobState.demuxed);
       expect(jobStateForStage(PipelineStage.diarize), JobState.demuxed);
+    });
+
+    test('nunca devolve um estado que o estágio ainda não provou (anti-regressão da auditoria)', () {
+      // O bug original gravava `transcribed` no primeiro evento de transcribe.
+      for (final stage in PipelineStage.values) {
+        final state = jobStateForStage(stage);
+        expect(state, isNot(JobState.completedPendingExport));
+        // O estado gravado por um evento de `transcribe` nunca pode ser
+        // `transcribed` — transcribe começou, não terminou.
+        if (stage == PipelineStage.transcribe) {
+          expect(state, isNot(JobState.transcribed));
+        }
+      }
     });
   });
 
@@ -306,7 +320,8 @@ void main() {
       final r2 = applyPipelineEvent(r1.checkpoint,
           const PipelineEvent(PipelineStage.demux, 0.0, 'demuxando'));
       expect(r2.didTransition, isTrue);
-      expect(r2.checkpoint.state, JobState.demuxed);
+      // Demux COMEÇOU -> o concluído é a importação, não o demux.
+      expect(r2.checkpoint.state, JobState.imported);
     });
 
     test('evento de warning acumula em warnings sem duplicar', () {
