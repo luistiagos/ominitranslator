@@ -1004,7 +1004,12 @@ class ModelManager {
       }
       Directory(extractDir).createSync();
       try {
-        await extractFileToDisk(archiveFile, extractDir);
+        // Isolate próprio, mesmo motivo do hash em _verifyAndWriteSha256: o
+        // inflate do gzip aqui é o Dart-puro do package:archive (não o
+        // GZipCodec nativo) — CPU-bound por ~1-3 min nos modelos de 59-72MB.
+        // No isolate da UI isso congela frames/input e dispara o diálogo de
+        // ANR do Android (visto ao vivo no smoke da D3.4).
+        await Isolate.run(() => extractFileToDisk(archiveFile, extractDir));
         _moveContentsUp(extractDir, destDir);
       } finally {
         if (Directory(extractDir).existsSync()) {
