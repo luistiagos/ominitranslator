@@ -64,7 +64,7 @@ Esses recursos não devem ser adicionados “aproveitando a implementação”. 
 3. **Sem executáveis Android:** Android não pode depender de `Process.start`, `.exe`, `cmd`, `explorer`, `tar` do sistema ou caminhos `tools/win`.
 4. **Sem modelo no APK/AAB:** modelos são baixados sob demanda e validados por SHA-256.
 5. **Português bloqueia release:** Android M1 não pode ser marcado como concluído sem en→pt e pt→en aprovados no dispositivo.
-6. **Sem GPL no binário distribuído:** FFmpegKitNext deve ser compilado em variante LGPL, sem `--enable-gpl` e sem bibliotecas GPL.
+6. ~~Sem GPL no binário distribuído~~ — **regra retirada (decisão do usuário, 2026-07-17, rota C do risco registrado em `decisoes.md` 2026-07-15/16)**: GPL no binário distribuído é aceito; não bloqueia release. `slimt` (GPLv2, linkado in-process) permanece como está. `FFmpegKitNext` continua compilado em variante LGPL (AT-3) por já ser assim, não por exigência desta regra.
 7. **Sem buffers proporcionais à duração total:** nenhuma etapa nova pode alocar um `Float32List`, `Int16List` ou `Uint8List` que represente o áudio inteiro do vídeo, exceto janelas com limite explícito.
 8. **Sem escrita direta em URI:** o engine trabalha apenas com paths locais; a casca Android importa uma URI para o workdir e exporta os resultados ao final.
 9. **Todo estágio valida saída:** existência, tamanho mínimo e formato básico devem ser verificados antes de gravar checkpoint de sucesso.
@@ -1302,7 +1302,7 @@ Android M1 é aceito somente se:
 - cancelamento parar FFmpeg e inferências sem processo/sessão órfã;
 - retomada funcionar após encerramento entre estágios;
 - APK/AAB carregarem em ambiente 16 KB;
-- inventário não contiver GPL nem ABI inesperada;
+- inventário não contiver ABI inesperada (critério de GPL retirado, ver regra 6);
 - fluxo normal não solicitar permissão ampla de armazenamento.
 
 ## 20. Checklist para o implementador
