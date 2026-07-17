@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dubbing_engine/dubbing_engine.dart';
 import 'package:path/path.dart' as p;
+import '../platform/android_storage.dart';
+import '../platform/media_processing_service.dart';
 import '../state/app_state.dart';
 import 'progress_screen.dart';
 import 'models_screen.dart';
@@ -18,6 +20,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _videoPath;
+
+  /// URI content:// + nome de exibição escolhidos por SAF (D3.4/D-4) — o
+  /// Android usa isto no lugar de [_videoPath], nunca os dois ao mesmo
+  /// tempo. Ver [_hasVideoSelected].
+  String? _androidVideoUri;
+  String? _androidVideoName;
+
   String? _outputPath;
   final _youtubeController = TextEditingController();
   final _speakerCountController = TextEditingController();
@@ -82,7 +91,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return parsed;
   }
 
+  /// true se há um vídeo local escolhido — pelo SAF no Android
+  /// ([_androidVideoUri]) ou pelo `file_picker` no desktop ([_videoPath]).
+  /// Nunca os dois setados ao mesmo tempo (as duas plataformas usam rotas
+  /// de import mutuamente exclusivas).
+  bool get _hasVideoSelected =>
+      Platform.isAndroid ? _androidVideoUri != null : _videoPath != null;
+
   Future<void> _pickVideo() async {
+    if (Platform.isAndroid) {
+      // §15.1/AT-5: SAF, não `file_picker` — uma `content://` URI do
+      // `file_picker` nem sempre é um path local de verdade (scoped
+      // storage); o fluxo já existente de `android_storage.dart` copia
+      // explicitamente pro workDir do job antes de rodar (D-4).
+      final picked = await pickImportDocument();
+      if (picked != null) {
+        setState(() {
+          _androidVideoUri = picked.uri;
+          _androidVideoName = picked.displayName;
+        });
+      }
+      return;
+    }
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mp4', 'mkv', 'mov', 'webm'],
@@ -114,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _canDub(AppState state) {
     if (state.jobRunning) return false;
-    if (_videoPath == null && _youtubeController.text.trim().isEmpty) return false;
+    if (!_hasVideoSelected && _youtubeController.text.trim().isEmpty) return false;
     if (!canTranslate(_sourceLang, _targetLang)) return false;
     return _requiredModelIds(state)
         .every((id) => state.modelStates[id] == ModelState.ready);
@@ -182,7 +212,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Sintetiza uma frase curta com a voz selecionada (em isolate, para não
   /// travar a UI) e abre o WAV no player padrão do sistema.
+  ///
+  /// D3.4/D-7: `Process.start('cmd', ...)` é Windows puro (sem `cmd.exe` no
+  /// Android) — em vez de adicionar uma dependência de player de áudio só
+  /// pra isto (desproporcional ao gate da D3.4), o Android mostra um aviso
+  /// direto e nem sintetiza (não há por que gastar CPU/bateria numa amostra
+  /// que ninguém vai poder tocar).
   Future<void> _playVoiceSample(AppState state) async {
+    if (Platform.isAndroid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Pré-visualização de voz não disponível nesta plataforma.')),
+        );
+      }
+      return;
+    }
     final voice = _selectedVoice(state);
     if (voice == null) return;
     final lang = _targetLang;
@@ -334,7 +380,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _startDub(AppState state) {
+  Future<void> _startDub(AppState state) async {
+    if (Platform.isAndroid) {
+      await _startDubAndroid(state);
+      return;
+    }
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final workDir = '${state.settings.workDirBase}\\$timestamp';
     final youtubeUrl = _youtubeController.text.trim();
@@ -369,6 +419,59 @@ class _HomeScreenState extends State<HomeScreen> {
     state.startJob(config);
   }
 
+  /// D3.4/D-4: o vídeo escolhido por SAF é uma `content://` URI — o engine
+  /// só conhece paths locais (regra #8), então copia pro `workDir` do job
+  /// ANTES de montar o `DubbingJobConfig`. `outputPath` mora fora do
+  /// `workDir` de propósito (`outputsRootDir()`, ver o comentário do
+  /// `pipeline.dart` apagando o `workDir` após um mux bem-sucedido). Navega
+  /// pra `ProgressScreen` só DEPOIS da cópia (não antes, como no desktop) —
+  /// senão o usuário ficaria olhando pra uma tela de progresso vazia
+  /// enquanto a cópia (potencialmente de centenas de MB) ainda roda.
+  Future<void> _startDubAndroid(AppState state) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final workDir = p.join(state.settings.workDirBase, timestamp);
+    Directory(workDir).createSync(recursive: true);
+
+    final ext = p.extension(_androidVideoName ?? '');
+    final destPath = p.join(workDir, 'input${ext.isEmpty ? '.mp4' : ext}');
+    try {
+      await copyUriToLocalFile(_androidVideoUri!, destPath);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao importar o vídeo: $e')),
+        );
+      }
+      return;
+    }
+
+    final outputDir = await outputsRootDir();
+    Directory(outputDir).createSync(recursive: true);
+    final outputPath =
+        p.join(outputDir, '${timestamp}_dub_${_targetLang.code}.mp4');
+
+    final config = DubbingJobConfig(
+      inputVideo: destPath,
+      sourceLang: _sourceLang,
+      targetLang: _targetLang,
+      preset: _preset,
+      keepOriginalTrack: _keepOriginalTrack,
+      generateSrt: _generateSrt,
+      workDir: workDir,
+      outputPath: outputPath,
+      speakerCount: _speakerCount(),
+      voiceModelId: _selectedVoice(state)?.$1,
+      voiceSid: _selectedVoice(state)?.$2 ?? 0,
+    );
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProgressScreen()),
+    );
+    await state.startJob(config, displayName: _androidVideoName);
+  }
+
   Widget _buildWorkDirTile(AppState state) {
     final dir = state.settings.workDirBase;
     final freeBytes = _freeBytesFor(state, dir);
@@ -384,10 +487,17 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: low ? Colors.red : null),
             )
           : null,
-      trailing: TextButton(
-        onPressed: () => _pickWorkDir(state),
-        child: const Text('Alterar'),
-      ),
+      // D3.4/D-8: `FilePicker.getDirectoryPath()` devolve uma tree URI
+      // `content://` no Android, incompatível com todo uso de path cru rio
+      // abaixo (FFmpeg, tar, `File` I/O) — o diretório de trabalho no
+      // Android é interno ao app (`workRootDir()`), não escolhível pelo
+      // usuário.
+      trailing: Platform.isAndroid
+          ? null
+          : TextButton(
+              onPressed: () => _pickWorkDir(state),
+              child: const Text('Alterar'),
+            ),
     );
   }
 
@@ -452,37 +562,47 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton.icon(
               onPressed: _pickVideo,
               icon: const Icon(Icons.video_file),
-              label: Text(_videoPath != null
-                  ? _videoPath!.split('\\').last
+              label: Text(_hasVideoSelected
+                  ? (Platform.isAndroid
+                      ? _androidVideoName!
+                      : _videoPath!.split('\\').last)
                   : 'Escolher vídeo'),
             ),
-            if (_videoPath != null)
+            if (_hasVideoSelected && !Platform.isAndroid)
               Text(_videoPath!, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 8),
-            TextField(
-              controller: _youtubeController,
-              decoration: const InputDecoration(
-                labelText: 'Ou cole um link do YouTube',
-                hintText: 'https://youtube.com/watch?v=...',
-                prefixIcon: Icon(Icons.link),
+            // D3.4/D-8: link do YouTube não existe no Android — o M1 usa
+            // `createDownloader: null` (`android_runtime.dart`), e
+            // `pipeline.dart` recusa `youtubeUrl` não-nulo explicitamente
+            // (`PipelineException` no `prepare`). Deixar o campo visível só
+            // levaria o usuário a preencher algo que falha na hora de
+            // dublar.
+            if (!Platform.isAndroid) ...[
+              TextField(
+                controller: _youtubeController,
+                decoration: const InputDecoration(
+                  labelText: 'Ou cole um link do YouTube',
+                  hintText: 'https://youtube.com/watch?v=...',
+                  prefixIcon: Icon(Icons.link),
+                ),
+                onChanged: (v) {
+                  if (v.isNotEmpty && _videoPath != null) {
+                    setState(() => _videoPath = null);
+                  } else {
+                    setState(() {});
+                  }
+                },
               ),
-              onChanged: (v) {
-                if (v.isNotEmpty && _videoPath != null) {
-                  setState(() => _videoPath = null);
-                } else {
-                  setState(() {});
-                }
-              },
-            ),
-            if (_youtubeController.text.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('Usando link do YouTube',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 12)),
-              ),
-              _buildYoutubeCookiesSection(state),
+              if (_youtubeController.text.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('Usando link do YouTube',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 12)),
+                ),
+                _buildYoutubeCookiesSection(state),
+              ],
             ],
             const SizedBox(height: 16),
             DropdownButtonFormField<Lang>(
@@ -541,12 +661,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             _buildWorkDirTile(state),
-            _buildOutputTile(state),
+            // D3.4/D-8: no Android o destino final não é escolhido aqui —
+            // `outputPath` vai pra uma pasta interna do app
+            // (`outputsRootDir()`) e o usuário escolhe onde salvar de
+            // verdade DEPOIS que o job termina, via export SAF na tela de
+            // progresso (D-5). Mostrar esta ficha antes disso só exibiria
+            // "Escolha um vídeo..." pra sempre (`_computeDefaultOutputPath`
+            // é Windows puro e nunca resolve no Android).
+            if (!Platform.isAndroid) _buildOutputTile(state),
             const SizedBox(height: 16),
             if (_missingModels(state) case final warning?)
               Text(warning, style: const TextStyle(color: Colors.orange)),
-            if (_diarizationHint(state) case final hint?)
-              Text(hint, style: Theme.of(context).textTheme.bodySmall),
+            // D3.4/D-8: no M1 Android `createDiarizer` é sempre nulo
+            // (`android_runtime.dart`) — baixar os modelos de detecção de
+            // falantes nunca habilitaria multi-voz lá, então a dica (que
+            // sugere exatamente isso) seria enganosa.
+            if (!Platform.isAndroid)
+              if (_diarizationHint(state) case final hint?)
+                Text(hint, style: Theme.of(context).textTheme.bodySmall),
             if (_lowDiskSpaceWarning(state) case final warning?)
               Text(warning, style: const TextStyle(color: Colors.red)),
             if (_lowOutputDiskSpaceWarning(state) case final warning?)

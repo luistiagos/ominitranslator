@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:path/path.dart' as p;
 import 'package:dubbing_engine/dubbing_engine.dart';
 
 import 'platform/android_ffmpeg.dart';
@@ -77,10 +78,12 @@ Future<void> _emit(
   String kind,
   JobCheckpoint checkpoint, {
   String? message,
+  Map<String, dynamic>? extra,
 }) {
   return worker.invokeMethod(kind, {
     ...checkpoint.toJson(),
     if (message != null) 'message': message,
+    ...?extra,
   });
 }
 
@@ -116,7 +119,11 @@ Future<void> _runJob(
   try {
     final jobsRoot = await jobsRootDir();
     store = FileJobCheckpointStore(jobsRoot);
-    final modelsRoot = Directory(jobsRoot).parent.path;
+    // D3.4: modelsRoot é irmão de jobsRoot debaixo da MESMA appRootDir() que
+    // settings.dart/media_processing_service.dart já usam -- não deriva mais
+    // de jobsRoot.parent (equivalente hoje, mas fazia jobsRootDir() ser a
+    // única fonte de verdade da raiz por acidente de implementação).
+    final modelsRoot = p.join(await appRootDir(), 'models');
     final models =
         ModelManager(modelsRoot, _dummyTools, catalog: ModelCatalog.android());
     final ffmpeg = androidFFmpegCallbacks();
@@ -158,7 +165,12 @@ Future<void> _runJob(
     await store.save(cp);
     await _emit(worker, 'jobStateChanged', cp);
 
-    final stream = runDubbingJob(config, token, runtime: runtime);
+    // D3.4/D-3: sem onDone, o DubbingResult que o pipeline monta
+    // (pipeline.dart, logo após o último yield) era descartado -- jobCompleted
+    // só carregava o checkpoint, sem outputVideo/srt/syncReport nenhum.
+    DubbingResult? result;
+    final stream = runDubbingJob(config, token,
+        runtime: runtime, onDone: (r) => result = r);
     await for (final event in stream) {
       final applied = applyPipelineEvent(cp, event);
       cp = applied.checkpoint;
@@ -168,6 +180,10 @@ Future<void> _runJob(
         event.isWarning ? 'jobWarning' : 'jobProgress',
         cp,
         message: event.message,
+        // D3.4/D-2: o PipelineStage cru (não o JobState derivado, que perde
+        // informação por design) -- é o que a tela de progresso precisa pra
+        // renderizar por estágio, igual ao desktop.
+        extra: {'stage': event.stage.name},
       );
       if (applied.didTransition) {
         await store.save(cp);
@@ -181,7 +197,8 @@ Future<void> _runJob(
     );
     checkpoint = cp;
     await store.save(cp);
-    await _emit(worker, 'jobCompleted', cp);
+    await _emit(worker, 'jobCompleted', cp,
+        extra: {if (result != null) 'result': result!.toJson()});
   } catch (e) {
     final now = DateTime.now();
     final failed = (checkpoint ??

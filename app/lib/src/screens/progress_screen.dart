@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:dubbing_engine/dubbing_engine.dart';
+import '../platform/android_storage.dart';
+import '../platform/media_processing_service.dart';
 import '../state/app_state.dart';
 
 const _stageNames = {
@@ -130,11 +133,22 @@ class ProgressScreen extends StatelessWidget {
             if (result.originalVideo != null)
               Text('Vídeo original salvo em: ${result.originalVideo}'),
             const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: () => Process.run('explorer', ['/select,', result.outputVideo]),
-              icon: const Icon(Icons.folder_open),
-              label: const Text('Abrir pasta'),
-            ),
+            // D3.4/D-5: no Android o "Abrir pasta" do Explorer não existe —
+            // `outputVideo` mora numa pasta interna do app
+            // (`outputsRootDir()`, D-4), então a única forma de o usuário
+            // levar o arquivo pra fora é o export SAF.
+            if (Platform.isAndroid)
+              ElevatedButton.icon(
+                onPressed: () => _exportOutput(context, state, result),
+                icon: const Icon(Icons.save_alt),
+                label: const Text('Salvar em...'),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: () => Process.run('explorer', ['/select,', result.outputVideo]),
+                icon: const Icon(Icons.folder_open),
+                label: const Text('Abrir pasta'),
+              ),
           ],
           if (error != null) ...[
             Text('Erro: $error', style: const TextStyle(color: Colors.red)),
@@ -144,6 +158,40 @@ class ProgressScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// D3.4/D-5: `pickExportLocation` → `copyLocalFileToUri` → `exportJob`
+  /// (a última chamada é a decisão D-2 da D3.3: só ela flipa o checkpoint
+  /// de `completedPendingExport` pra `exported` — sem ela o job continuaria
+  /// aparecendo como pendente de exportar em `listRecoverableJobs()` para
+  /// sempre, mesmo depois de exportado de verdade).
+  Future<void> _exportOutput(
+    BuildContext context,
+    AppState state,
+    DubbingResult result,
+  ) async {
+    final uri = await pickExportLocation(
+      suggestedName: p.basename(result.outputVideo),
+      mimeType: 'video/mp4',
+    );
+    if (uri == null) return; // usuário cancelou o seletor
+    try {
+      await copyLocalFileToUri(result.outputVideo, uri);
+      if (state.currentJobId != null) {
+        await const MediaProcessingServiceClient().exportJob(state.currentJobId!);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vídeo exportado com sucesso.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao exportar: $e')),
+        );
+      }
+    }
   }
 
   Widget _warningBanner(BuildContext context, String message) {

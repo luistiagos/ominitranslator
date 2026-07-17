@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:dubbing_engine/dubbing_engine.dart';
 import 'package:path/path.dart' as p;
+import '../platform/media_processing_service.dart';
 import 'settings.dart';
 
 /// Argumentos enviados ao isolate que executa o pipeline de dublagem.
@@ -54,20 +55,27 @@ class AppState extends ChangeNotifier {
   /// `StatFs` vem por MethodChannel — por isso é injetável e assíncrono.
   final DiskSpaceProbe diskSpace;
 
-  AppSettings settings = AppSettings.load();
+  AppSettings settings;
 
   AppState(
     this.tools,
     this.modelManager, {
     this.diskSpace = const WindowsDiskSpaceProbe(),
-  }) {
+    AppSettings? initialSettings,
+  }) : settings = initialSettings ?? AppSettings.load() {
     refreshModelStates();
-    _cleanupOldWorkDirs();
+    // D3.4: no Android o foreground service pode manter um job vivo depois
+    // que a Activity/AppState é destruída e recriada (app trocado, reaberto)
+    // — reconstruir AppState nesse meio tempo apagaria o workDir de um job
+    // EM ANDAMENTO. Os diretórios abandonados no Android ficam acumulando
+    // (pendência documentada, não regressão: hoje nada limpa isso também).
+    if (!Platform.isAndroid) _cleanupOldWorkDirs();
   }
 
   /// Remove diretórios de trabalho de jobs antigos (que falharam ou foram
   /// cancelados). Só apaga subdiretórios cujo nome é um timestamp gerado
-  /// pelo próprio app, para nunca tocar em dados do usuário.
+  /// pelo próprio app, para nunca tocar em dados do usuário. Só roda no
+  /// desktop — ver o guard no construtor.
   void _cleanupOldWorkDirs() {
     final base = Directory(settings.workDirBase);
     if (!base.existsSync()) return;
@@ -84,7 +92,7 @@ class AppState extends ChangeNotifier {
 
   void setWorkDirBase(String path) {
     settings = settings.copyWith(workDirBase: path);
-    settings.save();
+    unawaited(settings.save());
     notifyListeners();
   }
 
@@ -95,7 +103,7 @@ class AppState extends ChangeNotifier {
       ytDlpCookiesFromBrowser: browser,
       ytDlpCookiesFile: '',
     );
-    settings.save();
+    unawaited(settings.save());
     notifyListeners();
   }
 
@@ -106,14 +114,14 @@ class AppState extends ChangeNotifier {
       ytDlpCookiesFile: file,
       ytDlpCookiesFromBrowser: '',
     );
-    settings.save();
+    unawaited(settings.save());
     notifyListeners();
   }
 
   /// Define a voz fixa da dublagem (vazio = automática por falante).
   void setVoice(String modelId, int sid) {
     settings = settings.copyWith(voiceModelId: modelId, voiceSid: sid);
-    settings.save();
+    unawaited(settings.save());
     notifyListeners();
   }
 
@@ -121,6 +129,11 @@ class AppState extends ChangeNotifier {
   Map<String, ModelState> get modelStates => _modelStates;
 
   DubbingJobConfig? currentJob;
+
+  /// jobId do job Android em andamento (null no desktop — o isolate não tem
+  /// conceito de jobId, D3.4/D-1). `jobId == basename(workDir)`, convenção
+  /// já documentada em `mintJobId()`.
+  String? currentJobId;
   final List<PipelineEvent> jobEvents = [];
   DubbingResult? jobResult;
   String? jobError;
@@ -134,6 +147,8 @@ class AppState extends ChangeNotifier {
   bool _cancelRequested = false;
   bool _jobFinished = false;
 
+  StreamSubscription<ServiceEvent>? _androidEventsSub;
+
   Future<void> refreshModelStates() async {
     for (final entry in modelManager.catalog.entries) {
       _modelStates[entry.id] = modelManager.stateOf(entry.id);
@@ -141,9 +156,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startJob(DubbingJobConfig config) async {
+  /// [displayName] só é usado no Android (título da notificação do
+  /// serviço, §14.5) — ignorado no desktop.
+  Future<void> startJob(DubbingJobConfig config, {String? displayName}) async {
     if (jobRunning) {
       throw StateError('Já existe uma dublagem em andamento');
+    }
+    if (Platform.isAndroid) {
+      await _startAndroidJob(config, displayName);
+      return;
     }
     currentJob = config;
     jobEvents.clear();
@@ -231,7 +252,87 @@ class AppState extends ChangeNotifier {
     _jobIsolate = null;
   }
 
+  /// Contraparte Android de `startJob` (D3.4/D-1) — em vez de um isolate
+  /// local, fala com o `MediaProcessingService` real via
+  /// `MediaProcessingServiceClient` (D3.3). jobId = basename(workDir), a
+  /// mesma convenção que `mintJobId()` documenta — não inventa um segundo
+  /// id, reaproveita o timestamp que `home_screen.dart` já usou pro workDir.
+  Future<void> _startAndroidJob(
+    DubbingJobConfig config,
+    String? displayName,
+  ) async {
+    final jobId = p.basename(config.workDir);
+    currentJob = config;
+    currentJobId = jobId;
+    jobEvents.clear();
+    jobResult = null;
+    jobError = null;
+    jobRunning = true;
+    notifyListeners();
+
+    const client = MediaProcessingServiceClient();
+
+    // Assina ANTES de chamar startJob: events() é um stream global do
+    // serviço (não filtrado na origem por jobId) — se assinasse depois,
+    // arriscaria perder o primeiro jobStateChanged (state=created).
+    await _androidEventsSub?.cancel();
+    _androidEventsSub = client.events().listen((evt) {
+      if (evt.checkpoint.jobId != jobId) return;
+      switch (evt.kind) {
+        case 'jobProgress':
+        case 'jobWarning':
+          // `stage` só vem preenchido nesses dois kinds (D-2) -- é o
+          // PipelineStage cru que reconstrói o PipelineEvent real, pro
+          // progress_screen.dart renderizar exatamente como no desktop.
+          if (evt.stage != null) {
+            jobEvents.add(PipelineEvent(
+              PipelineStage.values.byName(evt.stage!),
+              evt.checkpoint.progress,
+              evt.message ?? '',
+              isWarning: evt.kind == 'jobWarning',
+            ));
+          }
+        case 'jobCompleted':
+          jobResult = evt.result;
+          _finishAndroidJob();
+        case 'jobFailed':
+          jobError = evt.message ?? 'Falha desconhecida na dublagem.';
+          _finishAndroidJob();
+        // 'jobStateChanged' não carrega `stage` (D-2, por design) -- nada a
+        // refletir em jobEvents; quem lê isso é listRecoverableJobs(), não
+        // a tela de progresso ao vivo.
+      }
+      notifyListeners();
+    });
+
+    try {
+      await client.startJob(
+        jobId,
+        config,
+        displayName: displayName ?? p.basename(config.inputVideo),
+      );
+    } catch (e) {
+      jobError = 'Não foi possível iniciar a dublagem: $e';
+      _finishAndroidJob();
+      notifyListeners();
+    }
+  }
+
+  void _finishAndroidJob() {
+    jobRunning = false;
+    unawaited(_androidEventsSub?.cancel());
+    _androidEventsSub = null;
+  }
+
   void cancelJob() {
+    if (Platform.isAndroid) {
+      if (currentJobId != null) {
+        unawaited(const MediaProcessingServiceClient().cancelJob(currentJobId!));
+      }
+      jobRunning = false;
+      notifyListeners();
+      return;
+    }
     _cancelRequested = true;
     _jobControlPort?.send('cancel');
     jobRunning = false;
@@ -240,9 +341,13 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
-    _jobControlPort?.send('cancel');
-    _jobReceivePort?.close();
-    _jobIsolate?.kill(priority: Isolate.beforeNextEvent);
+    if (Platform.isAndroid) {
+      unawaited(_androidEventsSub?.cancel());
+    } else {
+      _jobControlPort?.send('cancel');
+      _jobReceivePort?.close();
+      _jobIsolate?.kill(priority: Isolate.beforeNextEvent);
+    }
     super.dispose();
   }
 }

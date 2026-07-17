@@ -14,11 +14,15 @@ AndroidDiskSpaceProbe createAndroidDiskSpaceProbe() {
 }
 
 /// Abre o seletor de documentos (`ACTION_OPEN_DOCUMENT`) para importar um
-/// vídeo. Devolve a `content://` URI escolhida, ou null se o usuário
-/// cancelou.
-Future<String?> pickImportDocument() async {
+/// vídeo. Devolve a `content://` URI escolhida + o nome de exibição
+/// (`displayName`, D3.4 — alimenta o título da notificação do serviço, já
+/// que o nome de arquivo cru de uma `content://` URI não é legível), ou
+/// null se o usuário cancelou.
+Future<({String uri, String displayName})?> pickImportDocument() async {
   final r = await _channel.invokeMapMethod<String, dynamic>('pickImportDocument');
-  return r?['uri'] as String?;
+  final uri = r?['uri'] as String?;
+  if (uri == null) return null;
+  return (uri: uri, displayName: (r?['displayName'] as String?) ?? 'vídeo importado');
 }
 
 /// Abre o seletor de destino (`ACTION_CREATE_DOCUMENT`) para exportar o

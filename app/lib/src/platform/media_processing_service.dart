@@ -15,30 +15,68 @@ const _serviceEvents = EventChannel('omnitranslator/service/events');
 /// identificador.
 String mintJobId() => DateTime.now().millisecondsSinceEpoch.toString();
 
+/// Raiz privada do app no Android (D3.4) — `jobsRootDir`/`modelsRoot`
+/// (`service_entrypoint.dart`)/`settings.json` (`settings.dart`) são todos
+/// irmãos previsíveis debaixo desta única raiz, em vez de cada um chamar
+/// `getApplicationSupportDirectory()` por conta própria.
+Future<String> appRootDir() async {
+  final dir = await getApplicationSupportDirectory();
+  return dir.path;
+}
+
 /// Onde os checkpoints (`job.json`) vivem. Calculado aqui (lado Activity) E
 /// em `service_entrypoint.dart` (lado isolate do serviço) — os dois têm que
 /// concordar, senão nunca enxergam os mesmos jobs. `getApplicationSupportDirectory`
 /// é estável entre os dois processos/engines porque é o mesmo app Android.
-Future<String> jobsRootDir() async {
-  final dir = await getApplicationSupportDirectory();
-  return p.join(dir.path, 'jobs');
-}
+Future<String> jobsRootDir() async => p.join(await appRootDir(), 'jobs');
+
+/// Destino final dos vídeos dublados no Android (D3.4/D-4) — fora de
+/// `jobsRootDir()` de propósito: `pipeline.dart` apaga o `workDir` do job
+/// depois do mux bem-sucedido, então o `outputPath` tem que morar em outro
+/// lugar pra sobreviver a essa limpeza.
+Future<String> outputsRootDir() async => p.join(await appRootDir(), 'outputs');
+
+/// Raiz dos `workDir`s de job no Android (D3.4/D-4/D-6, `AppSettings.
+/// workDirBase`) — DELIBERADAMENTE separada de `jobsRootDir()`, não a mesma
+/// coisa: `pipeline.dart:349-351` apaga `Directory(workDir)` inteiro após um
+/// mux bem-sucedido. Se `workDirBase` fosse `jobsRootDir()`, o `job.json` de
+/// um job concluído (que mora em `jobsRootDir()/<jobId>/job.json`) seria
+/// apagado junto — sobreviveria só porque `_runJob` reescreve o checkpoint
+/// FINAL logo depois da limpeza, o que funciona mas é frágil (qualquer
+/// checkpoint intermediário no mesmo diretório vira lixo transitório sem
+/// necessidade). Mantendo as duas raízes fisicamente separadas, o checkpoint
+/// nunca corre risco de ser apagado pela limpeza do pipeline.
+Future<String> workRootDir() async => p.join(await appRootDir(), 'work');
 
 /// Evento ao vivo de um job (§14.4) — `kind` é um dos 5 nomes do §14.4
 /// (`jobStateChanged`/`jobProgress`/`jobWarning`/`jobCompleted`/`jobFailed`);
 /// [checkpoint] é o estado persistido correspondente (inclui `jobId` e
 /// `updatedAt`, como o §14.4 exige); [message] é só do evento pontual (a
 /// mensagem do `PipelineEvent`), não fica gravado no checkpoint.
+///
+/// [stage] (D3.4) é o `PipelineStage.name` cru do evento original —
+/// `checkpoint.state` sozinho não basta pra reconstruir a tela de progresso
+/// porque é um `JobState` DERIVADO e com perda (`jobStateForStage`, D3.3:
+/// `separate`/`diarize`/`transcribe` colapsam todos em `demuxed`). Só vem
+/// preenchido em `jobProgress`/`jobWarning` (`jobStateChanged` continua
+/// derived-state-only, por design). [result] só vem em `jobCompleted`.
 class ServiceEvent {
   final String kind;
   final JobCheckpoint checkpoint;
   final String? message;
-  const ServiceEvent(this.kind, this.checkpoint, this.message);
+  final String? stage;
+  final DubbingResult? result;
+  const ServiceEvent(this.kind, this.checkpoint, this.message,
+      {this.stage, this.result});
 
   factory ServiceEvent.fromMap(Map<String, dynamic> m) => ServiceEvent(
         m['kind'] as String,
         JobCheckpoint.fromJson(m),
         m['message'] as String?,
+        stage: m['stage'] as String?,
+        result: m['result'] != null
+            ? DubbingResult.fromJson((m['result'] as Map).cast<String, dynamic>())
+            : null,
       );
 }
 

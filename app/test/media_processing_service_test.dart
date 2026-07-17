@@ -125,6 +125,88 @@ void main() {
       expect(event.checkpoint.progress, 0.4);
       expect(event.message, 'transcrevendo...');
     });
+
+    test('parseia stage quando presente (D3.4/D-2)', () {
+      final now = DateTime.utc(2026, 7, 16);
+      final event = ServiceEvent.fromMap({
+        'kind': 'jobProgress',
+        'jobId': 'j1',
+        'schemaVersion': jobCheckpointSchemaVersion,
+        'state': 'demuxed',
+        'configFingerprint': 'fp',
+        'progress': 0.2,
+        'artifacts': <String, String>{},
+        'warnings': <String>[],
+        'lastError': null,
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+        'stage': 'transcribe',
+      });
+      expect(event.stage, 'transcribe');
+      expect(event.result, isNull);
+    });
+
+    test('stage ausente (ex.: jobStateChanged) vira null, não quebra (D-2)', () {
+      final now = DateTime.utc(2026, 7, 16);
+      final event = ServiceEvent.fromMap({
+        'kind': 'jobStateChanged',
+        'jobId': 'j1',
+        'schemaVersion': jobCheckpointSchemaVersion,
+        'state': 'demuxed',
+        'configFingerprint': 'fp',
+        'progress': 0.0,
+        'artifacts': <String, String>{},
+        'warnings': <String>[],
+        'lastError': null,
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+      });
+      expect(event.stage, isNull);
+    });
+
+    test('parseia result quando presente em jobCompleted (D3.4/D-3)', () {
+      final now = DateTime.utc(2026, 7, 16);
+      final event = ServiceEvent.fromMap({
+        'kind': 'jobCompleted',
+        'jobId': 'j1',
+        'schemaVersion': jobCheckpointSchemaVersion,
+        'state': 'completedPendingExport',
+        'configFingerprint': 'fp',
+        'progress': 1.0,
+        'artifacts': <String, String>{},
+        'warnings': <String>[],
+        'lastError': null,
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+        'result': const DubbingResult(
+          outputVideo: '/sdcard/out.mp4',
+          voiceOverMode: false,
+          segmentsWithOverflow: 0,
+          elapsed: Duration(seconds: 5),
+        ).toJson(),
+      });
+      expect(event.result, isNotNull);
+      expect(event.result!.outputVideo, '/sdcard/out.mp4');
+    });
+
+    test('result ausente (jobProgress/jobFailed) vira null, não quebra', () {
+      final now = DateTime.utc(2026, 7, 16);
+      final event = ServiceEvent.fromMap({
+        'kind': 'jobFailed',
+        'jobId': 'j1',
+        'schemaVersion': jobCheckpointSchemaVersion,
+        'state': 'failed',
+        'configFingerprint': 'fp',
+        'progress': 0.5,
+        'artifacts': <String, String>{},
+        'warnings': <String>[],
+        'lastError': 'boom',
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+        'message': 'boom',
+      });
+      expect(event.result, isNull);
+    });
   });
 
   group(
@@ -217,6 +299,19 @@ void main() {
   test('jobsRootDir() é <applicationSupport>/jobs', () async {
     final root = await jobsRootDir();
     expect(root, p.join(tmp.path, 'jobs'));
+  });
+
+  test('appRootDir()/outputsRootDir()/workRootDir() são irmãos previsíveis '
+      '(D3.4)', () async {
+    expect(await appRootDir(), tmp.path);
+    expect(await outputsRootDir(), p.join(tmp.path, 'outputs'));
+    expect(await workRootDir(), p.join(tmp.path, 'work'));
+    // outputsRootDir/workRootDir são DIFERENTES de jobsRootDir de propósito
+    // (D3.4): pipeline.dart apaga o workDir de um job bem-sucedido, e isso
+    // não pode arriscar levar o checkpoint (jobsRootDir/<jobId>/job.json)
+    // junto.
+    expect(await outputsRootDir(), isNot(await jobsRootDir()));
+    expect(await workRootDir(), isNot(await jobsRootDir()));
   });
 
   test('mintJobId() gera ids distintos e monotônicos', () async {

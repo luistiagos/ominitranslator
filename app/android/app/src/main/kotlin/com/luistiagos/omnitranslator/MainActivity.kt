@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -78,11 +79,38 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_OPEN_DOCUMENT || requestCode == REQUEST_CREATE_DOCUMENT) {
             val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
-            pendingPickResult?.success(uri?.let { mapOf("uri" to it.toString()) })
+            pendingPickResult?.success(uri?.let {
+                // displayName (D3.4) só faz sentido pro import — alimenta o
+                // título da notificação do serviço; o nome de arquivo cru de
+                // uma content:// URI não é legível (costuma ser um id opaco).
+                if (requestCode == REQUEST_OPEN_DOCUMENT) {
+                    mapOf("uri" to it.toString(), "displayName" to queryDisplayName(it))
+                } else {
+                    mapOf("uri" to it.toString())
+                }
+            })
             pendingPickResult = null
             return
         }
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    /// Nome de exibição de uma content:// URI via `OpenableColumns.
+    /// DISPLAY_NAME` — o único jeito confiável de obter um nome legível
+    /// (o path/segmento final da URI costuma ser um id opaco do provedor,
+    /// não o nome do arquivo). Null se o provedor não souber responder.
+    private fun queryDisplayName(uri: Uri): String? {
+        return try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (idx >= 0) cursor.getString(idx) else null
+                    } else null
+                }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     override fun onDestroy() {

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import '../platform/media_processing_service.dart'
+    show appRootDir, workRootDir;
 
 class AppSettings {
   final String workDirBase;
@@ -59,8 +61,45 @@ class AppSettings {
     }
   }
 
-  void save() {
-    final file = File(_settingsFile);
+  /// Carrega no Android (D3.4/D-6) — `Platform.environment['APPDATA']`
+  /// não existe lá; a raiz vem de `path_provider` (`appRootDir()`), a MESMA
+  /// que `service_entrypoint.dart`/`media_processing_service.dart` já usam
+  /// pra jobs/models, então settings/jobs/models/work ficam todos irmãos
+  /// previsíveis debaixo de um único diretório privado do app. `workDirBase`
+  /// default é `workRootDir()` — deliberadamente DIFERENTE de `jobsRootDir()`
+  /// (ver o comentário de `workRootDir()`: `pipeline.dart` apaga o `workDir`
+  /// de um job bem-sucedido, e isso não pode arriscar levar o checkpoint
+  /// junto).
+  static Future<AppSettings> loadAndroid() async {
+    final defaultDir = await workRootDir();
+    final file = File(p.join(await appRootDir(), 'settings.json'));
+    if (!file.existsSync()) {
+      return AppSettings(workDirBase: defaultDir);
+    }
+    try {
+      final json =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final dir = json['workDirBase'] as String?;
+      return AppSettings(
+        workDirBase: dir == null || dir.isEmpty ? defaultDir : dir,
+        ytDlpCookiesFromBrowser: json['ytDlpCookiesFromBrowser'] as String? ?? '',
+        ytDlpCookiesFile: json['ytDlpCookiesFile'] as String? ?? '',
+        voiceModelId: json['voiceModelId'] as String? ?? '',
+        voiceSid: json['voiceSid'] as int? ?? 0,
+      );
+    } catch (_) {
+      return AppSettings(workDirBase: defaultDir);
+    }
+  }
+
+  /// Assíncrono (D3.4) — no Android o path de destino vem de `path_provider`,
+  /// que é inerentemente assíncrono; no desktop o corpo é idêntico ao de
+  /// antes, só que aguardável.
+  Future<void> save() async {
+    final path = Platform.isAndroid
+        ? p.join(await appRootDir(), 'settings.json')
+        : _settingsFile;
+    final file = File(path);
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(jsonEncode({
       'workDirBase': workDirBase,

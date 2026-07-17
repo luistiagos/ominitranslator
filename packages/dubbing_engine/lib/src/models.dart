@@ -326,4 +326,32 @@ class DubbingResult {
     this.syncReport,
     required this.elapsed,
   });
+
+  /// Serialização para cruzar o MethodChannel do foreground service (D3.4,
+  /// evento `jobCompleted`, §14.4) — mesmo padrão do `DubbingJobConfig.
+  /// toJson/fromJson` (D3.3). Sem pegadinha de enum (nenhum campo aqui é
+  /// enum); `Duration` vira `.inMilliseconds`.
+  Map<String, dynamic> toJson() => {
+        'outputVideo': outputVideo,
+        'srtSource': srtSource,
+        'srtTarget': srtTarget,
+        'originalVideo': originalVideo,
+        'voiceOverMode': voiceOverMode,
+        'segmentsWithOverflow': segmentsWithOverflow,
+        'truncatedTailMs': truncatedTail.inMilliseconds,
+        'syncReport': syncReport,
+        'elapsedMs': elapsed.inMilliseconds,
+      };
+
+  static DubbingResult fromJson(Map<String, dynamic> j) => DubbingResult(
+        outputVideo: j['outputVideo'] as String,
+        srtSource: j['srtSource'] as String?,
+        srtTarget: j['srtTarget'] as String?,
+        originalVideo: j['originalVideo'] as String?,
+        voiceOverMode: j['voiceOverMode'] as bool? ?? false,
+        segmentsWithOverflow: j['segmentsWithOverflow'] as int? ?? 0,
+        truncatedTail: Duration(milliseconds: j['truncatedTailMs'] as int? ?? 0),
+        syncReport: j['syncReport'] as String?,
+        elapsed: Duration(milliseconds: j['elapsedMs'] as int? ?? 0),
+      );
 }

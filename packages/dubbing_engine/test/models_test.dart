@@ -74,4 +74,47 @@ void main() {
       expect(json['preset'], 'fast');
     });
   });
+
+  group('DubbingResult JSON (D3.4 — evento jobCompleted do foreground service)', () {
+    DubbingResult result() => const DubbingResult(
+          outputVideo: '/sdcard/out.mp4',
+          srtSource: '/sdcard/out.en.srt',
+          srtTarget: '/sdcard/out.pt.srt',
+          originalVideo: '/sdcard/original.mp4',
+          voiceOverMode: true,
+          segmentsWithOverflow: 2,
+          truncatedTail: Duration(milliseconds: 150),
+          syncReport: '/sdcard/out.sync.json',
+          elapsed: Duration(seconds: 42, milliseconds: 500),
+        );
+
+    test('ida e volta preserva todos os campos', () {
+      final original = result();
+      final back = DubbingResult.fromJson(original.toJson());
+      expect(back.outputVideo, original.outputVideo);
+      expect(back.srtSource, original.srtSource);
+      expect(back.srtTarget, original.srtTarget);
+      expect(back.originalVideo, original.originalVideo);
+      expect(back.voiceOverMode, original.voiceOverMode);
+      expect(back.segmentsWithOverflow, original.segmentsWithOverflow);
+      expect(back.truncatedTail, original.truncatedTail);
+      expect(back.syncReport, original.syncReport);
+      expect(back.elapsed, original.elapsed);
+    });
+
+    test('campos opcionais nulos e Duration.zero ida e volta sem crashar', () {
+      const original = DubbingResult(
+        outputVideo: 'out.mp4',
+        voiceOverMode: false,
+        segmentsWithOverflow: 0,
+        elapsed: Duration(seconds: 1),
+      );
+      final back = DubbingResult.fromJson(original.toJson());
+      expect(back.srtSource, isNull);
+      expect(back.srtTarget, isNull);
+      expect(back.originalVideo, isNull);
+      expect(back.syncReport, isNull);
+      expect(back.truncatedTail, Duration.zero);
+    });
+  });
 }

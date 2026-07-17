@@ -42,11 +42,21 @@ void main() {
   });
 
   group('pickImportDocument', () {
-    test('devolve a uri escolhida', () async {
-      mockHandler({'uri': 'content://com.android.providers/document/1'});
-      final uri = await pickImportDocument();
-      expect(uri, 'content://com.android.providers/document/1');
+    test('devolve a uri e o displayName escolhidos', () async {
+      mockHandler({
+        'uri': 'content://com.android.providers/document/1',
+        'displayName': 'meu_video.mp4',
+      });
+      final picked = await pickImportDocument();
+      expect(picked?.uri, 'content://com.android.providers/document/1');
+      expect(picked?.displayName, 'meu_video.mp4');
       expect(lastCall?.method, 'pickImportDocument');
+    });
+
+    test('displayName ausente cai pro fallback genérico', () async {
+      mockHandler({'uri': 'content://x/1'});
+      final picked = await pickImportDocument();
+      expect(picked?.displayName, 'vídeo importado');
     });
 
     test('devolve null quando o usuário cancela', () async {

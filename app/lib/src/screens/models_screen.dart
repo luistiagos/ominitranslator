@@ -64,7 +64,15 @@ class _ModelsScreenState extends State<ModelsScreen> {
 
   String _stateLabel(ModelState state, String id) {
     if (_downloadProgress.containsKey(id)) {
-      final pct = (_downloadProgress[id]! * 100).toStringAsFixed(0);
+      final progress = _downloadProgress[id]!;
+      // D3.4/D-9 (AT5.md item 3): pra entradas `targz` (o formato do
+      // `ModelCatalog.android()`), `ModelManager.download()` só emite
+      // progresso de BYTES BAIXADOS — o hash-verify e a extração do
+      // tar.gz que rodam depois não têm nenhuma emissão intermediária, e
+      // a barra ficava parada em ~100% por um tempo real (whisper: ~180s
+      // no smoke test do device) sem indicar que ainda havia trabalho.
+      if (progress >= 0.999) return 'instalando...';
+      final pct = (progress * 100).toStringAsFixed(0);
       return 'baixando $pct%';
     }
     return switch (state) {

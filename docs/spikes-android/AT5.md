@@ -55,7 +55,7 @@ Mesma função que o `ModelManager.download()` usa em produção para `kind: 'ta
 
 ## 6. Pendências que não bloqueiam o gate
 
-- Checagem manual de um provedor externo de terceiros (Drive/Dropbox) na D3.4, por completude — não é esperado achar nada novo dado o contrato genérico do SAF (§3).
-- Nome sugerido + MIME type do export devem ser coerentes na UI real (achado do §3), não no `pickExportLocation` em si.
-- Progresso de extração `.tar.gz` na UI de download de modelos (D3.4), dado o tempo medido no §4.
-- Migrar os usos síncronos de espaço em disco em `home_screen.dart` para o `AndroidDiskSpaceProbe` assíncrono fica para a D3.4 (UI ainda não foi portada para Android).
+- **Resolvido na D3.4** — nome sugerido + MIME type do export são coerentes na UI real: `_exportOutput` (`progress_screen.dart`) chama `pickExportLocation` com `basename(result.outputVideo)` (já termina em `.mp4`) + `mimeType: 'video/mp4'`, validado no device (export real gravou `1784307734210_dub_pt.mp4`/`1784308151105_dub_es.mp4` sem sufixo duplicado).
+- **Resolvido na D3.4, parcialmente** — `models_screen.dart` mostra "instalando..." quando a extração `.tar.gz` está em andamento (progresso de bytes trava perto de 100% antes do hash-verify/extração), em vez de uma barra parada sem explicação. O bloqueio de UI em si (extração síncrona no isolate principal) **continua sem fix** — para os modelos maiores (Whisper 61MB, vozes pt-BR/es 59-72MB) isso já disparou o diálogo "app não está respondendo" no smoke da D3.4; precisa de `compute()`/isolate dedicado, registrado como pendência de severidade alta em `decisoes.md` (2026-07-17).
+- **Resolvido antes da D3.4** (correção de qualidade do D1, não desta fase) — os usos de espaço em disco em `home_screen.dart` já eram assíncronos via `state.diskSpace.freeBytes()` (`AndroidDiskSpaceProbe` no Android, injetado no `AppState`) quando a UI foi portada.
+- **Ainda pendente, não bloqueia**: checagem manual de um provedor externo de terceiros (Drive/Dropbox) — visível no picker (§3) mas nunca clicado manualmente, nem na D3.1 nem na D3.4. Não é esperado achar nada novo dado o contrato genérico do SAF (`ContentResolver.openInputStream`/`openOutputStream`, sem código específico de provedor), mas fica registrado como nice-to-have de baixo risco pro checklist de device de uma fase futura.
