@@ -21,7 +21,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugins.GeneratedPluginRegistrant
 
 /// Foreground service do tipo `mediaProcessing` (§14, D3.3/AT-4). Dono de um
 /// `FlutterEngine` HEADLESS separado do da `MainActivity` — o job roda aqui
@@ -169,8 +168,11 @@ class MediaProcessingService : Service() {
         }
         loader.ensureInitializationComplete(applicationContext, null)
 
+        // O construtor do FlutterEngine já registra os plugins do
+        // GeneratedPluginRegistrant sozinho (automaticallyRegisterPlugins
+        // default) — chamar registerWith de novo só gera warning de plugin
+        // duplicado (visto no logcat do smoke on-device de 2026-07-17).
         val engine = FlutterEngine(applicationContext)
-        GeneratedPluginRegistrant.registerWith(engine)
 
         // TODOS os handlers Kotlin registrados ANTES do executeDartEntrypoint:
         // o lado nativo não tem ChannelBuffers — um invokeMethod do Dart
@@ -218,8 +220,18 @@ class MediaProcessingService : Service() {
         }
         registerFFmpegChannel(messenger)
 
+        // Construtor de TRÊS argumentos, com a library URI explícita: o de
+        // dois procura o símbolo na biblioteca RAIZ (main.dart) e falha com
+        // "Could not resolve main entrypoint function" — serviceMain vive em
+        // src/service_entrypoint.dart (achado do smoke on-device de
+        // 2026-07-17; o import no main.dart mantém a biblioteca no snapshot,
+        // mas não resolve o símbolo por si).
         engine.dartExecutor.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint(loader.findAppBundlePath(), "serviceMain")
+            DartExecutor.DartEntrypoint(
+                loader.findAppBundlePath(),
+                "package:omnitranslator_app/src/service_entrypoint.dart",
+                "serviceMain"
+            )
         )
         flutterEngine = engine
     }

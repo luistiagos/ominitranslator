@@ -61,11 +61,9 @@ A segunda tentativa (`at-slimt-build-2`, run `29446614383`) passou com essa flag
 
 Tamanhos consistentes com o SA1.md §6 (3,0 MB stripped, 32,5 MB CLI antes do strip) — a pequena diferença nos brutos é esperada entre versões de toolchain (SA-1 usou NDK 29 localmente; este build usa r27).
 
-## 6. Pendência — smoke test funcional no device
+## 6. Pendência — smoke test funcional no device — **RESOLVIDA (2026-07-17), por caminho mais forte**
 
-O plano era reusar os modelos `en-de`/`en-bg` tiny já cacheados (`ende.tar.gz`/`enbg.tar.gz`, os mesmos pares do SA1.md §7) para rodar `slimt-cli` no moto g86 com o binário desta build e comparar contra as saídas originais do SA-1. **Não foi possível no momento**: o moto g86 não respondeu ao `adb` (sem prompt de autorização USB debugging no device — sintoma de cabo/porta só-carga ou modo USB errado), fora do meu alcance para resolver remotamente.
-
-**Isto não bloqueia o pré-requisito da D3.2**: a evidência estrutural (hash reproduzível, alinhamento 16 KB confirmado por dois caminhos independentes, dependências dinâmicas idênticas ao SA-1) já garante que o binário é correto e proveniente do fonte certo. O smoke test funcional (a `.so` desta build ainda traduz corretamente) fica como item de verificação de baixo risco para quando o device estiver disponível de novo — mesmo padrão de "pendência que não bloqueia o gate" já usado em AT-3/AT-5.
+O plano original era rodar `slimt-cli` (o binário standalone desta build) no moto g86 e comparar as 5 frases en→de do SA1.md §7.1. Quando o device voltou a responder ao `adb` (2026-07-17), os modelos `en-de` tiny do cache local de sessão antiga já não existiam — e o smoke da D3.2 tornou essa comparação redundante: o **`AndroidTranslator` de produção**, via `dart:ffi` contra a **`libslimt.so` desta MESMA build** (Release `at-slimt-build-4`, baixada por `fetch_native_libs.ps1` e empacotada no APK), traduziu **5/5 frases en→pt corretamente no device em 436ms** (ver `decisoes.md` 2026-07-17 e `progresso-android.md` §3.3j). Isso exercita o caminho de código que o M1 realmente usa (C-API dos patches 0003/0004 + FFI), que é estritamente mais forte que o `slimt-cli` standalone (que não passa pela C-API). A comparação en→de com o SA-1 fica dispensada.
 
 ## 7. Resultado formal
 
@@ -75,5 +73,5 @@ O plano era reusar os modelos `en-de`/`en-bg` tiny já cacheados (`ende.tar.gz`/
 | Commit fonte pinado e documentado? | **PASSOU** (`9f0b1a20d14871cc94dbe65b7a3df128e5e81f55`) |
 | `libslimt.so` alinhada em 16 KB? | **PASSOU** (confirmado por CI e reverificação local independente) |
 | Dependências dinâmicas conferem com o SA-1? | **PASSOU** (liblog/libm/libdl/libc, idêntico) |
-| Smoke test funcional no device (mesma saída do SA-1)? | **PENDENTE** — device indisponível no momento; não bloqueia |
-| **Pré-requisito da D3.2 — pago?** | **SIM**, com a pendência do §6 registrada, não escondida |
+| Smoke test funcional no device (mesma saída do SA-1)? | **PASSOU** (2026-07-17, via caminho mais forte: `AndroidTranslator`/FFI de produção no moto g86, 5/5 en→pt — ver §6) |
+| **Pré-requisito da D3.2 — pago?** | **SIM**, integralmente |

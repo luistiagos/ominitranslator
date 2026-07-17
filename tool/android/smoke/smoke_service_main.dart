@@ -52,6 +52,12 @@ import 'package:dubbing_engine/dubbing_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'src/platform/media_processing_service.dart';
+// Igual ao main.dart de producao: mantem serviceMain (o entrypoint headless
+// do MediaProcessingService) no snapshot -- sem isto o engine headless falha
+// com "Could not resolve main entrypoint function" (achado do smoke
+// on-device de 2026-07-17).
+// ignore: unused_import
+import 'src/service_entrypoint.dart' show serviceMain;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

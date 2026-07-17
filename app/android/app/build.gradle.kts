@@ -64,4 +64,12 @@ dependencies {
     // revisão de 2026-07-16) com SHA-256 pinado no script, igual à
     // libslimt.so (P2). O AAR não entra no git (ver .gitignore).
     implementation(files("libs/ffmpeg-kit-next.aar"))
+    // Dependência TRANSITIVA do FFmpegKitNext (upstream declara
+    // `api 'com.arthenica:smart-exception-java:0.2.1'`) que uma dependência
+    // de arquivo local NÃO resolve — o AAR compila sem ela (só é usada no
+    // corpo do <clinit> de FFmpegKitConfig), mas em RUNTIME qualquer chamada
+    // ao FFmpegKit crasha com NoClassDefFoundError. Achado do smoke test
+    // on-device da D3.2 (moto g86, 2026-07-17): o AT-3 não pegou porque o
+    // bench foi buildado no Gradle do upstream, que resolve o POM.
+    implementation("com.arthenica:smart-exception-java:0.2.1")
 }
