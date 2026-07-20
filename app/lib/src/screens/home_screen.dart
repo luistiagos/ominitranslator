@@ -10,6 +10,7 @@ import '../platform/media_processing_service.dart';
 import '../state/app_state.dart';
 import 'progress_screen.dart';
 import 'models_screen.dart';
+import 'about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -697,6 +698,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(builder: (_) => const ModelsScreen()),
               ),
               child: const Text('Modelos'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              ),
+              child: const Text('Sobre'),
             ),
           ],
         ),

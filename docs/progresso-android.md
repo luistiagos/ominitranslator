@@ -33,6 +33,7 @@
 | D3 | **D3.3 — `MediaProcessingService` (foreground service, AT-4)** | ✅ **PASSOU no moto g86** — dublou vídeo real no serviço com 100% de sincronia; os 5 cenários do §14.6 exercitados (ver §3.3m e `decisoes.md` 2026-07-17) |
 | D3 | D3.4 — liga a UI e roda end-to-end nos três idiomas | ⬜ pendente |
 | D4 | Aceite e release | ⬜ pendente |
+| **M6** | Captura (voz/câmera) e compartilhamento social | ⬜ **planejado** — spec fechada em 2026-07-19 ([especificacao-captura-share.md](especificacao-captura-share.md)), fases C1–C5 (ver §5.4) |
 
 **A fase D1 está concluída**, **AT-0, AT-1, AT-2, AT-2b e AT-3 passaram no moto g86**, e **a D3 (casca Android M1) está em andamento**: o scaffold `app/android` existe e builda no device (D3.0), **AT-5 (StatFs + SAF) passou** dentro da D3.1 (ver §3.3g), os 4 backends Android + `androidRuntime()` estão escritos (D3.2, ver §3.3j), e **D3.3 — `MediaProcessingService` (foreground service, AT-4) está escrito e compilando contra o app real** (ver §3.3m) — código de produção real em todos os casos, não spike descartável. O engine continua passando **369 testes**, com o pipeline real dublando ponta a ponta a 100% de sincronia. Decisão do usuário (2026-07-15): AT-4 (foreground service) e AT-5 (SAF/StatFs) deixam de ser spikes isolados e passam a ser validados dentro da própria D3, já que dependem da casca Android existir de verdade. Ordem da D3: D3.1 armazenamento/SAF (=AT-5, ✅) → D3.2 backends Android + `AndroidRuntime` (✅) → D3.3 foreground service (=AT-4, ✅) → D3.4 liga a UI e roda end-to-end nos três idiomas (pendente). Pré-requisito antes da D3.2: versionar o build da `libslimt.so` (dívida do SA-1/AT-1).
 
@@ -346,3 +347,17 @@ Ambos passaram no moto g86 (§3.3, §3.3b). Resta só a dívida não bloqueante 
 - `libslimt.so` não versionado (SA-1 foi feito no protótipo irmão) — pagar antes da D3.
 - Proveniência exata (URL/tag do release) dos assets `sherpa-onnx-whisper-tiny`/`whisper-base`/`silero_vad.onnx` a fixar no `ModelCatalog.android()` antes da D3 (hashes já medidos, ver `spikes-android/AT2.md` §6).
 - Sem CI (decisão D-d) — os gates são scripts locais.
+
+### 5.4 Android M6 — captura e compartilhamento (planejado, 2026-07-19)
+
+Spec normativa: [especificacao-captura-share.md](especificacao-captura-share.md). Três features: gravar voz e traduzir imediatamente (F1), gravar vídeo pela câmera do sistema e dublar (F2), compartilhar o resultado em WhatsApp/Telegram/Facebook/Instagram/TikTok (F3). Decisões de rota em `decisoes.md` (2026-07-19). Não bloqueia nem depende da D4.
+
+| Fase | Entrega | Estado |
+|---|---|---|
+| C1 | Engine áudio-only (`MediaKind`, branch do pipeline, `audio_encode.dart`) — Dart puro, sem device | ⬜ pendente |
+| C2 | F1: plugin `record`, `RecordVoiceScreen`, gate de modelos, estágios por tipo na `ProgressScreen` | ⬜ pendente |
+| C3 | F2: `image_picker` (câmera do sistema), refactor da home, cards de entrada | ⬜ pendente |
+| C4 | F3: canal `omnitranslator/share`, FileProvider, `<queries>`, `ResultScreen` com player | ⬜ pendente |
+| C5 | Notices, piso de testes, aceite M6 + sanity de regressão do fluxo SAF | ⬜ pendente |
+
+Registrar aqui o resultado de cada gate (smoke no moto g86 nas fases C2–C5) conforme as fases forem concluídas.

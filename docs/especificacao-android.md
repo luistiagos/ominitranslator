@@ -1221,6 +1221,15 @@ Executar nesta ordem:
 - denoise;
 - políticas de privacidade e permissões específicas.
 
+### Android M6 — captura e compartilhamento (spec própria)
+
+Planejado em 2026-07-19, com spec normativa dedicada: [especificacao-captura-share.md](especificacao-captura-share.md). Não bloqueia nem depende da D4; pode ser implementado antes dos M2–M5.
+
+- gravar voz pelo microfone e traduzir imediatamente (job áudio-only no engine, saída `.m4a`, ritmo natural);
+- gravar vídeo pelo app de câmera do sistema e dublar imediatamente (entra no pipeline M1 sem mudanças de estágio);
+- compartilhar o resultado em WhatsApp/Telegram/Facebook/Instagram/TikTok (botões diretos + Sharesheet, `FileProvider`);
+- nota: a "captura por microfone" prevista no M5 refere-se a capturar áudio de OUTRAS fontes para dublagem em tempo real — o M6 cobre apenas gravar a voz do próprio usuário como arquivo, que é escopo distinto e mais simples.
+
 ## 19. Plano de testes e aceite do Android M1
 
 Registrar todas as execuções e métricas no formulário [aceite-android.md](aceite-android.md). Um campo vazio equivale a “não testado”.
